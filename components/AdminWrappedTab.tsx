@@ -487,6 +487,15 @@ export default function AdminWrappedTab({
         </button>
       </div>
 
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-[#fe3619]/30 bg-[#fe3619]/10 px-5 py-3.5 text-[13.5px] font-medium text-[#fe3619]"
+        >
+          {error}
+        </div>
+      )}
+
       {/* Live Preview of Home Banner */}
       {form.homeBannerEnabled && (
         <div className="space-y-2.5">
