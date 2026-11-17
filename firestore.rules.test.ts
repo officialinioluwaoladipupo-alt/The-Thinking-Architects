@@ -7,7 +7,14 @@
 export type SecurityTestCase = {
   id: number;
   name: string;
-  collection: "sessions" | "media" | "admins" | "subscribers" | "siteSettings" | "wrappedConfig";
+  collection:
+    | "sessions"
+    | "media"
+    | "admins"
+    | "subscribers"
+    | "pitches"
+    | "siteSettings"
+    | "wrappedConfig";
   operation: "get" | "list" | "create" | "update" | "delete";
   actor: "unauthenticated" | "non-admin-verified" | "spoofed-unverified-admin" | "verified-admin";
   payload: Record<string, unknown>;
@@ -144,7 +151,7 @@ export const dirtyDozenSecurityCases: SecurityTestCase[] = [
     actor: "non-admin-verified",
     payload: { enabled: false },
     expectedResult: "PERMISSION_DENIED",
-    enforcedByGate: "isAdmin() && configId == 'public' && isValidWrappedConfig(incoming())",
+    enforcedByGate: "isAdmin() && (configId == 'public' || configId.matches('^year-[0-9]{4}$'))",
   },
   {
     id: 14,
@@ -154,6 +161,26 @@ export const dirtyDozenSecurityCases: SecurityTestCase[] = [
     actor: "verified-admin",
     payload: { configId: "private-draft", enabled: true },
     expectedResult: "PERMISSION_DENIED",
-    enforcedByGate: "configId == 'public'",
+    enforcedByGate: "configId == 'public' || configId.matches('^year-[0-9]{4}$')",
+  },
+  {
+    id: 15,
+    name: "Pitch PII Scraping by Non-Admin",
+    collection: "pitches",
+    operation: "list",
+    actor: "unauthenticated",
+    payload: { query: "all" },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "allow get, list: if isAdmin()",
+  },
+  {
+    id: 16,
+    name: "Public Pitch Status Escalation",
+    collection: "pitches",
+    operation: "create",
+    actor: "unauthenticated",
+    payload: { topicTitle: "Hack Status", status: "scheduled" },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "incoming().status == 'new'",
   },
 ];

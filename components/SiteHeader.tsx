@@ -3,7 +3,12 @@
 import { ArrowUpRight, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  DEFAULT_WRAPPED_CONFIG,
+  subscribePublishedSessions,
+  subscribeWrappedConfig,
+} from "../lib/firebaseContent";
 
 type SiteHeaderProps = {
   onOpenJoin: () => void;
@@ -20,12 +25,51 @@ const navLinks = [
 
 export default function SiteHeader({ onOpenJoin }: SiteHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hasUpcomingSession, setHasUpcomingSession] = useState(false);
+  const [wrappedNav, setWrappedNav] = useState({
+    enabled: DEFAULT_WRAPPED_CONFIG.enabled,
+    showInNav: DEFAULT_WRAPPED_CONFIG.showInNav,
+    yearLabel: DEFAULT_WRAPPED_CONFIG.yearLabel,
+  });
   const pathname = usePathname();
+
+  useEffect(() => {
+    const unsubWrapped = subscribeWrappedConfig(
+      (cfg) => {
+        setWrappedNav({
+          enabled: cfg.enabled,
+          showInNav: cfg.showInNav,
+          yearLabel: cfg.yearLabel || "2026",
+        });
+      },
+      () => {
+        // Keep defaults on transient listener error
+      },
+    );
+
+    const unsubSessions = subscribePublishedSessions(
+      (items) => {
+        setHasUpcomingSession(items.some((item) => item.status === "upcoming"));
+      },
+      () => {
+        // Ignore transient session indicator error in global navbar
+      },
+    );
+
+    return () => {
+      unsubWrapped();
+      unsubSessions();
+    };
+  }, []);
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
     return pathname === href || pathname.startsWith(`${href}/`);
   };
+
+  const showWrappedLink = wrappedNav.enabled && wrappedNav.showInNav;
+  const wrappedHref = "/wrapped";
+  const wrappedLabel = `${wrappedNav.yearLabel} Wrapped`;
 
   return (
     <header className="fixed inset-x-0 top-4 z-40 flex justify-center px-4">
@@ -56,21 +100,47 @@ export default function SiteHeader({ onOpenJoin }: SiteHeaderProps) {
           <div className="hidden items-center gap-5 lg:flex xl:gap-6">
             {navLinks.map((link) => {
               const active = isActive(link.href);
+              const showLiveDot = link.href === "/sessions" && hasUpcomingSession;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   aria-current={active ? "page" : undefined}
-                  className={`shrink-0 whitespace-nowrap text-[13px] font-medium underline-offset-4 transition-colors duration-150 ${
+                  title={showLiveDot ? "Upcoming Think Session scheduled" : undefined}
+                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[13px] font-medium underline-offset-4 transition-colors duration-150 ${
                     active
                       ? "text-[#111111] underline decoration-[#fe3619] decoration-2"
                       : "text-[#111111]/72 hover:text-[#111111] hover:underline"
                   }`}
                 >
-                  {link.label}
+                  <span>{link.label}</span>
+                  {showLiveDot && (
+                    <span className="relative flex h-2 w-2 items-center justify-center">
+                      <span
+                        className="h-1.5 w-1.5 rounded-full bg-[#fe3619]"
+                        aria-hidden="true"
+                      />
+                      <span className="sr-only">(Upcoming live session)</span>
+                    </span>
+                  )}
                 </Link>
               );
             })}
+
+            {showWrappedLink && (
+              <Link
+                href={wrappedHref}
+                aria-current={isActive(wrappedHref) ? "page" : undefined}
+                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[13px] font-medium underline-offset-4 transition-colors duration-150 ${
+                  isActive(wrappedHref)
+                    ? "text-[#111111] underline decoration-[#fe3619] decoration-2"
+                    : "text-[#111111]/85 hover:text-[#111111] hover:underline"
+                }`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-[#fe3619]" aria-hidden="true" />
+                <span>{wrappedLabel}</span>
+              </Link>
+            )}
           </div>
 
           {/* Zone 3: Single Primary Action + Mobile Menu Trigger */}
@@ -107,6 +177,7 @@ export default function SiteHeader({ onOpenJoin }: SiteHeaderProps) {
             <div className="flex flex-col divide-y divide-black/[0.05]">
               {navLinks.map((link) => {
                 const active = isActive(link.href);
+                const showLiveDot = link.href === "/sessions" && hasUpcomingSession;
                 return (
                   <Link
                     key={link.href}
@@ -117,11 +188,36 @@ export default function SiteHeader({ onOpenJoin }: SiteHeaderProps) {
                       active ? "text-[#fe3619]" : "text-[#111111]"
                     }`}
                   >
-                    <span>{link.label}</span>
+                    <span className="inline-flex items-center gap-2">
+                      <span>{link.label}</span>
+                      {showLiveDot && (
+                        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[#fe3619]">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#fe3619]" aria-hidden="true" />
+                          <span>Next Live</span>
+                        </span>
+                      )}
+                    </span>
                     <ArrowUpRight className="h-3.5 w-3.5 text-[#111111]/45" aria-hidden="true" />
                   </Link>
                 );
               })}
+
+              {showWrappedLink && (
+                <Link
+                  href={wrappedHref}
+                  aria-current={isActive(wrappedHref) ? "page" : undefined}
+                  onClick={() => setMenuOpen(false)}
+                  className={`flex min-h-[44px] items-center justify-between px-3 text-[14px] font-medium transition-colors hover:bg-black/[0.03] ${
+                    isActive(wrappedHref) ? "text-[#fe3619]" : "text-[#111111]"
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#fe3619]" aria-hidden="true" />
+                    <span>{wrappedLabel}</span>
+                  </span>
+                  <ArrowUpRight className="h-3.5 w-3.5 text-[#111111]/45" aria-hidden="true" />
+                </Link>
+              )}
             </div>
           </div>
         )}

@@ -1,12 +1,17 @@
 "use client";
 
-import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Mail, Mic } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { subscribeSiteSettings, type SiteSettingsRecord } from "../lib/firebaseContent";
+import {
+  subscribeSiteSettings,
+  type PitchType,
+  type SiteSettingsRecord,
+} from "../lib/firebaseContent";
 import { CONTACT_EMAIL, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
+import PitchModal from "./PitchModal";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 
@@ -18,6 +23,7 @@ const topics = [
   {
     title: "Speaking:",
     detail: "suggest a topic or offer to speak",
+    isPitch: true,
   },
   {
     title: "Partnerships and sponsorship",
@@ -31,6 +37,8 @@ const topics = [
 
 function ContactPageInner() {
   const [joinOpen, setJoinOpen] = useState(false);
+  const [pitchOpen, setPitchOpen] = useState(false);
+  const [pitchMode, setPitchMode] = useState<PitchType>("speaker");
   const [channels, setChannels] = useState<SiteSettingsRecord>({
     instagramUrl: "",
     xUrl: "",
@@ -51,6 +59,11 @@ function ContactPageInner() {
 
   const handleOpenJoin = () => {
     triggerTallyPopup(() => setJoinOpen(true));
+  };
+
+  const openPitch = (mode: PitchType) => {
+    setPitchMode(mode);
+    setPitchOpen(true);
   };
 
   const instagramHref = channels.instagramUrl.trim().startsWith("https://")
@@ -89,20 +102,29 @@ function ContactPageInner() {
               Get in touch.
             </h1>
             <p className="mt-6 max-w-[58ch] text-[clamp(1.04rem,1.3vw,1.2rem)] leading-[1.6] text-[#111111]/78">
-              Questions, ideas, or something to share? Email us and we&apos;ll reply as soon as we
-              can.
+              Questions, ideas, or something to share? Pitch a Think Session topic directly or email
+              us and we&apos;ll reply as soon as we can.
             </p>
-            <div className="mt-8">
-              <a
-                href={`mailto:${CONTACT_EMAIL}`}
-                className="label-mono group inline-flex min-h-[52px] items-center gap-2.5 rounded-xl bg-[#fe3619] px-7 py-3.5 text-[12px] text-white transition-opacity hover:opacity-90"
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => openPitch("speaker")}
+                className="label-mono group inline-flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-xl bg-[#fe3619] px-7 py-3.5 text-[12px] text-white transition-opacity hover:opacity-90"
               >
-                <Mail className="h-4 w-4" aria-hidden="true" />
-                <span>{CONTACT_EMAIL}</span>
+                <Mic className="h-4 w-4" aria-hidden="true" />
+                <span>Pitch a topic or speak</span>
                 <ArrowUpRight
                   className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                   aria-hidden="true"
                 />
+              </button>
+
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="label-mono inline-flex min-h-[52px] items-center gap-2.5 rounded-xl border border-black/12 bg-[#efeeec] px-6 py-3.5 text-[12px] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"
+              >
+                <Mail className="h-4 w-4" aria-hidden="true" />
+                <span>{CONTACT_EMAIL}</span>
               </a>
             </div>
           </header>
@@ -117,14 +139,34 @@ function ContactPageInner() {
 
               <ul className="mt-6 divide-y divide-black/[0.08] border-y border-black/[0.08]">
                 {topics.map((item, idx) => (
-                  <li key={item.title} className="flex items-start gap-4 py-4">
-                    <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
-                      0{idx + 1}
-                    </span>
-                    <p className="text-[15.5px] leading-[1.55] text-[#111111]/78">
-                      <strong className="font-semibold text-[#111111]">{item.title}</strong>{" "}
-                      {item.detail}
-                    </p>
+                  <li key={item.title} className="flex items-start justify-between gap-4 py-4">
+                    <div className="flex items-start gap-4">
+                      <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
+                        0{idx + 1}
+                      </span>
+                      <p className="text-[15.5px] leading-[1.55] text-[#111111]/78">
+                        <strong className="font-semibold text-[#111111]">{item.title}</strong>{" "}
+                        {item.detail}
+                      </p>
+                    </div>
+                    {item.isPitch && (
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openPitch("topic")}
+                          className="label-mono cursor-pointer rounded-lg border border-black/12 bg-[#efeeec] px-3 py-1.5 text-[11px] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"
+                        >
+                          Suggest topic
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openPitch("speaker")}
+                          className="label-mono cursor-pointer rounded-lg bg-[#fe3619] px-3 py-1.5 text-[11px] text-white transition-opacity hover:opacity-90"
+                        >
+                          Offer to speak
+                        </button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -132,16 +174,34 @@ function ContactPageInner() {
 
             <div className="space-y-6">
               <div className="rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-7">
-                <p className="label-mono text-[#fe3619]">Response time</p>
-                <p className="mt-3 text-[16px] leading-[1.6] text-[#111111]/85">
-                  We aim to reply within 2 to 5 business days.
+                <p className="label-mono text-[#fe3619]">Speaker &amp; Topic Intake</p>
+                <p className="mt-3 text-[15.5px] leading-[1.6] text-[#111111]/85">
+                  Have a lesson from practice worth sharing, or a question school never covered?
+                  Submit a short pitch straight to our programming desk.
                 </p>
+                <div className="mt-5 flex flex-wrap gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => openPitch("speaker")}
+                    className="label-mono inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg bg-[#111111] px-4 py-2 text-white transition-opacity hover:opacity-85"
+                  >
+                    <span>Offer to speak</span>
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openPitch("topic")}
+                    className="label-mono inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg border border-black/12 bg-[#f7f6f4] px-4 py-2 text-[#111111] transition-colors hover:bg-white"
+                  >
+                    <span>Suggest a topic</span>
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-7">
-                <p className="label-mono text-[#fe3619]">Data requests</p>
-                <p className="mt-3 text-[16px] leading-[1.6] text-[#111111]/85">
-                  To have your email deleted, write to the same address:{" "}
+                <p className="label-mono text-[#fe3619]">Response &amp; Data</p>
+                <p className="mt-3 text-[15.5px] leading-[1.6] text-[#111111]/85">
+                  We aim to reply within 2 to 5 business days. To have your email deleted, write to{" "}
                   <a
                     href={`mailto:${CONTACT_EMAIL}?subject=Delete%20My%20Email`}
                     className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
@@ -238,6 +298,11 @@ function ContactPageInner() {
 
       <SiteFooter />
       <JoinModal open={joinOpen} onClose={() => setJoinOpen(false)} />
+      <PitchModal
+        open={pitchOpen}
+        onClose={() => setPitchOpen(false)}
+        defaultPitchType={pitchMode}
+      />
     </>
   );
 }

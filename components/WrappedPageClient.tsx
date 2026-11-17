@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
+  Calendar,
   Check,
   Copy,
   Download,
@@ -16,11 +17,14 @@ import {
 } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_WRAPPED_CONFIG,
+  subscribePublishedWrappedEditions,
   subscribeWrappedConfig,
   type WrappedConfigRecord,
+  type WrappedEditionRecord,
 } from "../lib/firebaseContent";
 import { triggerTallyPopup } from "../lib/tally";
 import { useFirebase } from "./FirebaseProvider";
@@ -593,30 +597,80 @@ function WrappedSlideContent({
 
 function WrappedPageInner() {
   const { isAdmin } = useFirebase();
-  const [config, setConfig] = useState<WrappedConfigRecord>({
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const requestedYear = searchParams.get("year")?.trim() ?? "";
+
+  const [publicConfig, setPublicConfig] = useState<WrappedConfigRecord>({
     ...DEFAULT_WRAPPED_CONFIG,
     exists: false,
   });
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [publishedEditions, setPublishedEditions] = useState<WrappedEditionRecord[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const requested = Number(searchParams.get("slide"));
+    return Number.isInteger(requested) && requested >= 1 ? requested - 1 : 0;
+  });
   const [direction, setDirection] = useState<1 | -1>(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [shareUrl, setShareUrl] = useState(DEFAULT_WRAPPED_URL);
+  const [baseShareUrl, setBaseShareUrl] = useState(DEFAULT_WRAPPED_URL);
 
   const deckContainerRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const unsub = subscribeWrappedConfig(
-      (data) => setConfig(data),
+    const unsubPublic = subscribeWrappedConfig(
+      (data) => setPublicConfig(data),
       () => {
         // Fallback to DEFAULT_WRAPPED_CONFIG on transient error
       },
+      "public",
     );
-    return () => unsub();
+    const unsubEditions = subscribePublishedWrappedEditions(
+      (list) => setPublishedEditions(list),
+      () => {
+        // Optional archives list; public config alone remains resilient
+      },
+    );
+    return () => {
+      unsubPublic();
+      unsubEditions();
+    };
   }, []);
+
+  const availableEditions: WrappedEditionRecord[] = useMemo(() => {
+    const byYear = new Map<string, WrappedEditionRecord>();
+    if (publicConfig.enabled) {
+      byYear.set(publicConfig.yearLabel.trim() || "2026", {
+        id: "public",
+        ...publicConfig,
+      });
+    }
+    for (const item of publishedEditions) {
+      const yearKey = item.yearLabel.trim() || item.id.replace(/^year-/, "");
+      if (!byYear.has(yearKey)) {
+        byYear.set(yearKey, item);
+      }
+    }
+    return Array.from(byYear.values()).sort((a, b) =>
+      b.yearLabel.localeCompare(a.yearLabel, undefined, { numeric: true }),
+    );
+  }, [publicConfig, publishedEditions]);
+
+  const matchedArchive = useMemo(() => {
+    if (!requestedYear) return null;
+    return (
+      availableEditions.find(
+        (ed) => ed.yearLabel.trim() === requestedYear || ed.id === `year-${requestedYear}`,
+      ) ?? null
+    );
+  }, [availableEditions, requestedYear]);
+
+  const config: WrappedConfigRecord = matchedArchive ?? availableEditions[0] ?? publicConfig;
+  const activeEditionId = matchedArchive?.id ?? availableEditions[0]?.id ?? "public";
+  const showHoldingScreen = !config.enabled && !isAdmin;
 
   const slides: SlideMeta[] = useMemo(() => {
     const base: SlideMeta[] = [
@@ -641,49 +695,38 @@ function WrappedPageInner() {
     return base;
   }, [config.customStats.length]);
 
-  useEffect(() => {
-    if (currentIndex >= slides.length) {
-      setCurrentIndex(slides.length - 1);
-    }
-  }, [currentIndex, slides.length]);
+  const safeIndex = Math.min(currentIndex, Math.max(0, slides.length - 1));
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      if (window.location?.href) {
-        setShareUrl(window.location.href.split("#")[0].split("?")[0]);
-      }
-      const params = new URLSearchParams(window.location.search);
-      const requested = Number(params.get("slide"));
-      if (Number.isInteger(requested) && requested >= 1 && requested <= slides.length) {
-        setCurrentIndex(requested - 1);
-      }
+    if (typeof window !== "undefined" && window.location?.href) {
+      setBaseShareUrl(window.location.href.split("#")[0].split("?")[0]);
     }
-  }, [slides.length]);
+  }, []);
 
   const goToSlide = useCallback(
     (nextIndex: number) => {
-      if (nextIndex < 0 || nextIndex >= slides.length || nextIndex === currentIndex) return;
-      setDirection(nextIndex > currentIndex ? 1 : -1);
+      if (nextIndex < 0 || nextIndex >= slides.length || nextIndex === safeIndex) return;
+      setDirection(nextIndex > safeIndex ? 1 : -1);
       setCurrentIndex(nextIndex);
     },
-    [currentIndex, slides.length],
+    [safeIndex, slides.length],
   );
 
   const goNext = useCallback(() => {
-    if (currentIndex < slides.length - 1) {
+    if (safeIndex < slides.length - 1) {
       setDirection(1);
-      setCurrentIndex((prev) => prev + 1);
+      setCurrentIndex(safeIndex + 1);
     } else {
       setAutoPlay(false);
     }
-  }, [currentIndex, slides.length]);
+  }, [safeIndex, slides.length]);
 
   const goPrev = useCallback(() => {
-    if (currentIndex > 0) {
+    if (safeIndex > 0) {
       setDirection(-1);
-      setCurrentIndex((prev) => prev - 1);
+      setCurrentIndex(safeIndex - 1);
     }
-  }, [currentIndex]);
+  }, [safeIndex]);
 
   useEffect(() => {
     if (!autoPlay) return;
@@ -761,7 +804,7 @@ function WrappedPageInner() {
   };
 
   // Holding screen when Wrapped is turned OFF (for non-admin visitors)
-  if (!config.enabled && !isAdmin) {
+  if (showHoldingScreen) {
     return (
       <MotionConfig reducedMotion="user">
         <SiteHeader onOpenJoin={handleOpenJoin} />
@@ -819,8 +862,12 @@ function WrappedPageInner() {
     );
   }
 
-  const activeSlide = slides[currentIndex] ?? slides[0];
+  const activeSlide = slides[safeIndex] ?? slides[0];
   const isDark = activeSlide.theme === "dark";
+  const shareUrl =
+    activeEditionId === "public" && !requestedYear
+      ? baseShareUrl
+      : `${baseShareUrl}?year=${encodeURIComponent(config.yearLabel)}`;
 
   const fullShareCaption = `${config.shareCaption.trim()} See our Year Wrapped: ${shareUrl}`;
 
@@ -831,6 +878,16 @@ function WrappedPageInner() {
       setTimeout(() => setCopied(false), 2200);
     } catch {
       // Fallback ignored if clipboard permissions are blocked
+    }
+  };
+
+  const handleSelectYear = (edition: WrappedEditionRecord) => {
+    setAutoPlay(false);
+    setCurrentIndex(0);
+    if (edition.id === "public" && edition.yearLabel === publicConfig.yearLabel) {
+      router.replace("/wrapped", { scroll: false });
+    } else {
+      router.replace(`/wrapped?year=${encodeURIComponent(edition.yearLabel)}`, { scroll: false });
     }
   };
 
@@ -863,13 +920,45 @@ function WrappedPageInner() {
             </div>
           )}
 
-          <Link
-            href="/"
-            className="label-mono inline-flex items-center gap-2 text-[#111111]/60 transition-colors hover:text-[#111111]"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Back to Home</span>
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Link
+              href="/"
+              className="label-mono inline-flex items-center gap-2 text-[#111111]/60 transition-colors hover:text-[#111111]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Back to Home</span>
+            </Link>
+
+            {availableEditions.length > 1 && (
+              <div
+                aria-label="Wrapped archive year switcher"
+                className="inline-flex flex-wrap items-center gap-1.5 rounded-xl border border-black/10 bg-[#efeeec] p-1"
+              >
+                <span className="inline-flex items-center gap-1.5 px-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.07em] text-[#111111]/55">
+                  <Calendar className="h-3 w-3 text-[#fe3619]" aria-hidden="true" />
+                  <span>Edition</span>
+                </span>
+                {availableEditions.map((edition) => {
+                  const selected = edition.id === activeEditionId;
+                  return (
+                    <button
+                      key={edition.id}
+                      type="button"
+                      onClick={() => handleSelectYear(edition)}
+                      aria-pressed={selected}
+                      className={`label-mono min-h-[34px] cursor-pointer rounded-lg px-3 py-1.5 transition-colors ${
+                        selected
+                          ? "bg-[#111111] text-white"
+                          : "text-[#111111]/70 hover:bg-black/5 hover:text-[#111111]"
+                      }`}
+                    >
+                      {edition.yearLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Page header */}
           <header className="mt-5 border-b border-black/[0.09] pb-7">
@@ -878,7 +967,7 @@ function WrappedPageInner() {
               className="mt-2 max-w-[18ch] text-[clamp(2.1rem,4.5vw,3.75rem)] font-medium leading-[1.04] tracking-[-0.035em]"
               style={{ textWrap: "balance" }}
             >
-              <BlurWords text={config.pageTitle} stagger={0.055} />
+              <BlurWords key={config.pageTitle} text={config.pageTitle} stagger={0.055} />
             </h1>
             <div className="mt-3.5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <p className="max-w-[54ch] text-[clamp(1rem,1.25vw,1.15rem)] leading-[1.55] text-[#111111]/78">
@@ -953,7 +1042,7 @@ function WrappedPageInner() {
                 }}
                 role="region"
                 aria-roledescription="carousel"
-                aria-label={`Slide ${currentIndex + 1} of ${slides.length}: ${activeSlide.label}`}
+                aria-label={`Slide ${safeIndex + 1} of ${slides.length}: ${activeSlide.label}`}
                 className={`relative flex w-full cursor-pointer select-none flex-col justify-between overflow-hidden rounded-[12px] border transition-colors duration-300 ${
                   isFullscreen
                     ? "mx-auto h-full w-full max-w-[1040px] border-white/15 p-6 sm:p-12"
@@ -962,7 +1051,7 @@ function WrappedPageInner() {
               >
                 <SpotlightStageBackdrop
                   theme={activeSlide.theme}
-                  slideIndex={currentIndex}
+                  slideIndex={safeIndex}
                 />
 
                 {/* Top progress bar + metadata row */}
@@ -974,8 +1063,8 @@ function WrappedPageInner() {
                     aria-label="Slide progress"
                   >
                     {slides.map((slide, idx) => {
-                      const active = idx === currentIndex;
-                      const passed = idx < currentIndex;
+                      const active = idx === safeIndex;
+                      const passed = idx < safeIndex;
                       return (
                         <button
                           key={slide.key}
@@ -1024,7 +1113,7 @@ function WrappedPageInner() {
                       </span>
                       <span aria-hidden="true">·</span>
                       <DecryptedText
-                        key={`label-${activeSlide.key}`}
+                        key={`label-${activeEditionId}-${activeSlide.key}`}
                         text={activeSlide.label}
                         speed={22}
                       />
@@ -1052,7 +1141,7 @@ function WrappedPageInner() {
                 <div className="relative z-10 my-8 flex flex-1 flex-col justify-center">
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div
-                      key={activeSlide.key}
+                      key={`${activeEditionId}-${activeSlide.key}`}
                       initial={{ opacity: 0, x: direction * 22, scale: 0.99 }}
                       animate={{ opacity: 1, x: 0, scale: 1 }}
                       exit={{ opacity: 0, x: direction * -22, scale: 0.99 }}
@@ -1081,7 +1170,7 @@ function WrappedPageInner() {
                       setAutoPlay(false);
                       goPrev();
                     }}
-                    disabled={currentIndex === 0}
+                    disabled={safeIndex === 0}
                     className={`label-mono inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border px-4 py-2 transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
                       isDark
                         ? "border-[#F2EDE8]/20 text-[#F2EDE8] hover:bg-[#F2EDE8]/10"
@@ -1106,7 +1195,7 @@ function WrappedPageInner() {
                       setAutoPlay(false);
                       goNext();
                     }}
-                    disabled={currentIndex === slides.length - 1}
+                    disabled={safeIndex === slides.length - 1}
                     className={`label-mono inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg px-4 py-2 transition-opacity disabled:cursor-not-allowed disabled:opacity-35 ${
                       isDark
                         ? "bg-[#F2EDE8] text-[#1C1C1C] hover:opacity-90"
@@ -1123,7 +1212,7 @@ function WrappedPageInner() {
             {/* Slide chapter index */}
             <div className="mt-4 grid grid-cols-2 gap-px border border-black/[0.08] bg-black/[0.08] sm:grid-cols-4 lg:grid-cols-6">
               {slides.map((slide, idx) => {
-                const active = idx === currentIndex;
+                const active = idx === safeIndex;
                 return (
                   <button
                     key={slide.key}
@@ -1272,7 +1361,15 @@ function WrappedPageInner() {
 export default function WrappedPageClient() {
   return (
     <FirestoreErrorBoundary>
-      <WrappedPageInner />
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-[#f7f6f4] pt-32 text-center font-mono text-xs uppercase tracking-[0.08em] text-[#111111]/60">
+            Loading Year Wrapped...
+          </div>
+        }
+      >
+        <WrappedPageInner />
+      </Suspense>
     </FirestoreErrorBoundary>
   );
 }

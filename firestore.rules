@@ -29,10 +29,12 @@ service cloud.firestore {
     }
 
     function isBootstrappedAdmin() {
-      return isVerifiedUser() && (
-        request.auth.token.email == 'oladipupoinioluwa93@gmail.com' ||
-        request.auth.token.email == 'officialinioluwaoladipupo@gmail.com'
-      );
+      return isVerifiedUser()
+        && request.auth.token.email is string
+        && (
+          request.auth.token.email.lower() == 'oladipupoinioluwa93@gmail.com' ||
+          request.auth.token.email.lower() == 'officialinioluwaoladipupo@gmail.com'
+        );
     }
 
     function isAdmin() {
@@ -145,6 +147,28 @@ service cloud.firestore {
         && data.createdAt is timestamp;
     }
 
+    function isValidPitch(data) {
+      return data.keys().hasAll([
+          'pitchType', 'name', 'email', 'roleOrStudio', 'topicTitle',
+          'targetStage', 'outline', 'linkUrl', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'pitchType', 'name', 'email', 'roleOrStudio', 'topicTitle',
+          'targetStage', 'outline', 'linkUrl', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.pitchType is string && data.pitchType in ['speaker', 'topic']
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 254 && data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && data.roleOrStudio is string && data.roleOrStudio.size() <= 120
+        && data.topicTitle is string && data.topicTitle.size() >= 3 && data.topicTitle.size() <= 140
+        && data.targetStage is string && data.targetStage in ['Students', 'Graduates & Early-Career', 'Practising Architects', 'All Stages']
+        && data.outline is string && data.outline.size() >= 10 && data.outline.size() <= 800
+        && data.linkUrl is string && data.linkUrl.size() <= 300 && data.linkUrl.matches('^(https://.*)?$')
+        && data.status is string && data.status in ['new', 'reviewed', 'scheduled', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     function isValidSiteSettings(data) {
       return data.keys().hasAll(['instagramUrl', 'xUrl', 'linkedinUrl', 'youtubeUrl', 'updatedBy', 'updatedAt'])
         && data.keys().hasOnly(['instagramUrl', 'xUrl', 'linkedinUrl', 'youtubeUrl', 'updatedBy', 'updatedAt'])
@@ -158,7 +182,7 @@ service cloud.firestore {
 
     function isValidWrappedKeys(data) {
       return data.keys().hasAll([
-          'enabled', 'showInFooter', 'homeBannerEnabled', 'homeCountdownEnabled',
+          'enabled', 'showInFooter', 'showInNav', 'homeBannerEnabled', 'homeCountdownEnabled',
           'yearLabel', 'eyebrow', 'pageTitle', 'pageSubtitle', 'shareCaption',
           'offlineTitle', 'offlineMessage', 'homeBannerEyebrow', 'homeBannerTitle',
           'homeBannerCtaLabel', 'launchDateIso', 'coverTitle', 'coverSubtitle',
@@ -173,7 +197,7 @@ service cloud.firestore {
           'updatedBy', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'enabled', 'showInFooter', 'homeBannerEnabled', 'homeCountdownEnabled',
+          'enabled', 'showInFooter', 'showInNav', 'homeBannerEnabled', 'homeCountdownEnabled',
           'yearLabel', 'eyebrow', 'pageTitle', 'pageSubtitle', 'shareCaption',
           'offlineTitle', 'offlineMessage', 'homeBannerEyebrow', 'homeBannerTitle',
           'homeBannerCtaLabel', 'launchDateIso', 'coverTitle', 'coverSubtitle',
@@ -192,6 +216,7 @@ service cloud.firestore {
     function isValidWrappedMeta(data) {
       return data.enabled is bool
         && data.showInFooter is bool
+        && data.showInNav is bool
         && data.homeBannerEnabled is bool
         && data.homeCountdownEnabled is bool
         && data.yearLabel is string && data.yearLabel.size() >= 1 && data.yearLabel.size() <= 20
@@ -256,9 +281,13 @@ service cloud.firestore {
         && isValidWrappedCopyAndLists(data);
     }
 
+    function isAllowedWrappedConfigId(configId) {
+      return configId == 'public' || configId.matches('^year-[0-9]{4}$');
+    }
+
     // --- Collection: Think Sessions (/sessions/{sessionId}) ---
     match /sessions/{sessionId} {
-      allow get: if isValidId(sessionId) && (existing().published == true || isAdmin());
+      allow get: if isValidId(sessionId) && ((resource != null && existing().published == true) || isAdmin());
       allow list: if resource.data.published == true || isAdmin();
 
       allow create: if isAdmin()
@@ -291,7 +320,7 @@ service cloud.firestore {
 
     // --- Collection: Media & Recordings (/media/{mediaId}) ---
     match /media/{mediaId} {
-      allow get: if isValidId(mediaId) && (existing().published == true || isAdmin());
+      allow get: if isValidId(mediaId) && ((resource != null && existing().published == true) || isAdmin());
       allow list: if resource.data.published == true || isAdmin();
 
       allow create: if isAdmin()
@@ -356,6 +385,26 @@ service cloud.firestore {
       allow delete: if isAdmin() && isValidId(subscriberId);
     }
 
+    // --- Collection: Speaker & Topic Pitches (/pitches/{pitchId}) ---
+    match /pitches/{pitchId} {
+      allow get, list: if isAdmin();
+
+      allow create: if isValidId(pitchId)
+        && isValidPitch(incoming())
+        && incoming().status == 'new'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(pitchId)
+        && isValidPitch(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+
+      allow delete: if isAdmin() && isValidId(pitchId);
+    }
+
     // --- Collection: Public Site Channel Settings (/siteSettings/{settingId}) ---
     match /siteSettings/{settingId} {
       allow get: if isValidId(settingId) && settingId == 'public';
@@ -374,33 +423,54 @@ service cloud.firestore {
         && isValidSiteSettings(incoming())
         && incoming().updatedBy == request.auth.uid
         && incoming().updatedAt == request.time
-        && incoming().diff(existing()).affectedKeys().hasOnly([
+        && incoming().diff(existing()).addedKeys().hasOnly([
+          'instagramUrl', 'xUrl', 'linkedinUrl', 'youtubeUrl', 'updatedBy', 'updatedAt'
+        ])
+        && incoming().diff(existing()).changedKeys().hasOnly([
           'instagramUrl', 'xUrl', 'linkedinUrl', 'youtubeUrl', 'updatedBy', 'updatedAt'
         ]);
 
       allow delete: if false;
     }
 
-    // --- Collection: Public Wrapped CMS Configuration (/wrappedConfig/{configId}) ---
+    // --- Collection: Public Wrapped CMS Configuration & Yearly Archives (/wrappedConfig/{configId}) ---
     match /wrappedConfig/{configId} {
-      allow get: if isValidId(configId) && configId == 'public';
-      allow list: if isAdmin();
+      allow get: if isValidId(configId) && (
+        configId == 'public' ||
+        (configId.matches('^year-[0-9]{4}$') && ((resource != null && existing().enabled == true) || isAdmin()))
+      );
+      allow list: if resource.data.enabled == true || isAdmin();
 
       allow create: if isAdmin()
         && isValidId(configId)
-        && configId == 'public'
+        && isAllowedWrappedConfigId(configId)
         && isValidWrappedConfig(incoming())
         && incoming().updatedBy == request.auth.uid
         && incoming().updatedAt == request.time;
 
       allow update: if isAdmin()
         && isValidId(configId)
-        && configId == 'public'
+        && isAllowedWrappedConfigId(configId)
         && isValidWrappedConfig(incoming())
         && incoming().updatedBy == request.auth.uid
         && incoming().updatedAt == request.time
-        && incoming().diff(existing()).affectedKeys().hasOnly([
-          'enabled', 'showInFooter', 'homeBannerEnabled', 'homeCountdownEnabled',
+        && incoming().diff(existing()).addedKeys().hasOnly([
+          'enabled', 'showInFooter', 'showInNav', 'homeBannerEnabled', 'homeCountdownEnabled',
+          'yearLabel', 'eyebrow', 'pageTitle', 'pageSubtitle', 'shareCaption',
+          'offlineTitle', 'offlineMessage', 'homeBannerEyebrow', 'homeBannerTitle',
+          'homeBannerCtaLabel', 'launchDateIso', 'coverTitle', 'coverSubtitle',
+          'startLead', 'startStatement', 'audienceCount', 'audiencePrefix',
+          'audienceSuffix', 'audienceCaption', 'returningCount', 'returningSuffix',
+          'returningCaption', 'sessionsHeading', 'sessionHighlights', 'awarenessDate',
+          'awarenessPrefix', 'awarenessProgramTitle', 'awarenessSpeaker',
+          'communityTotal', 'communityCaption', 'studentsCount', 'professionalsCount',
+          'discoveryHighlight', 'discoveryBody', 'discoveryPercent', 'locationsLead',
+          'locationPrimary', 'locationSecondary', 'extraLocations', 'welcomeStatement',
+          'thankYouStatement', 'closingStatement', 'closingCtaLabel', 'customStats',
+          'updatedBy', 'updatedAt'
+        ])
+        && incoming().diff(existing()).changedKeys().hasOnly([
+          'enabled', 'showInFooter', 'showInNav', 'homeBannerEnabled', 'homeCountdownEnabled',
           'yearLabel', 'eyebrow', 'pageTitle', 'pageSubtitle', 'shareCaption',
           'offlineTitle', 'offlineMessage', 'homeBannerEyebrow', 'homeBannerTitle',
           'homeBannerCtaLabel', 'launchDateIso', 'coverTitle', 'coverSubtitle',
@@ -415,7 +485,7 @@ service cloud.firestore {
           'updatedBy', 'updatedAt'
         ]);
 
-      allow delete: if false;
+      allow delete: if isAdmin() && isValidId(configId) && configId.matches('^year-[0-9]{4}$');
     }
   }
 }

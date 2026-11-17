@@ -89,6 +89,14 @@ export const BLUEPRINT_LIMITS = {
     stage: { max: 80 },
     question: { max: 300 },
   },
+  pitch: {
+    name: { min: 2, max: 100 },
+    email: { min: 5, max: 254 },
+    roleOrStudio: { max: 120 },
+    topicTitle: { min: 3, max: 140 },
+    outline: { min: 10, max: 800 },
+    linkUrl: { max: 300 },
+  },
   siteSettings: {
     url: { max: 300 },
   },
@@ -192,9 +200,46 @@ export type SiteSettingsInput = {
   youtubeUrl: string;
 };
 
+export type PitchType = "speaker" | "topic";
+export type PitchStatus = "new" | "reviewed" | "scheduled" | "archived";
+export const PITCH_TARGET_STAGES = [
+  "Students",
+  "Graduates & Early-Career",
+  "Practising Architects",
+  "All Stages",
+] as const;
+export type PitchTargetStage = (typeof PITCH_TARGET_STAGES)[number];
+
+export type TopicPitchInput = {
+  pitchType: PitchType;
+  name: string;
+  email: string;
+  roleOrStudio?: string;
+  topicTitle: string;
+  targetStage: PitchTargetStage;
+  outline: string;
+  linkUrl?: string;
+};
+
+export type TopicPitchRecord = {
+  id: string;
+  pitchType: PitchType;
+  name: string;
+  email: string;
+  roleOrStudio: string;
+  topicTitle: string;
+  targetStage: PitchTargetStage;
+  outline: string;
+  linkUrl: string;
+  status: PitchStatus;
+  createdAtMs: number;
+  updatedAtMs: number;
+};
+
 export type WrappedConfigInput = {
   enabled: boolean;
   showInFooter: boolean;
+  showInNav: boolean;
   homeBannerEnabled: boolean;
   homeCountdownEnabled: boolean;
   yearLabel: string;
@@ -248,9 +293,14 @@ export type WrappedConfigRecord = WrappedConfigInput & {
   updatedAtMs?: number;
 };
 
+export type WrappedEditionRecord = WrappedConfigRecord & {
+  id: string;
+};
+
 export const DEFAULT_WRAPPED_CONFIG: WrappedConfigInput = {
   enabled: true,
   showInFooter: true,
+  showInNav: false,
   homeBannerEnabled: true,
   homeCountdownEnabled: false,
   yearLabel: "2026",
@@ -426,6 +476,26 @@ export function validateSiteSettingsInput(input: SiteSettingsInput): string | nu
   return null;
 }
 
+export function validatePitchInput(input: TopicPitchInput): string | null {
+  const L = BLUEPRINT_LIMITS.pitch;
+  if (input.name.trim().length < L.name.min) return "Please enter your name.";
+  const email = input.email.trim().toLowerCase();
+  if (email.length < L.email.min || !BLUEPRINT_LIMITS.emailPattern.test(email)) {
+    return "Please enter a valid email address.";
+  }
+  if (input.topicTitle.trim().length < L.topicTitle.min) {
+    return "Please provide a topic title (at least 3 characters).";
+  }
+  if (input.outline.trim().length < L.outline.min) {
+    return "Please add a short outline of what you'd cover (at least 10 characters).";
+  }
+  const url = (input.linkUrl ?? "").trim();
+  if (url && !BLUEPRINT_LIMITS.httpsPattern.test(url)) {
+    return "Optional link must start with https:// or be left blank.";
+  }
+  return null;
+}
+
 export function validateWrappedConfigInput(input: WrappedConfigInput): string | null {
   const L = BLUEPRINT_LIMITS.wrapped;
   if (input.yearLabel.trim().length < L.yearLabel.min) return "Year label is required.";
@@ -524,6 +594,7 @@ function mapWrappedConfigDoc(data: Record<string, unknown>): WrappedConfigRecord
     exists: true,
     enabled: typeof data.enabled === "boolean" ? data.enabled : d.enabled,
     showInFooter: typeof data.showInFooter === "boolean" ? data.showInFooter : d.showInFooter,
+    showInNav: typeof data.showInNav === "boolean" ? data.showInNav : d.showInNav,
     homeBannerEnabled:
       typeof data.homeBannerEnabled === "boolean" ? data.homeBannerEnabled : d.homeBannerEnabled,
     homeCountdownEnabled:
@@ -1228,6 +1299,114 @@ export async function removeSubscriber(subscriberId: string) {
   }
 }
 
+// --- Public Speaker & Topic Pitches (/pitches/{pitchId}) ---
+
+export async function submitTopicPitch(input: TopicPitchInput): Promise<string> {
+  const validationErr = validatePitchInput(input);
+  if (validationErr) {
+    throw new Error(validationErr);
+  }
+
+  const L = BLUEPRINT_LIMITS.pitch;
+  const randomSuffix = Math.random().toString(36).slice(2, 10);
+  const docId = `pitch-${Date.now()}-${randomSuffix}`;
+  const path = `pitches/${docId}`;
+
+  const rawUrl = clampStr(input.linkUrl ?? "", L.linkUrl.max);
+  const safeUrl = BLUEPRINT_LIMITS.httpsPattern.test(rawUrl) ? rawUrl : "";
+
+  try {
+    await setDoc(doc(db, "pitches", docId), {
+      pitchType: input.pitchType === "speaker" ? "speaker" : "topic",
+      name: clampStr(input.name, L.name.max),
+      email: clampStr(input.email, L.email.max).toLowerCase(),
+      roleOrStudio: clampStr(input.roleOrStudio ?? "", L.roleOrStudio.max),
+      topicTitle: clampStr(input.topicTitle, L.topicTitle.max),
+      targetStage: PITCH_TARGET_STAGES.includes(input.targetStage)
+        ? input.targetStage
+        : "All Stages",
+      outline: clampStr(input.outline, L.outline.max),
+      linkUrl: safeUrl,
+      status: "new",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return docId;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export function subscribePitches(
+  onData: (items: TopicPitchRecord[]) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, "pitches"),
+    (snap) => {
+      const list = snap.docs
+        .map((d) => {
+          const data = d.data();
+          const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
+          const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
+          const status = data.status;
+          const safeStatus: PitchStatus =
+            status === "reviewed" || status === "scheduled" || status === "archived"
+              ? status
+              : "new";
+          const stage = data.targetStage;
+          const safeStage: PitchTargetStage = PITCH_TARGET_STAGES.includes(
+            stage as PitchTargetStage,
+          )
+            ? (stage as PitchTargetStage)
+            : "All Stages";
+
+          return {
+            id: d.id,
+            pitchType: (data.pitchType === "speaker" ? "speaker" : "topic") as PitchType,
+            name: String(data.name ?? ""),
+            email: String(data.email ?? ""),
+            roleOrStudio: String(data.roleOrStudio ?? ""),
+            topicTitle: String(data.topicTitle ?? ""),
+            targetStage: safeStage,
+            outline: String(data.outline ?? ""),
+            linkUrl: String(data.linkUrl ?? ""),
+            status: safeStatus,
+            createdAtMs: createdAt?.toMillis ? createdAt.toMillis() : 0,
+            updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+          };
+        })
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
+      onData(list);
+    },
+    (error) => {
+      const structured = captureFirestoreError(error, OperationType.LIST, "pitches");
+      if (onError) onError(structured);
+    },
+  );
+}
+
+export async function updatePitchStatus(pitchId: string, status: PitchStatus) {
+  const path = `pitches/${pitchId}`;
+  try {
+    await updateDoc(doc(db, "pitches", pitchId), {
+      status,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function removePitch(pitchId: string) {
+  const path = `pitches/${pitchId}`;
+  try {
+    await deleteDoc(doc(db, "pitches", pitchId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
 // --- Public Site Settings (/siteSettings/public, merged Primary + Legacy) ---
 
 export function subscribeSiteSettings(
@@ -1349,25 +1528,23 @@ export async function saveSiteSettings(input: SiteSettingsInput) {
   const ref = doc(db, "siteSettings", "public");
   const path = "siteSettings/public";
   try {
-    const existing = await getDoc(ref);
-    if (existing.exists()) {
-      await updateDoc(ref, payload);
-    } else {
-      await setDoc(ref, payload);
-    }
+    await setDoc(ref, payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
-// --- Public Wrapped CMS Configuration (/wrappedConfig/public in Primary DB) ---
+// --- Public Wrapped CMS Configuration & Yearly Archives (/wrappedConfig/{configId}) ---
 
 export function subscribeWrappedConfig(
   onData: (config: WrappedConfigRecord) => void,
   onError?: (err: Error) => void,
+  configId = "public",
 ): Unsubscribe {
+  const safeId =
+    configId === "public" || /^year-\d{4}$/.test(configId) ? configId : "public";
   return onSnapshot(
-    doc(db, "wrappedConfig", "public"),
+    doc(db, "wrappedConfig", safeId),
     (snap) => {
       if (!snap.exists()) {
         onData({ ...DEFAULT_WRAPPED_CONFIG, exists: false });
@@ -1376,22 +1553,79 @@ export function subscribeWrappedConfig(
       onData(mapWrappedConfigDoc(snap.data()));
     },
     (error) => {
-      const structured = captureFirestoreError(error, OperationType.GET, "wrappedConfig/public");
+      const structured = captureFirestoreError(error, OperationType.GET, `wrappedConfig/${safeId}`);
       if (onError) onError(structured);
     },
   );
 }
 
-export async function saveWrappedConfig(input: WrappedConfigInput) {
+export function subscribePublishedWrappedEditions(
+  onData: (editions: WrappedEditionRecord[]) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, "wrappedConfig"), where("enabled", "==", true)),
+    (snap) => {
+      const list = snap.docs
+        .filter((d) => d.id === "public" || /^year-\d{4}$/.test(d.id))
+        .map((d) => ({
+          id: d.id,
+          ...mapWrappedConfigDoc(d.data()),
+        }))
+        .sort((a, b) => {
+          if (a.id === "public") return -1;
+          if (b.id === "public") return 1;
+          return b.yearLabel.localeCompare(a.yearLabel);
+        });
+      onData(list);
+    },
+    (error) => {
+      const structured = captureFirestoreError(error, OperationType.LIST, "wrappedConfig");
+      if (onError) onError(structured);
+    },
+  );
+}
+
+export function subscribeAllWrappedEditions(
+  onData: (editions: WrappedEditionRecord[]) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, "wrappedConfig"),
+    (snap) => {
+      const list = snap.docs
+        .filter((d) => d.id === "public" || /^year-\d{4}$/.test(d.id))
+        .map((d) => ({
+          id: d.id,
+          ...mapWrappedConfigDoc(d.data()),
+        }))
+        .sort((a, b) => {
+          if (a.id === "public") return -1;
+          if (b.id === "public") return 1;
+          return b.yearLabel.localeCompare(a.yearLabel);
+        });
+      onData(list);
+    },
+    (error) => {
+      const structured = captureFirestoreError(error, OperationType.LIST, "wrappedConfig");
+      if (onError) onError(structured);
+    },
+  );
+}
+
+export async function saveWrappedConfig(input: WrappedConfigInput, configId = "public") {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Authentication required.");
 
+  const safeId =
+    configId === "public" || /^year-\d{4}$/.test(configId) ? configId : "public";
   const L = BLUEPRINT_LIMITS.wrapped;
   const isoTrimmed = clampStr(input.launchDateIso, L.launchDateIso.max);
 
   const payload = {
     enabled: Boolean(input.enabled),
     showInFooter: Boolean(input.showInFooter),
+    showInNav: Boolean(input.showInNav),
     homeBannerEnabled: Boolean(input.homeBannerEnabled),
     homeCountdownEnabled: Boolean(input.homeCountdownEnabled),
     yearLabel: clampStr(input.yearLabel, L.yearLabel.max),
@@ -1454,16 +1688,23 @@ export async function saveWrappedConfig(input: WrappedConfigInput) {
     updatedAt: serverTimestamp(),
   };
 
-  const ref = doc(db, "wrappedConfig", "public");
-  const path = "wrappedConfig/public";
+  const ref = doc(db, "wrappedConfig", safeId);
+  const path = `wrappedConfig/${safeId}`;
   try {
-    const existingSnap = await getDoc(ref);
-    if (existingSnap.exists()) {
-      await updateDoc(ref, payload);
-    } else {
-      await setDoc(ref, payload);
-    }
+    await setDoc(ref, payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function removeWrappedArchive(configId: string) {
+  if (!/^year-\d{4}$/.test(configId)) {
+    throw new Error("Only yearly Wrapped archives (year-YYYY) can be deleted.");
+  }
+  const path = `wrappedConfig/${configId}`;
+  try {
+    await deleteDoc(doc(db, "wrappedConfig", configId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }

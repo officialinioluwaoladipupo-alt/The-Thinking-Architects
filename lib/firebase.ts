@@ -77,10 +77,14 @@ export function captureFirestoreError(
 export function formatFirestoreErrorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
   let detail = raw;
+  let op: string | undefined;
+  let path: string | null | undefined;
   try {
     const parsed = JSON.parse(raw) as Partial<FirestoreErrorInfo>;
     if (parsed && typeof parsed.error === "string") {
       detail = parsed.error;
+      op = parsed.operationType;
+      path = parsed.path;
     }
   } catch {
     // Raw message is already plain text
@@ -94,6 +98,9 @@ export function formatFirestoreErrorMessage(error: unknown): string {
     return "Unable to reach the database right now. Check your connection and try again.";
   }
   if (lower.includes("permission") || lower.includes("insufficient")) {
+    if (op && path) {
+      return `Database access was denied by security rules (${op} on ${path}).`;
+    }
     return "Database access was denied by security rules.";
   }
   return detail || "An unexpected database error occurred.";

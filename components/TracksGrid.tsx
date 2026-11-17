@@ -25,6 +25,7 @@ import critiqueImg from "../src/assets/images/track_live_sessions_1794913644707.
 
 type TracksGridProps = {
   onOpenJoin: () => void;
+  hasWrappedBanner?: boolean;
 };
 
 type PillarItem = {
@@ -73,7 +74,7 @@ const pillars: PillarItem[] = [
   },
 ];
 
-export default function TracksGrid({ onOpenJoin }: TracksGridProps) {
+export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: TracksGridProps) {
   const [nextSession, setNextSession] = useState<FirestoreSessionRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -112,7 +113,11 @@ export default function TracksGrid({ onOpenJoin }: TracksGridProps) {
   return (
     <section
       id="what-we-do"
-      className="relative -mt-[12vh] bg-[#f7f6f4] px-6 pt-[96px] pb-16 sm:-mt-[20vh] sm:pt-[140px]"
+      className={`relative bg-[#f7f6f4] px-6 pb-16 ${
+        hasWrappedBanner
+          ? "mt-0 pt-10 sm:pt-14"
+          : "-mt-[12vh] pt-[96px] sm:-mt-[20vh] sm:pt-[140px]"
+      }`}
     >
       <div className="mx-auto max-w-[1440px]">
         <p className="label-mono text-center text-[#fe3619]">Media, Events &amp; Community</p>

@@ -18,10 +18,12 @@ import {
   subscribePublishedSessions,
   type FirestoreMediaRecord,
   type FirestoreSessionRecord,
+  type PitchType,
 } from "../lib/firebaseContent";
 import { CONTACT_EMAIL, TALLY_FORM_URL, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
+import PitchModal from "./PitchModal";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 
@@ -44,6 +46,8 @@ function hasMatchingRecording(
 
 function SessionsPageInner() {
   const [joinOpen, setJoinOpen] = useState(false);
+  const [pitchOpen, setPitchOpen] = useState(false);
+  const [pitchMode, setPitchMode] = useState<PitchType>("topic");
   const [nextSession, setNextSession] = useState<FirestoreSessionRecord | null>(null);
   const [pastSessions, setPastSessions] = useState<FirestoreSessionRecord[]>([]);
   const [mediaItems, setMediaItems] = useState<FirestoreMediaRecord[]>([]);
@@ -375,27 +379,45 @@ function SessionsPageInner() {
 
               {/* Closing CTA */}
               <section className="mt-14 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-8">
-                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                  <p className="text-[15px] leading-[1.6] text-[#111111]/85">
-                    <strong className="font-semibold text-[#111111]">
-                      Have a topic or want to speak?
-                    </strong>{" "}
-                    Email{" "}
-                    <a
-                      href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Topic`}
-                      className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
+                <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+                  <div>
+                    <p className="text-[15.5px] leading-[1.6] text-[#111111]/85">
+                      <strong className="font-semibold text-[#111111]">
+                        Have a topic or want to speak?
+                      </strong>{" "}
+                      Send a pitch directly to our programming team or email{" "}
+                      <a
+                        href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Topic`}
+                        className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
+                      >
+                        {CONTACT_EMAIL}
+                      </a>
+                      .
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPitchMode("topic");
+                        setPitchOpen(true);
+                      }}
+                      className="label-mono inline-flex min-h-[44px] shrink-0 cursor-pointer items-center gap-2 rounded-xl border border-black/12 bg-[#f7f6f4] px-5 py-2.5 text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"
                     >
-                      {CONTACT_EMAIL}
-                    </a>
-                    .
-                  </p>
-                  <a
-                    href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Topic`}
-                    className="label-mono inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl bg-[#111111] px-5 py-2.5 text-white transition-opacity hover:opacity-85"
-                  >
-                    <span>Email us</span>
-                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                  </a>
+                      <span>Suggest a topic</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPitchMode("speaker");
+                        setPitchOpen(true);
+                      }}
+                      className="label-mono inline-flex min-h-[44px] shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[#fe3619] px-5 py-2.5 text-white transition-opacity hover:opacity-90"
+                    >
+                      <span>Offer to speak</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
                 </div>
               </section>
             </>
@@ -405,6 +427,11 @@ function SessionsPageInner() {
 
       <SiteFooter />
       <JoinModal open={joinOpen} onClose={() => setJoinOpen(false)} />
+      <PitchModal
+        open={pitchOpen}
+        onClose={() => setPitchOpen(false)}
+        defaultPitchType={pitchMode}
+      />
     </>
   );
 }

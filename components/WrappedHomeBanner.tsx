@@ -89,22 +89,31 @@ export function WrappedBannerCard({
   );
 }
 
-export default function WrappedHomeBanner({ onOpenJoin }: { onOpenJoin: () => void }) {
+export default function WrappedHomeBanner({
+  onOpenJoin,
+  config: configProp,
+}: {
+  onOpenJoin: () => void;
+  config?: WrappedConfigRecord;
+}) {
   const { isAdmin } = useFirebase();
-  const [config, setConfig] = useState<WrappedConfigRecord>({
+  const [internalConfig, setInternalConfig] = useState<WrappedConfigRecord>({
     ...DEFAULT_WRAPPED_CONFIG,
     exists: false,
   });
 
   useEffect(() => {
+    if (configProp) return;
     const unsub = subscribeWrappedConfig(
-      (data) => setConfig(data),
+      (data) => setInternalConfig(data),
       () => {
         // Keep default fallback silently if Wrapped config listener hits transient error
       },
     );
     return () => unsub();
-  }, []);
+  }, [configProp]);
+
+  const config = configProp ?? internalConfig;
 
   if (!config.homeBannerEnabled) {
     return null;
@@ -113,7 +122,7 @@ export default function WrappedHomeBanner({ onOpenJoin }: { onOpenJoin: () => vo
   return (
     <section
       aria-label="TTA Year Wrapped highlight"
-      className="-mt-[6vh] mb-[10vh] px-6 sm:-mt-[11vh] sm:mb-[12vh] sm:px-10"
+      className="relative z-10 -mt-[8vh] mb-2 px-6 sm:-mt-[13vh] sm:mb-4 sm:px-10"
     >
       <div className="mx-auto max-w-[1120px]">
         <WrappedBannerCard

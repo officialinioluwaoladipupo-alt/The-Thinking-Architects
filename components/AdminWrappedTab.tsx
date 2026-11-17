@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  Archive,
   CalendarClock,
   Check,
   ExternalLink,
   Eye,
   EyeOff,
+  Navigation,
   Plus,
   RotateCcw,
   Sparkles,
@@ -17,15 +19,20 @@ import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
   BLUEPRINT_LIMITS,
   DEFAULT_WRAPPED_CONFIG,
+  removeWrappedArchive,
   saveWrappedConfig,
   validateWrappedConfigInput,
   type WrappedConfigInput,
+  type WrappedEditionRecord,
 } from "../lib/firebaseContent";
 import { WrappedBannerCard } from "./WrappedHomeBanner";
 
 type AdminWrappedTabProps = {
   form: WrappedConfigInput;
   setForm: React.Dispatch<React.SetStateAction<WrappedConfigInput>>;
+  activeConfigId: string;
+  editions: WrappedEditionRecord[];
+  onSelectConfigId: (configId: string) => void;
   onSaved: (message: string) => void;
 };
 
@@ -47,12 +54,27 @@ function localInputValueToIso(localVal: string): string {
   return d.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-export default function AdminWrappedTab({ form, setForm, onSaved }: AdminWrappedTabProps) {
+export default function AdminWrappedTab({
+  form,
+  setForm,
+  activeConfigId,
+  editions,
+  onSelectConfigId,
+  onSaved,
+}: AdminWrappedTabProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [newCity, setNewCity] = useState("");
+  const [confirmArchiveDelete, setConfirmArchiveDelete] = useState(false);
 
   const L = BLUEPRINT_LIMITS.wrapped;
+  const archiveEditions = editions.filter((ed) => ed.id.startsWith("year-"));
+  const yearDigitsMatch = form.yearLabel.trim().match(/\b(\d{4})\b/);
+  const snapshotYear = yearDigitsMatch?.[1] ?? "";
+  const isEditingArchive = activeConfigId !== "public";
+  const previewHref = isEditingArchive
+    ? `/wrapped?year=${encodeURIComponent(form.yearLabel.trim() || activeConfigId.replace(/^year-/, ""))}`
+    : "/wrapped";
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -65,8 +87,12 @@ export default function AdminWrappedTab({ form, setForm, onSaved }: AdminWrapped
     setError("");
     setSaving(true);
     try {
-      await saveWrappedConfig(form);
-      onSaved("Wrapped configuration saved to Firestore.");
+      await saveWrappedConfig(form, activeConfigId);
+      onSaved(
+        isEditingArchive
+          ? `Archived edition (${activeConfigId}) updated in Firestore.`
+          : "Live Wrapped configuration saved to Firestore.",
+      );
     } catch (err) {
       setError(formatFirestoreErrorMessage(err));
     } finally {
@@ -75,16 +101,66 @@ export default function AdminWrappedTab({ form, setForm, onSaved }: AdminWrapped
   };
 
   const handleQuickToggle = async (
-    field: "enabled" | "showInFooter" | "homeBannerEnabled" | "homeCountdownEnabled",
+    field: "enabled" | "showInFooter" | "showInNav" | "homeBannerEnabled" | "homeCountdownEnabled",
     label: string,
   ) => {
+    const previous = form;
     const next = { ...form, [field]: !form[field] };
+    const validationErr = validateWrappedConfigInput(next);
+    if (validationErr) {
+      setError(validationErr);
+      return;
+    }
+
     setForm(next);
     setError("");
     setSaving(true);
     try {
-      await saveWrappedConfig(next);
+      await saveWrappedConfig(next, activeConfigId);
       onSaved(`${label} ${next[field] ? "enabled" : "turned off"}.`);
+    } catch (err) {
+      setForm(previous);
+      setError(formatFirestoreErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveSnapshotArchive = async () => {
+    if (!snapshotYear) {
+      setError("Enter a 4-digit Year Label (e.g. 2026) before saving a yearly archive snapshot.");
+      return;
+    }
+    const validationErr = validateWrappedConfigInput(form);
+    if (validationErr) {
+      setError(validationErr);
+      return;
+    }
+
+    const archiveId = `year-${snapshotYear}`;
+    setError("");
+    setSaving(true);
+    try {
+      await saveWrappedConfig(form, archiveId);
+      onSelectConfigId(archiveId);
+      onSaved(`Saved ${snapshotYear} Wrapped snapshot to /wrappedConfig/${archiveId}.`);
+    } catch (err) {
+      setError(formatFirestoreErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteArchive = async () => {
+    if (!isEditingArchive) return;
+    setError("");
+    setSaving(true);
+    try {
+      const deletedId = activeConfigId;
+      await removeWrappedArchive(deletedId);
+      setConfirmArchiveDelete(false);
+      onSelectConfigId("public");
+      onSaved(`Deleted archive ${deletedId}.`);
     } catch (err) {
       setError(formatFirestoreErrorMessage(err));
     } finally {
@@ -197,7 +273,7 @@ export default function AdminWrappedTab({ form, setForm, onSaved }: AdminWrapped
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
-            href="/wrapped"
+            href={previewHref}
             target="_blank"
             className="label-mono inline-flex min-h-[42px] items-center gap-1.5 rounded-xl border border-black/12 bg-[#f7f6f4] px-4 py-2 text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"
           >
@@ -219,8 +295,86 @@ export default function AdminWrappedTab({ form, setForm, onSaved }: AdminWrapped
         </div>
       </div>
 
+      {/* Yearly Edition Switcher & Archive Snapshots */}
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-black/[0.09] bg-[#f7f6f4] p-5 lg:flex-row lg:items-center">
+        <div>
+          <p className="label-mono text-[#111111]/60">Editing Edition &amp; Archives</p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmArchiveDelete(false);
+                onSelectConfigId("public");
+              }}
+              className={`label-mono min-h-[36px] cursor-pointer rounded-lg border px-3.5 py-1.5 transition-colors ${
+                activeConfigId === "public"
+                  ? "border-[#111111] bg-[#111111] text-white"
+                  : "border-black/12 bg-[#efeeec] text-[#111111] hover:bg-black/5"
+              }`}
+            >
+              Live Default (public)
+            </button>
+
+            {archiveEditions.map((ed) => (
+              <button
+                key={ed.id}
+                type="button"
+                onClick={() => {
+                  setConfirmArchiveDelete(false);
+                  onSelectConfigId(ed.id);
+                }}
+                className={`label-mono min-h-[36px] cursor-pointer rounded-lg border px-3.5 py-1.5 transition-colors ${
+                  activeConfigId === ed.id
+                    ? "border-[#fe3619] bg-[#fe3619] text-white"
+                    : "border-black/12 bg-[#efeeec] text-[#111111] hover:bg-black/5"
+                }`}
+              >
+                Archive · {ed.yearLabel} ({ed.enabled ? "Visible" : "Hidden"})
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          {snapshotYear && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void handleSaveSnapshotArchive()}
+              className="label-mono inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-xl border border-black/15 bg-[#efeeec] px-4 py-2 text-[#111111] transition-colors hover:bg-[#111111] hover:text-white disabled:opacity-50"
+            >
+              <Archive className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Save Snapshot as {snapshotYear} Archive</span>
+            </button>
+          )}
+
+          {isEditingArchive && (
+            confirmArchiveDelete ? (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void handleDeleteArchive()}
+                className="label-mono inline-flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-xl bg-[#fe3619] px-4 py-2 text-white"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Confirm Delete {activeConfigId}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmArchiveDelete(true)}
+                className="label-mono inline-flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-xl border border-black/12 px-3.5 py-2 text-[#111111]/70 transition-colors hover:border-[#fe3619] hover:text-[#fe3619]"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Delete Archive</span>
+              </button>
+            )
+          )}
+        </div>
+      </div>
+
       {/* Quick Toggle Switches */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <button
           type="button"
           disabled={saving}
@@ -284,6 +438,28 @@ export default function AdminWrappedTab({ form, setForm, onSaved }: AdminWrapped
           </div>
           <CalendarClock
             className={`h-5 w-5 ${form.homeCountdownEnabled ? "text-[#fe3619]" : "opacity-45"}`}
+            aria-hidden="true"
+          />
+        </button>
+
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void handleQuickToggle("showInNav", "Top navbar Wrapped link")}
+          className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 text-left transition-colors ${
+            form.showInNav
+              ? "border-[#111111] bg-[#111111] text-white"
+              : "border-black/12 bg-[#efeeec] text-[#111111]"
+          }`}
+        >
+          <div>
+            <p className="label-mono opacity-70">Top Nav Spotlight</p>
+            <p className="mt-1 text-[15px] font-medium">
+              {form.showInNav ? "Shown in Navbar" : "Hidden in Nav"}
+            </p>
+          </div>
+          <Navigation
+            className={`h-5 w-5 ${form.showInNav ? "text-[#fe3619]" : "opacity-45"}`}
             aria-hidden="true"
           />
         </button>

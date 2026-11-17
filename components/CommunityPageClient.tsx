@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Mail, Mic } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { CONTACT_EMAIL, TALLY_FORM_ID, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
+import PitchModal from "./PitchModal";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 
@@ -50,6 +51,7 @@ const groundRules = [
 
 function CommunityPageInner() {
   const [joinOpen, setJoinOpen] = useState(false);
+  const [pitchOpen, setPitchOpen] = useState(false);
 
   const handleOpenJoin = () => {
     triggerTallyPopup(() => setJoinOpen(true));
@@ -246,13 +248,23 @@ function CommunityPageInner() {
                 </a>
                 .
               </p>
-              <a
-                href={`mailto:${CONTACT_EMAIL}?subject=Speaking%20or%20Volunteering%20with%20TTA`}
-                className="label-mono mt-6 inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-[#111111] px-6 py-3 text-white transition-opacity hover:opacity-85"
-              >
-                <Mail className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Email the team</span>
-              </a>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPitchOpen(true)}
+                  className="label-mono inline-flex min-h-[46px] cursor-pointer items-center gap-2 rounded-xl bg-[#111111] px-6 py-3 text-white transition-opacity hover:opacity-85"
+                >
+                  <Mic className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Pitch a topic / speak</span>
+                </button>
+                <a
+                  href={`mailto:${CONTACT_EMAIL}?subject=Speaking%20or%20Volunteering%20with%20TTA`}
+                  className="label-mono inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-black/12 bg-[#f7f6f4] px-5 py-3 text-[#111111] transition-colors hover:bg-white"
+                >
+                  <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Email the team</span>
+                </a>
+              </div>
             </div>
           </section>
         </div>
@@ -260,6 +272,7 @@ function CommunityPageInner() {
 
       <SiteFooter />
       <JoinModal open={joinOpen} onClose={() => setJoinOpen(false)} />
+      <PitchModal open={pitchOpen} onClose={() => setPitchOpen(false)} defaultPitchType="speaker" />
     </>
   );
 }

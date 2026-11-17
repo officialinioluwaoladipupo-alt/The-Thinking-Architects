@@ -336,6 +336,7 @@
       "properties": {
         "enabled": { "type": "boolean", "description": "Master toggle turning the /wrapped page live or offline." },
         "showInFooter": { "type": "boolean", "description": "Controls whether the Wrapped link is shown in the site footer." },
+        "showInNav": { "type": "boolean", "description": "Controls whether the Wrapped spotlight link is shown in the top navigation bar." },
         "homeBannerEnabled": { "type": "boolean", "description": "Shows or hides the Wrapped teaser banner on the Home page." },
         "homeCountdownEnabled": { "type": "boolean", "description": "Shows or hides the live countdown timer on the Home banner and offline holding screen." },
         "yearLabel": { "type": "string", "minLength": 1, "maxLength": 20, "description": "Short year label such as 2026." },
@@ -391,7 +392,7 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": [
-        "enabled", "showInFooter", "homeBannerEnabled", "homeCountdownEnabled",
+        "enabled", "showInFooter", "showInNav", "homeBannerEnabled", "homeCountdownEnabled",
         "yearLabel", "eyebrow", "pageTitle", "pageSubtitle", "shareCaption",
         "offlineTitle", "offlineMessage", "homeBannerEyebrow", "homeBannerTitle",
         "homeBannerCtaLabel", "launchDateIso", "coverTitle", "coverSubtitle",
@@ -404,6 +405,88 @@
         "locationPrimary", "locationSecondary", "extraLocations", "welcomeStatement",
         "thankYouStatement", "closingStatement", "closingCtaLabel", "customStats",
         "updatedBy", "updatedAt"
+      ]
+    },
+    "TopicPitch": {
+      "title": "TopicPitch",
+      "description": "Community speaker offer or session topic suggestion submitted from /contact or /sessions for admin review.",
+      "type": "object",
+      "properties": {
+        "pitchType": {
+          "type": "string",
+          "enum": ["speaker", "topic"],
+          "description": "Whether the submitter is offering to speak or suggesting a topic."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Full name of the submitter."
+        },
+        "email": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 254,
+          "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+          "description": "Contact email address of the submitter."
+        },
+        "roleOrStudio": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120,
+          "description": "Optional role, studio, school, or affiliation."
+        },
+        "topicTitle": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140,
+          "description": "Proposed Think Session title or topic headline."
+        },
+        "targetStage": {
+          "type": "string",
+          "enum": ["Students", "Graduates & Early-Career", "Practising Architects", "All Stages"],
+          "description": "Primary architectural career stage this conversation serves."
+        },
+        "outline": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 800,
+          "description": "Short pitch describing what would be covered and why it helps."
+        },
+        "linkUrl": {
+          "type": "string",
+          "maxLength": 300,
+          "pattern": "^(https://.*)?$",
+          "description": "Optional HTTPS portfolio, LinkedIn, or talk link."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["new", "reviewed", "scheduled", "archived"],
+          "description": "Triage status managed by admins."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the pitch was submitted."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the pitch status was last updated."
+        }
+      },
+      "required": [
+        "pitchType",
+        "name",
+        "email",
+        "roleOrStudio",
+        "topicTitle",
+        "targetStage",
+        "outline",
+        "linkUrl",
+        "status",
+        "createdAt",
+        "updatedAt"
       ]
     }
   },
@@ -424,13 +507,17 @@
       "schema": { "$ref": "#/entities/Subscriber" },
       "description": "Community email signups and intake submissions; public create-only with strict validation, read/delete strictly isolated to admins."
     },
+    "/pitches/{pitchId}": {
+      "schema": { "$ref": "#/entities/TopicPitch" },
+      "description": "Speaker offers and topic pitches; public create-only with status forced to 'new', admin-only reads, status updates, and deletes."
+    },
     "/siteSettings/{settingId}": {
       "schema": { "$ref": "#/entities/SiteSettings" },
       "description": "Public site channel links stored at /siteSettings/public; public get, admin-only writes."
     },
     "/wrappedConfig/{configId}": {
       "schema": { "$ref": "#/entities/WrappedConfig" },
-      "description": "Publicly readable Wrapped configuration stored at /wrappedConfig/public; public get, admin-only writes."
+      "description": "Publicly readable Wrapped configuration stored at /wrappedConfig/public and yearly archives at /wrappedConfig/year-YYYY; admin-only writes."
     }
   }
 }

@@ -24,6 +24,7 @@ import { getEmbedInfo } from "../lib/mediaEmbed";
 import { CONTACT_EMAIL, TALLY_FORM_URL, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
+import PitchModal from "./PitchModal";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 
@@ -33,6 +34,7 @@ type SessionDetailClientProps = {
 
 function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
   const [joinOpen, setJoinOpen] = useState(false);
+  const [pitchOpen, setPitchOpen] = useState(false);
   const [session, setSession] = useState<FirestoreSessionRecord | null>(null);
   const [matchingMedia, setMatchingMedia] = useState<FirestoreMediaRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -363,16 +365,26 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                 </section>
               )}
 
-              <p className="mt-12 text-[14px] text-[#111111]/65">
-                Have a topic or want to speak? Email{" "}
-                <a
-                  href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Topic`}
-                  className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
-                >
-                  {CONTACT_EMAIL}
-                </a>
-                .
-              </p>
+              <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-black/[0.09] pt-8">
+                <p className="text-[14.5px] text-[#111111]/72">
+                  Have a topic or want to speak at a future Think Session?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setPitchOpen(true)}
+                    className="cursor-pointer font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
+                  >
+                    Pitch a topic or offer to speak
+                  </button>{" "}
+                  or email{" "}
+                  <a
+                    href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Topic`}
+                    className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
+                  >
+                    {CONTACT_EMAIL}
+                  </a>
+                  .
+                </p>
+              </div>
             </article>
           )}
         </div>
@@ -380,6 +392,7 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
 
       <SiteFooter />
       <JoinModal open={joinOpen} onClose={() => setJoinOpen(false)} />
+      <PitchModal open={pitchOpen} onClose={() => setPitchOpen(false)} defaultPitchType="speaker" />
     </>
   );
 }

@@ -3,7 +3,9 @@
 import {
   AlertCircle,
   ArrowLeft,
+  Calendar,
   Check,
+  Clock,
   Download,
   Edit3,
   ExternalLink,
@@ -13,12 +15,14 @@ import {
   LogIn,
   LogOut,
   Mail,
+  Mic,
   Plus,
   Radio,
   RefreshCw,
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Trash2,
   UserPlus,
 } from "lucide-react";
@@ -32,6 +36,7 @@ import {
   promoteToNextSession,
   removeAdminUser,
   removeMediaItem,
+  removePitch,
   removeSession,
   removeSubscriber,
   saveMediaItem,
@@ -40,12 +45,15 @@ import {
   subscribeAdmins,
   subscribeAllMedia,
   subscribeAllSessions,
+  subscribeAllWrappedEditions,
+  subscribePitches,
   subscribeSiteSettings,
   subscribeSubscribers,
   subscribeWrappedConfig,
   syncLegacyContentToPrimary,
   toggleMediaPublished,
   toggleSessionPublished,
+  updatePitchStatus,
   validateMediaInput,
   validateSessionInput,
   validateSiteSettingsInput,
@@ -53,10 +61,13 @@ import {
   type FirestoreMediaRecord,
   type FirestoreSessionRecord,
   type MediaInput,
+  type PitchStatus,
   type SessionInput,
   type SiteSettingsInput,
   type SubscriberRecord,
+  type TopicPitchRecord,
   type WrappedConfigInput,
+  type WrappedEditionRecord,
 } from "../lib/firebaseContent";
 import { TALLY_FORM_URL } from "../lib/tally";
 import AdminWrappedTab from "./AdminWrappedTab";
@@ -105,13 +116,17 @@ function AdminConsoleInner() {
   } = useFirebase();
 
   const [tab, setTab] = useState<
-    "sessions" | "media" | "wrapped" | "subscribers" | "settings" | "admins"
+    "sessions" | "media" | "pitches" | "wrapped" | "subscribers" | "settings" | "admins"
   >("sessions");
   const [sessions, setSessions] = useState<FirestoreSessionRecord[]>([]);
   const [media, setMedia] = useState<FirestoreMediaRecord[]>([]);
+  const [pitches, setPitches] = useState<TopicPitchRecord[]>([]);
+  const [pitchFilter, setPitchFilter] = useState<"all" | PitchStatus>("all");
   const [subscribers, setSubscribers] = useState<SubscriberRecord[]>([]);
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [wrappedForm, setWrappedForm] = useState<WrappedConfigInput>(DEFAULT_WRAPPED_CONFIG);
+  const [wrappedEditions, setWrappedEditions] = useState<WrappedEditionRecord[]>([]);
+  const [activeWrappedId, setActiveWrappedId] = useState<string>("public");
 
   const [sessionFormOpen, setSessionFormOpen] = useState(false);
   const [sessionForm, setSessionForm] = useState<SessionInput>(emptySessionForm);
@@ -158,6 +173,7 @@ function AdminConsoleInner() {
 
     const unsubSessions = subscribeAllSessions(setSessions, handleListenerError);
     const unsubMedia = subscribeAllMedia(setMedia, handleListenerError);
+    const unsubPitches = subscribePitches(setPitches, handleListenerError);
     const unsubSubscribers = subscribeSubscribers(setSubscribers, handleListenerError);
     const unsubSettings = subscribeSiteSettings((s) => {
       setSettingsForm({
@@ -167,23 +183,39 @@ function AdminConsoleInner() {
         youtubeUrl: s.youtubeUrl,
       });
     }, handleListenerError);
-    const unsubWrapped = subscribeWrappedConfig((w) => {
-      const { exists: _exists, updatedAtMs: _updatedAtMs, ...rest } = w;
-      void _exists;
-      void _updatedAtMs;
-      setWrappedForm(rest);
-    }, handleListenerError);
+    const unsubWrappedEditions = subscribeAllWrappedEditions(
+      setWrappedEditions,
+      handleListenerError,
+    );
     const unsubAdmins = subscribeAdmins(setAdmins, handleListenerError);
 
     return () => {
       unsubSessions();
       unsubMedia();
+      unsubPitches();
       unsubSubscribers();
       unsubSettings();
-      unsubWrapped();
+      unsubWrappedEditions();
       unsubAdmins();
     };
   }, [authReady, user, isAdmin, retryKey]);
+
+  useEffect(() => {
+    if (!authReady || !user || !isAdmin) return;
+    const unsubWrapped = subscribeWrappedConfig(
+      (w) => {
+        const { exists: _exists, updatedAtMs: _updatedAtMs, ...rest } = w;
+        void _exists;
+        void _updatedAtMs;
+        setWrappedForm(rest);
+      },
+      (err) => {
+        setActionError(formatFirestoreErrorMessage(err));
+      },
+      activeWrappedId,
+    );
+    return () => unsubWrapped();
+  }, [authReady, user, isAdmin, retryKey, activeWrappedId]);
 
   const showToast = (msg: string) => {
     setActionError("");
@@ -278,6 +310,61 @@ function AdminConsoleInner() {
     setMediaHighlightsText(fresh.highlights.join("\n"));
     setMediaError("");
     setMediaFormOpen(true);
+  };
+
+  const createMediaFromSession = (s: FirestoreSessionRecord) => {
+    const highlights =
+      s.topics.length > 0 ? s.topics : ["Key takeaway from the Think Session"];
+    setMediaForm({
+      kind: "Recording",
+      sessionRef: s.number,
+      title: s.title,
+      speaker: s.speaker,
+      duration: "60 mins",
+      publishedAt: s.dateLabel || "Session Recording",
+      mediaUrl: "",
+      published: false,
+      summary: s.summary,
+      highlights,
+    });
+    setMediaHighlightsText(highlights.join("\n"));
+    setMediaError("");
+    setMediaFormOpen(true);
+    setConfirmDeleteId(null);
+    setTab("media");
+    showToast(`Drafted Media entry from "${s.title}". Paste the recording URL to publish.`);
+  };
+
+  const convertPitchToSession = async (p: TopicPitchRecord) => {
+    const topics = [`${p.targetStage} focus`, "Open member Q&A"];
+    setSessionForm({
+      number: "Next Session",
+      title: p.topicTitle.slice(0, BLUEPRINT_LIMITS.session.title.max),
+      speaker: p.pitchType === "speaker" ? p.name : "",
+      speakerRole: p.roleOrStudio || (p.pitchType === "speaker" ? "Guest Architect" : ""),
+      dateLabel: "Upcoming Monthly Session",
+      timeLabel: "6:00 PM WAT · Live Online",
+      format: "Conversation + Open Member Q&A",
+      status: "upcoming",
+      isNextSession: false,
+      published: false,
+      summary: p.outline.slice(0, BLUEPRINT_LIMITS.session.summary.max),
+      topics,
+      registrationUrl: TALLY_FORM_URL,
+    });
+    setSessionTopicsText(topics.join("\n"));
+    setSessionError("");
+    setSessionFormOpen(true);
+    setConfirmDeleteId(null);
+    setTab("sessions");
+    if (p.status === "new") {
+      try {
+        await updatePitchStatus(p.id, "reviewed");
+      } catch {
+        // Non-blocking status sync when converting to session draft
+      }
+    }
+    showToast(`Drafted Think Session from "${p.topicTitle}".`);
   };
 
   const handleSaveMedia = async (e: FormEvent) => {
@@ -388,6 +475,14 @@ function AdminConsoleInner() {
   };
 
   const nextSpotlight = sessions.find((s) => s.isNextSession && s.published) ?? null;
+  const newPitchesCount = pitches.filter((p) => p.status === "new").length;
+  const sessionPreviewTopics = sessionTopicsText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, BLUEPRINT_LIMITS.session.maxTopics);
+  const filteredPitches =
+    pitchFilter === "all" ? pitches : pitches.filter((p) => p.status === pitchFilter);
 
   return (
     <div className="min-h-screen bg-[#f7f6f4] text-[#111111]">
@@ -527,6 +622,13 @@ function AdminConsoleInner() {
                     [
                       { key: "sessions", label: `Sessions (${sessions.length})` },
                       { key: "media", label: `Media (${media.length})` },
+                      {
+                        key: "pitches",
+                        label:
+                          newPitchesCount > 0
+                            ? `Pitches (${newPitchesCount} new)`
+                            : `Pitches (${pitches.length})`,
+                      },
                       { key: "wrapped", label: wrappedForm.enabled ? "Wrapped · Live" : "Wrapped · Off" },
                       { key: "subscribers", label: `Signups (${subscribers.length})` },
                       { key: "settings", label: "Channels" },
@@ -901,6 +1003,82 @@ function AdminConsoleInner() {
                       </div>
                     </div>
 
+                    {/* Live Home Page Next Session Card Preview */}
+                    <div className="mt-7 border-t border-black/[0.08] pt-6">
+                      <p className="label-mono text-[#111111]/60">
+                        Live Home Page Card Preview (#next-session)
+                      </p>
+                      <div className="mt-3 rounded-[12px] border border-black/[0.08] bg-[#f7f6f4] p-6">
+                        <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-center">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#111111]/60">
+                              <span className="text-[#fe3619]">
+                                {sessionForm.number || "Next Session"}
+                              </span>
+                              <span aria-hidden="true">·</span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <Calendar className="h-3.5 w-3.5 text-[#111111]/50" aria-hidden="true" />
+                                <span>{sessionForm.dateLabel || "Date TBC"}</span>
+                              </span>
+                              <span aria-hidden="true">·</span>
+                              <span className="inline-flex items-center gap-1.5 tabular-nums">
+                                <Clock className="h-3.5 w-3.5 text-[#111111]/50" aria-hidden="true" />
+                                <span>{sessionForm.timeLabel || "Time TBC"}</span>
+                              </span>
+                            </div>
+
+                            <h4 className="mt-2.5 text-[1.35rem] font-medium leading-[1.18] tracking-[-0.025em] text-[#111111]">
+                              {sessionForm.title || "Session Title Preview"}
+                            </h4>
+
+                            <p className="mt-1.5 font-mono text-[12px] text-[#111111]/70">
+                              {sessionForm.speaker || "Speaker Name"} —{" "}
+                              {sessionForm.speakerRole || "Practice / Role"}
+                            </p>
+
+                            <p className="mt-3 max-w-[60ch] text-[14px] leading-[1.58] text-[#111111]/75">
+                              {sessionForm.summary ||
+                                "A brief editorial summary of the conversation will appear here."}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col justify-between gap-4 border-t border-black/[0.08] pt-5 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6">
+                            <div>
+                              <p className="label-mono text-[#111111]/55">
+                                What this session covers
+                              </p>
+                              <ul className="mt-3 space-y-2 text-[13.5px] text-[#111111]/85">
+                                {(sessionPreviewTopics.length > 0
+                                  ? sessionPreviewTopics
+                                  : ["Open member Q&A"]
+                                ).map((topic, i) => (
+                                  <li key={`${topic}-${i}`} className="flex items-start gap-2.5">
+                                    <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
+                                      0{i + 1}
+                                    </span>
+                                    <span>{topic}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="label-mono inline-flex min-h-[38px] items-center rounded-lg bg-[#fe3619] px-4 py-2 text-[11px] text-white">
+                                {sessionForm.registrationUrl &&
+                                sessionForm.registrationUrl.trim().startsWith("https://") &&
+                                sessionForm.registrationUrl.trim() !== TALLY_FORM_URL
+                                  ? "Register for this session"
+                                  : "Join the community"}
+                              </span>
+                              <span className="label-mono inline-flex min-h-[38px] items-center rounded-lg border border-black/10 bg-[#efeeec] px-4 py-2 text-[11px] text-[#111111]">
+                                View all sessions
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     {sessionError && (
                       <p role="alert" className="mt-4 text-[13px] font-medium text-[#fe3619]">
                         {sessionError}
@@ -992,6 +1170,15 @@ function AdminConsoleInner() {
                             className="label-mono inline-flex min-h-[38px] cursor-pointer items-center rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 py-2 text-[#111111] transition-colors hover:bg-[#efeeec]"
                           >
                             {s.published ? "Unpublish" : "Publish"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => createMediaFromSession(s)}
+                            className="label-mono inline-flex min-h-[38px] cursor-pointer items-center gap-1.5 rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 py-2 text-[#111111] transition-colors hover:bg-[#efeeec]"
+                          >
+                            <Film className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>Create Media</span>
                           </button>
 
                           <button
@@ -1348,11 +1535,176 @@ function AdminConsoleInner() {
               </section>
             )}
 
-            {/* TAB 3: WRAPPED CMS */}
+            {/* TAB 3: SPEAKER & TOPIC PITCHES */}
+            {tab === "pitches" && (
+              <section className="mt-10">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-[1.45rem] font-medium tracking-[-0.02em]">
+                      Speaker &amp; Topic Pitches
+                    </h2>
+                    <p className="mt-1 text-[14px] text-[#111111]/65">
+                      Direct submissions from the Contact, Sessions, and Community pitch forms.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-black/[0.08] bg-[#efeeec] p-1">
+                    {(["all", "new", "reviewed", "scheduled", "archived"] as const).map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => setPitchFilter(st)}
+                        className={`label-mono min-h-[34px] cursor-pointer rounded-lg px-3 py-1.5 transition-colors ${
+                          pitchFilter === st
+                            ? "bg-[#111111] text-white"
+                            : "text-[#111111]/65 hover:text-[#111111]"
+                        }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6 border-t border-black/[0.09]">
+                  {filteredPitches.length === 0 ? (
+                    <div className="py-12 text-center text-[15px] text-[#111111]/60">
+                      {pitches.length === 0
+                        ? "No speaker or topic pitches submitted yet."
+                        : `No pitches matching "${pitchFilter}".`}
+                    </div>
+                  ) : (
+                    filteredPitches.map((p) => (
+                      <article
+                        key={p.id}
+                        className="flex flex-col justify-between gap-5 border-b border-black/[0.09] py-6 lg:flex-row lg:items-start"
+                      >
+                        <div className="max-w-[70ch]">
+                          <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.07em]">
+                            <span className="inline-flex items-center gap-1.5 text-[#fe3619]">
+                              {p.pitchType === "speaker" ? (
+                                <Mic className="h-3.5 w-3.5" aria-hidden="true" />
+                              ) : (
+                                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                              )}
+                              <span>
+                                {p.pitchType === "speaker" ? "Speaker Offer" : "Topic Suggestion"}
+                              </span>
+                            </span>
+                            <span aria-hidden="true">·</span>
+                            <span className="text-[#111111]/75">{p.targetStage}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="text-[#111111]/55">
+                              {p.createdAtMs > 0
+                                ? new Date(p.createdAtMs).toLocaleDateString("en-NG", {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  })
+                                : "Just submitted"}
+                            </span>
+                          </div>
+
+                          <h3 className="mt-2 text-[1.2rem] font-medium tracking-[-0.02em]">
+                            {p.topicTitle}
+                          </h3>
+
+                          <p className="mt-1 font-mono text-[12px] text-[#111111]/70">
+                            {p.name} · {p.email}
+                            {p.roleOrStudio ? ` · ${p.roleOrStudio}` : ""}
+                          </p>
+
+                          <p className="mt-3 text-[14.5px] leading-[1.6] text-[#111111]/80">
+                            {p.outline}
+                          </p>
+
+                          {p.linkUrl && (
+                            <p className="mt-2.5">
+                              <a
+                                href={p.linkUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 font-mono text-[12px] text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
+                              >
+                                <span>{p.linkUrl}</span>
+                                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                              </a>
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          <select
+                            aria-label={`Status for ${p.topicTitle}`}
+                            value={p.status}
+                            onChange={async (e) => {
+                              const nextStatus = e.target.value as PitchStatus;
+                              try {
+                                await updatePitchStatus(p.id, nextStatus);
+                                showToast(`Marked pitch as ${nextStatus}.`);
+                              } catch (err) {
+                                setActionError(formatFirestoreErrorMessage(err));
+                              }
+                            }}
+                            className="label-mono h-[38px] cursor-pointer rounded-lg border border-black/12 bg-[#efeeec] px-3 text-[#111111]"
+                          >
+                            <option value="new">New</option>
+                            <option value="reviewed">Reviewed</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="archived">Archived</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => void convertPitchToSession(p)}
+                            className="label-mono inline-flex min-h-[38px] cursor-pointer items-center gap-1.5 rounded-lg bg-[#111111] px-3.5 py-2 text-white transition-opacity hover:opacity-85"
+                          >
+                            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>Session Draft</span>
+                          </button>
+
+                          {confirmDeleteId === p.id ? (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await removePitch(p.id);
+                                  setConfirmDeleteId(null);
+                                  showToast("Pitch deleted.");
+                                } catch (err) {
+                                  setActionError(formatFirestoreErrorMessage(err));
+                                }
+                              }}
+                              className="label-mono inline-flex min-h-[38px] cursor-pointer items-center rounded-lg bg-[#fe3619] px-3.5 py-2 text-white"
+                            >
+                              Confirm Delete
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(p.id)}
+                              aria-label={`Delete pitch ${p.topicTitle}`}
+                              className="inline-flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-lg border border-black/10 text-[#111111]/60 transition-colors hover:border-[#fe3619] hover:text-[#fe3619]"
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* TAB 4: WRAPPED CMS */}
             {tab === "wrapped" && (
               <AdminWrappedTab
                 form={wrappedForm}
                 setForm={setWrappedForm}
+                activeConfigId={activeWrappedId}
+                editions={wrappedEditions}
+                onSelectConfigId={setActiveWrappedId}
                 onSaved={(msg) => showToast(msg)}
               />
             )}
