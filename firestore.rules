@@ -1,0 +1,262 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: default deny everything not explicitly matched
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Hardened Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'officialinioluwaoladipupo@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidBoundedStrings(arr) {
+      return arr is list
+        && arr.size() >= 1
+        && arr.size() <= 6
+        && arr[0] is string
+        && arr[0].size() >= 1
+        && arr[0].size() <= 160;
+    }
+
+    // --- Validation Blueprints (Anti-Update-Gap) ---
+    function isValidSession(data) {
+      return data.keys().hasAll([
+          'number', 'title', 'speaker', 'speakerRole', 'dateLabel', 'timeLabel',
+          'format', 'status', 'isNextSession', 'published', 'summary', 'topics',
+          'registrationUrl', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'number', 'title', 'speaker', 'speakerRole', 'dateLabel', 'timeLabel',
+          'format', 'status', 'isNextSession', 'published', 'summary', 'topics',
+          'registrationUrl', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.number is string && data.number.size() >= 2 && data.number.size() <= 40
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 140
+        && data.speaker is string && data.speaker.size() >= 2 && data.speaker.size() <= 100
+        && data.speakerRole is string && data.speakerRole.size() >= 2 && data.speakerRole.size() <= 120
+        && data.dateLabel is string && data.dateLabel.size() >= 2 && data.dateLabel.size() <= 80
+        && data.timeLabel is string && data.timeLabel.size() >= 2 && data.timeLabel.size() <= 80
+        && data.format is string && data.format.size() >= 2 && data.format.size() <= 80
+        && data.status is string && data.status in ['upcoming', 'archived']
+        && data.isNextSession is bool
+        && data.published is bool
+        && data.summary is string && data.summary.size() >= 10 && data.summary.size() <= 600
+        && isValidBoundedStrings(data.topics)
+        && data.registrationUrl is string && data.registrationUrl.size() <= 300 && data.registrationUrl.matches('^(https://.*)?$')
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMedia(data) {
+      return data.keys().hasAll([
+          'kind', 'sessionRef', 'title', 'speaker', 'duration', 'publishedAt',
+          'mediaUrl', 'published', 'summary', 'highlights', 'createdBy',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'kind', 'sessionRef', 'title', 'speaker', 'duration', 'publishedAt',
+          'mediaUrl', 'published', 'summary', 'highlights', 'createdBy',
+          'createdAt', 'updatedAt'
+        ])
+        && data.kind is string && data.kind in ['Recording', 'Feature']
+        && data.sessionRef is string && data.sessionRef.size() >= 2 && data.sessionRef.size() <= 60
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 140
+        && data.speaker is string && data.speaker.size() >= 2 && data.speaker.size() <= 100
+        && data.duration is string && data.duration.size() >= 2 && data.duration.size() <= 40
+        && data.publishedAt is string && data.publishedAt.size() >= 2 && data.publishedAt.size() <= 60
+        && data.mediaUrl is string && data.mediaUrl.size() <= 400 && data.mediaUrl.matches('^(https://.*)?$')
+        && data.published is bool
+        && data.summary is string && data.summary.size() >= 10 && data.summary.size() <= 600
+        && isValidBoundedStrings(data.highlights)
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['email', 'displayName', 'addedBy', 'createdAt'])
+        && data.keys().hasOnly(['email', 'displayName', 'addedBy', 'createdAt'])
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 254 && data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.addedBy is string && data.addedBy.size() >= 1 && data.addedBy.size() <= 128
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSubscriber(data) {
+      return data.keys().hasAll(['email', 'name', 'stage', 'question', 'source', 'createdAt'])
+        && data.keys().hasOnly(['email', 'name', 'stage', 'question', 'source', 'createdAt'])
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 254 && data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && data.name is string && data.name.size() <= 100
+        && data.stage is string && data.stage.size() <= 80
+        && data.question is string && data.question.size() <= 300
+        && data.source is string && data.source in ['footer', 'join_modal']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSiteSettings(data) {
+      return data.keys().hasAll(['instagramUrl', 'xUrl', 'linkedinUrl', 'youtubeUrl', 'updatedBy', 'updatedAt'])
+        && data.keys().hasOnly(['instagramUrl', 'xUrl', 'linkedinUrl', 'youtubeUrl', 'updatedBy', 'updatedAt'])
+        && data.instagramUrl is string && data.instagramUrl.size() <= 300 && data.instagramUrl.matches('^(https://.*)?$')
+        && data.xUrl is string && data.xUrl.size() <= 300 && data.xUrl.matches('^(https://.*)?$')
+        && data.linkedinUrl is string && data.linkedinUrl.size() <= 300 && data.linkedinUrl.matches('^(https://.*)?$')
+        && data.youtubeUrl is string && data.youtubeUrl.size() <= 300 && data.youtubeUrl.matches('^(https://.*)?$')
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection: Think Sessions (/sessions/{sessionId}) ---
+    match /sessions/{sessionId} {
+      allow get: if isValidId(sessionId) && (existing().published == true || isAdmin());
+      allow list: if resource.data.published == true || isAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(sessionId)
+        && isValidSession(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(sessionId)
+        && isValidSession(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'number', 'title', 'speaker', 'speakerRole', 'dateLabel', 'timeLabel',
+            'format', 'status', 'isNextSession', 'published', 'summary', 'topics',
+            'registrationUrl', 'updatedAt'
+          ])
+          ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'published', 'isNextSession', 'status', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isAdmin() && isValidId(sessionId);
+    }
+
+    // --- Collection: Media & Recordings (/media/{mediaId}) ---
+    match /media/{mediaId} {
+      allow get: if isValidId(mediaId) && (existing().published == true || isAdmin());
+      allow list: if resource.data.published == true || isAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(mediaId)
+        && isValidMedia(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(mediaId)
+        && isValidMedia(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'kind', 'sessionRef', 'title', 'speaker', 'duration', 'publishedAt',
+            'mediaUrl', 'published', 'summary', 'highlights', 'updatedAt'
+          ])
+          ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'published', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isAdmin() && isValidId(mediaId);
+    }
+
+    // --- Collection: Admin Registry (/admins/{userId}) ---
+    match /admins/{userId} {
+      allow get: if isAdmin() && isValidId(userId);
+      allow list: if isAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(userId)
+        && isValidAdmin(incoming())
+        && incoming().addedBy == request.auth.uid
+        && incoming().createdAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(userId)
+        && isValidAdmin(incoming())
+        && incoming().addedBy == existing().addedBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName']);
+
+      allow delete: if isAdmin()
+        && isValidId(userId)
+        && userId != request.auth.uid;
+    }
+
+    // --- Collection: Community Subscribers (/subscribers/{subscriberId}) ---
+    match /subscribers/{subscriberId} {
+      allow get, list: if isAdmin();
+
+      allow create: if isValidId(subscriberId)
+        && isValidSubscriber(incoming())
+        && incoming().createdAt == request.time;
+
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(subscriberId);
+    }
+
+    // --- Collection: Public Site Channel Settings (/siteSettings/{settingId}) ---
+    match /siteSettings/{settingId} {
+      allow get: if isValidId(settingId) && settingId == 'public';
+      allow list: if isAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(settingId)
+        && settingId == 'public'
+        && isValidSiteSettings(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(settingId)
+        && settingId == 'public'
+        && isValidSiteSettings(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'instagramUrl', 'xUrl', 'linkedinUrl', 'youtubeUrl', 'updatedBy', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+  }
+}

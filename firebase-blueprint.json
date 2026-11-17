@@ -1,0 +1,355 @@
+{
+  "entities": {
+    "ThinkSession": {
+      "title": "ThinkSession",
+      "description": "A live or archived Think Session event for The Thinking Architect community.",
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Display label such as Next Session or Session 04."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140,
+          "description": "Headline of the Think Session."
+        },
+        "speaker": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Guest speaker or panel name."
+        },
+        "speakerRole": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Practice role or studio affiliation."
+        },
+        "dateLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Human-readable date or cadence label."
+        },
+        "timeLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Time and timezone or recording duration label."
+        },
+        "format": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Session format such as Conversation + Open Member Q&A."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["upcoming", "archived"],
+          "description": "Lifecycle status of the session."
+        },
+        "isNextSession": {
+          "type": "boolean",
+          "description": "Marks the session currently highlighted in the Next Session block on the home page."
+        },
+        "published": {
+          "type": "boolean",
+          "description": "Controls whether the session is visible to public visitors."
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 600,
+          "description": "Concise description of the session."
+        },
+        "topics": {
+          "type": "array",
+          "description": "Up to 6 short discussion topics (each <= 160 characters)."
+        },
+        "registrationUrl": {
+          "type": "string",
+          "maxLength": 300,
+          "pattern": "^(https://.*)?$",
+          "description": "Optional external registration or Tally URL."
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Firebase Auth UID of the admin who created this session."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": [
+        "number",
+        "title",
+        "speaker",
+        "speakerRole",
+        "dateLabel",
+        "timeLabel",
+        "format",
+        "status",
+        "isNextSession",
+        "published",
+        "summary",
+        "topics",
+        "registrationUrl",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MediaFeature": {
+      "title": "MediaFeature",
+      "description": "A published or draft recording or edited editorial feature from a Think Session.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["Recording", "Feature"],
+          "description": "Whether the item is a video/audio recording or written feature."
+        },
+        "sessionRef": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60,
+          "description": "Reference label to the source Think Session."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140,
+          "description": "Headline of the media item."
+        },
+        "speaker": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Featured architect or panel."
+        },
+        "duration": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Playback duration or read time."
+        },
+        "publishedAt": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60,
+          "description": "Publication label."
+        },
+        "mediaUrl": {
+          "type": "string",
+          "maxLength": 400,
+          "pattern": "^(https://.*)?$",
+          "description": "Optional external HTTPS link to watch or read the recording/feature."
+        },
+        "published": {
+          "type": "boolean",
+          "description": "Controls whether the media item is visible to public visitors."
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 600,
+          "description": "Concise summary of the recording or feature."
+        },
+        "highlights": {
+          "type": "array",
+          "description": "Up to 6 key takeaways (each <= 160 characters)."
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Firebase Auth UID of the admin who created this media item."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": [
+        "kind",
+        "sessionRef",
+        "title",
+        "speaker",
+        "duration",
+        "publishedAt",
+        "mediaUrl",
+        "published",
+        "summary",
+        "highlights",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Verified administrator authorized to manage sessions, media, subscribers, site settings, and fellow admins.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 254,
+          "description": "Verified email address of the admin."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Display name of the admin."
+        },
+        "addedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the admin who granted access."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when admin access was granted."
+        }
+      },
+      "required": ["email", "displayName", "addedBy", "createdAt"]
+    },
+    "Subscriber": {
+      "title": "Subscriber",
+      "description": "Community newsletter or intake submission captured from the footer or join modal.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 254,
+          "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+          "description": "Subscriber email address."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100,
+          "description": "Optional full name provided via intake modal."
+        },
+        "stage": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Architectural stage or source label."
+        },
+        "question": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 300,
+          "description": "Optional question submitted by the member."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["footer", "join_modal"],
+          "description": "Originating intake surface."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the subscription was created."
+        }
+      },
+      "required": ["email", "name", "stage", "question", "source", "createdAt"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Publicly readable community social and external channel links controlled by verified admins.",
+      "type": "object",
+      "properties": {
+        "instagramUrl": {
+          "type": "string",
+          "maxLength": 300,
+          "pattern": "^(https://.*)?$",
+          "description": "Official Instagram profile URL."
+        },
+        "xUrl": {
+          "type": "string",
+          "maxLength": 300,
+          "pattern": "^(https://.*)?$",
+          "description": "Official X profile URL."
+        },
+        "linkedinUrl": {
+          "type": "string",
+          "maxLength": 300,
+          "pattern": "^(https://.*)?$",
+          "description": "Official LinkedIn page URL."
+        },
+        "youtubeUrl": {
+          "type": "string",
+          "maxLength": 300,
+          "pattern": "^(https://.*)?$",
+          "description": "Official YouTube channel URL."
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the admin who last updated settings."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": [
+        "instagramUrl",
+        "xUrl",
+        "linkedinUrl",
+        "youtubeUrl",
+        "updatedBy",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/ThinkSession" },
+      "description": "Collection of upcoming and archived Think Sessions; public visitors may read published documents, admins control all CRUD."
+    },
+    "/media/{mediaId}": {
+      "schema": { "$ref": "#/entities/MediaFeature" },
+      "description": "Collection of recordings and editorial features from Think Sessions; public visitors may read published documents, admins control all CRUD."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "RBAC registry of authorized administrators keyed by Firebase Auth UID; strictly private to admins."
+    },
+    "/subscribers/{subscriberId}": {
+      "schema": { "$ref": "#/entities/Subscriber" },
+      "description": "Community email signups and intake submissions; public create-only with strict validation, read/delete strictly isolated to admins."
+    },
+    "/siteSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Public site channel links stored at /siteSettings/public; public get, admin-only writes."
+    }
+  }
+}

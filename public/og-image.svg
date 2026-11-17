@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f7f6f4"/>
+  <rect x="64" y="64" width="1072" height="502" fill="none" stroke="#111111" stroke-opacity="0.12" stroke-width="2"/>
+  <rect x="112" y="128" width="14" height="14" rx="2" fill="#fe3619"/>
+  <text x="142" y="141" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="20" font-weight="700" letter-spacing="3" fill="#fe3619">TTA · THE THINKING ARCHITECTS</text>
+  <text x="112" y="258" font-family="system-ui,-apple-system,Segoe UI,Arial,sans-serif" font-size="68" font-weight="500" letter-spacing="-2" fill="#111111">Figure out the profession</text>
+  <text x="112" y="340" font-family="system-ui,-apple-system,Segoe UI,Arial,sans-serif" font-size="68" font-weight="500" letter-spacing="-2" fill="#111111">with people who&apos;ve done it.</text>
+  <text x="112" y="424" font-family="system-ui,-apple-system,Segoe UI,Arial,sans-serif" font-size="28" fill="#111111" fill-opacity="0.68">A media and events community for architecture students, graduates, and practitioners.</text>
+  <line x1="112" y1="478" x2="1088" y2="478" stroke="#111111" stroke-opacity="0.12" stroke-width="1"/>
+  <text x="112" y="520" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="18" letter-spacing="1.5" fill="#111111" fill-opacity="0.6">THINK SESSIONS · RECORDINGS &amp; FEATURES · MEMBERS COMMUNITY</text>
+</svg>
