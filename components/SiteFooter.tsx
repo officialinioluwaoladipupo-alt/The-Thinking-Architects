@@ -215,6 +215,12 @@ export default function SiteFooter() {
             >
               Contact
             </Link>
+            <Link
+              href="/wrapped"
+              className="underline-offset-4 transition-colors hover:text-[#111111] hover:underline"
+            >
+              2026 Wrapped
+            </Link>
             {socialLinks.map((item) => (
               <a
                 key={item.label}

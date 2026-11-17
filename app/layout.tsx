@@ -6,7 +6,6 @@ import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
   variable: "--font-plus-jakarta",
   display: "swap",
 });
@@ -20,7 +19,6 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 const museoModerno = MuseoModerno({
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
   variable: "--font-museo",
   display: "swap",
 });
