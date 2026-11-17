@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
+  DEFAULT_WRAPPED_CONFIG,
   saveSubscriber,
   subscribeSiteSettings,
+  subscribeWrappedConfig,
   type SiteSettingsRecord,
 } from "../lib/firebaseContent";
 import { CONTACT_EMAIL } from "../lib/tally";
@@ -23,15 +25,31 @@ export default function SiteFooter() {
     youtubeUrl: "",
     exists: false,
   });
+  const [wrappedVisible, setWrappedVisible] = useState(
+    DEFAULT_WRAPPED_CONFIG.enabled && DEFAULT_WRAPPED_CONFIG.showInFooter,
+  );
+  const [wrappedYear, setWrappedYear] = useState(DEFAULT_WRAPPED_CONFIG.yearLabel);
 
   useEffect(() => {
-    const unsubscribe = subscribeSiteSettings(
+    const unsubscribeSettings = subscribeSiteSettings(
       (data) => setChannels(data),
       () => {
         // Social links are optional; keep base footer navigation intact on transient error
       },
     );
-    return () => unsubscribe();
+    const unsubscribeWrapped = subscribeWrappedConfig(
+      (cfg) => {
+        setWrappedVisible(cfg.enabled && cfg.showInFooter);
+        setWrappedYear(cfg.yearLabel || "2026");
+      },
+      () => {
+        // Fallback to defaults if wrappedConfig listener encounters transient error
+      },
+    );
+    return () => {
+      unsubscribeSettings();
+      unsubscribeWrapped();
+    };
   }, []);
 
   const handleSubscribe = async (e: FormEvent) => {
@@ -215,12 +233,14 @@ export default function SiteFooter() {
             >
               Contact
             </Link>
-            <Link
-              href="/wrapped"
-              className="underline-offset-4 transition-colors hover:text-[#111111] hover:underline"
-            >
-              2026 Wrapped
-            </Link>
+            {wrappedVisible && (
+              <Link
+                href="/wrapped"
+                className="underline-offset-4 transition-colors hover:text-[#111111] hover:underline"
+              >
+                {wrappedYear} Wrapped
+              </Link>
+            )}
             {socialLinks.map((item) => (
               <a
                 key={item.label}

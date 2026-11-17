@@ -24,7 +24,10 @@ import {
   testConnection,
 } from "../lib/firebase";
 
-const BOOTSTRAPPED_ADMIN_EMAIL = "officialinioluwaoladipupo@gmail.com";
+const BOOTSTRAPPED_ADMIN_EMAILS = new Set([
+  "oladipupoinioluwa93@gmail.com",
+  "officialinioluwaoladipupo@gmail.com",
+]);
 
 type FirebaseContextValue = {
   user: User | null;
@@ -85,7 +88,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        if (nextUser.email?.toLowerCase() === BOOTSTRAPPED_ADMIN_EMAIL) {
+        if (nextUser.email && BOOTSTRAPPED_ADMIN_EMAILS.has(nextUser.email.toLowerCase())) {
           setIsAdmin(true);
           setCheckingAdmin(false);
           setAuthReady(true);

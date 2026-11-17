@@ -7,7 +7,7 @@
 export type SecurityTestCase = {
   id: number;
   name: string;
-  collection: "sessions" | "media" | "admins" | "subscribers" | "siteSettings";
+  collection: "sessions" | "media" | "admins" | "subscribers" | "siteSettings" | "wrappedConfig";
   operation: "get" | "list" | "create" | "update" | "delete";
   actor: "unauthenticated" | "non-admin-verified" | "spoofed-unverified-admin" | "verified-admin";
   payload: Record<string, unknown>;
@@ -135,5 +135,25 @@ export const dirtyDozenSecurityCases: SecurityTestCase[] = [
     payload: { query: "all" },
     expectedResult: "PERMISSION_DENIED",
     enforcedByGate: "allow get, list: if isAdmin()",
+  },
+  {
+    id: 13,
+    name: "Non-Admin Overwrite of Wrapped Configuration",
+    collection: "wrappedConfig",
+    operation: "update",
+    actor: "non-admin-verified",
+    payload: { enabled: false },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "isAdmin() && configId == 'public' && isValidWrappedConfig(incoming())",
+  },
+  {
+    id: 14,
+    name: "Wrapped Arbitrary Document ID Poisoning",
+    collection: "wrappedConfig",
+    operation: "create",
+    actor: "verified-admin",
+    payload: { configId: "private-draft", enabled: true },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "configId == 'public'",
   },
 ];

@@ -12,6 +12,7 @@ import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 import StageRailSection from "./StageRailSection";
 import TracksGrid from "./TracksGrid";
+import WrappedHomeBanner from "./WrappedHomeBanner";
 
 export default function LandingPageClient() {
   const [joinOpen, setJoinOpen] = useState(false);
@@ -25,6 +26,7 @@ export default function LandingPageClient() {
       <SiteHeader onOpenJoin={handleOpenJoin} />
       <main id="top" className="relative flex flex-col">
         <HeroSection onOpenJoin={handleOpenJoin} />
+        <WrappedHomeBanner onOpenJoin={handleOpenJoin} />
         <TracksGrid onOpenJoin={handleOpenJoin} />
         <StageRailSection />
         <HowItWorksGrid onOpenJoin={handleOpenJoin} />

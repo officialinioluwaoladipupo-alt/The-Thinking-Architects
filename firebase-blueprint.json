@@ -328,6 +328,83 @@
         "updatedBy",
         "updatedAt"
       ]
+    },
+    "WrappedConfig": {
+      "title": "WrappedConfig",
+      "description": "Admin-managed configuration, visibility toggles, Home countdown settings, and editable slide copy/metrics for TTA Year Wrapped.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "description": "Master toggle turning the /wrapped page live or offline." },
+        "showInFooter": { "type": "boolean", "description": "Controls whether the Wrapped link is shown in the site footer." },
+        "homeBannerEnabled": { "type": "boolean", "description": "Shows or hides the Wrapped teaser banner on the Home page." },
+        "homeCountdownEnabled": { "type": "boolean", "description": "Shows or hides the live countdown timer on the Home banner and offline holding screen." },
+        "yearLabel": { "type": "string", "minLength": 1, "maxLength": 20, "description": "Short year label such as 2026." },
+        "eyebrow": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Header eyebrow label." },
+        "pageTitle": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Main Wrapped page title." },
+        "pageSubtitle": { "type": "string", "minLength": 2, "maxLength": 240, "description": "Header subtitle." },
+        "shareCaption": { "type": "string", "minLength": 10, "maxLength": 420, "description": "Pre-filled social share caption." },
+        "offlineTitle": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Headline displayed when Wrapped is turned off." },
+        "offlineMessage": { "type": "string", "minLength": 2, "maxLength": 320, "description": "Holding message displayed when Wrapped is turned off." },
+        "homeBannerEyebrow": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Eyebrow on Home Wrapped banner." },
+        "homeBannerTitle": { "type": "string", "minLength": 2, "maxLength": 140, "description": "Headline on Home Wrapped banner." },
+        "homeBannerCtaLabel": { "type": "string", "minLength": 1, "maxLength": 50, "description": "CTA button label on Home Wrapped banner." },
+        "launchDateIso": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?(Z|[+-]\\d{2}:\\d{2})?)?$",
+          "description": "Optional ISO-8601 target timestamp for the Wrapped countdown."
+        },
+        "coverTitle": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "coverSubtitle": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "startLead": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "startStatement": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "audienceCount": { "type": "integer", "description": "Total event registrations count." },
+        "audiencePrefix": { "type": "string", "maxLength": 10 },
+        "audienceSuffix": { "type": "string", "maxLength": 10 },
+        "audienceCaption": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "returningCount": { "type": "integer", "description": "Repeat attendees count." },
+        "returningSuffix": { "type": "string", "maxLength": 10 },
+        "returningCaption": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "sessionsHeading": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "sessionHighlights": { "type": "array", "description": "Up to 8 session highlights formatted 'Date | Title'." },
+        "awarenessDate": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "awarenessPrefix": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "awarenessProgramTitle": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "awarenessSpeaker": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "communityTotal": { "type": "integer", "description": "Total community members count." },
+        "communityCaption": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "studentsCount": { "type": "integer", "description": "Student members count." },
+        "professionalsCount": { "type": "integer", "description": "Practising professional members count." },
+        "discoveryHighlight": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "discoveryBody": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "discoveryPercent": { "type": "integer", "description": "Discovery progress bar percentage (1-100)." },
+        "locationsLead": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "locationPrimary": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "locationSecondary": { "type": "string", "maxLength": 60 },
+        "extraLocations": { "type": "array", "description": "Up to 10 additional cities or chapters." },
+        "welcomeStatement": { "type": "string", "minLength": 2, "maxLength": 260 },
+        "thankYouStatement": { "type": "string", "minLength": 2, "maxLength": 260 },
+        "closingStatement": { "type": "string", "minLength": 2, "maxLength": 220 },
+        "closingCtaLabel": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "customStats": { "type": "array", "description": "Up to 6 additional milestone cards formatted 'Value | Label | Detail'." },
+        "updatedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "enabled", "showInFooter", "homeBannerEnabled", "homeCountdownEnabled",
+        "yearLabel", "eyebrow", "pageTitle", "pageSubtitle", "shareCaption",
+        "offlineTitle", "offlineMessage", "homeBannerEyebrow", "homeBannerTitle",
+        "homeBannerCtaLabel", "launchDateIso", "coverTitle", "coverSubtitle",
+        "startLead", "startStatement", "audienceCount", "audiencePrefix",
+        "audienceSuffix", "audienceCaption", "returningCount", "returningSuffix",
+        "returningCaption", "sessionsHeading", "sessionHighlights", "awarenessDate",
+        "awarenessPrefix", "awarenessProgramTitle", "awarenessSpeaker",
+        "communityTotal", "communityCaption", "studentsCount", "professionalsCount",
+        "discoveryHighlight", "discoveryBody", "discoveryPercent", "locationsLead",
+        "locationPrimary", "locationSecondary", "extraLocations", "welcomeStatement",
+        "thankYouStatement", "closingStatement", "closingCtaLabel", "customStats",
+        "updatedBy", "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -350,6 +427,10 @@
     "/siteSettings/{settingId}": {
       "schema": { "$ref": "#/entities/SiteSettings" },
       "description": "Public site channel links stored at /siteSettings/public; public get, admin-only writes."
+    },
+    "/wrappedConfig/{configId}": {
+      "schema": { "$ref": "#/entities/WrappedConfig" },
+      "description": "Publicly readable Wrapped configuration stored at /wrappedConfig/public; public get, admin-only writes."
     }
   }
 }

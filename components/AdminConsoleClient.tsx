@@ -15,6 +15,7 @@ import {
   Mail,
   Plus,
   Radio,
+  RefreshCw,
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
@@ -27,6 +28,7 @@ import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
   addAdminUser,
   BLUEPRINT_LIMITS,
+  DEFAULT_WRAPPED_CONFIG,
   promoteToNextSession,
   removeAdminUser,
   removeMediaItem,
@@ -40,6 +42,8 @@ import {
   subscribeAllSessions,
   subscribeSiteSettings,
   subscribeSubscribers,
+  subscribeWrappedConfig,
+  syncLegacyContentToPrimary,
   toggleMediaPublished,
   toggleSessionPublished,
   validateMediaInput,
@@ -52,8 +56,10 @@ import {
   type SessionInput,
   type SiteSettingsInput,
   type SubscriberRecord,
+  type WrappedConfigInput,
 } from "../lib/firebaseContent";
 import { TALLY_FORM_URL } from "../lib/tally";
+import AdminWrappedTab from "./AdminWrappedTab";
 import { useFirebase } from "./FirebaseProvider";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 
@@ -99,12 +105,13 @@ function AdminConsoleInner() {
   } = useFirebase();
 
   const [tab, setTab] = useState<
-    "sessions" | "media" | "subscribers" | "settings" | "admins"
+    "sessions" | "media" | "wrapped" | "subscribers" | "settings" | "admins"
   >("sessions");
   const [sessions, setSessions] = useState<FirestoreSessionRecord[]>([]);
   const [media, setMedia] = useState<FirestoreMediaRecord[]>([]);
   const [subscribers, setSubscribers] = useState<SubscriberRecord[]>([]);
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
+  const [wrappedForm, setWrappedForm] = useState<WrappedConfigInput>(DEFAULT_WRAPPED_CONFIG);
 
   const [sessionFormOpen, setSessionFormOpen] = useState(false);
   const [sessionForm, setSessionForm] = useState<SessionInput>(emptySessionForm);
@@ -135,6 +142,7 @@ function AdminConsoleInner() {
   const [adminFormError, setAdminFormError] = useState("");
   const [savingAdmin, setSavingAdmin] = useState(false);
 
+  const [syncingLegacy, setSyncingLegacy] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [toast, setToast] = useState("");
   const [actionError, setActionError] = useState("");
@@ -159,6 +167,12 @@ function AdminConsoleInner() {
         youtubeUrl: s.youtubeUrl,
       });
     }, handleListenerError);
+    const unsubWrapped = subscribeWrappedConfig((w) => {
+      const { exists: _exists, updatedAtMs: _updatedAtMs, ...rest } = w;
+      void _exists;
+      void _updatedAtMs;
+      setWrappedForm(rest);
+    }, handleListenerError);
     const unsubAdmins = subscribeAdmins(setAdmins, handleListenerError);
 
     return () => {
@@ -166,6 +180,7 @@ function AdminConsoleInner() {
       unsubMedia();
       unsubSubscribers();
       unsubSettings();
+      unsubWrapped();
       unsubAdmins();
     };
   }, [authReady, user, isAdmin, retryKey]);
@@ -512,9 +527,10 @@ function AdminConsoleInner() {
                     [
                       { key: "sessions", label: `Sessions (${sessions.length})` },
                       { key: "media", label: `Media (${media.length})` },
+                      { key: "wrapped", label: wrappedForm.enabled ? "Wrapped · Live" : "Wrapped · Off" },
                       { key: "subscribers", label: `Signups (${subscribers.length})` },
                       { key: "settings", label: "Channels" },
-                      { key: "admins", label: `Admins (${admins.length + 1})` },
+                      { key: "admins", label: `Admins (${admins.length + 2})` },
                     ] as const
                   ).map((item) => (
                     <button
@@ -579,25 +595,62 @@ function AdminConsoleInner() {
               </div>
             )}
 
+            {/* Dual-DB Status & Optional Sync Bar */}
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#efeeec] px-5 py-3.5">
+              <p className="text-[13.5px] text-[#111111]/75">
+                <strong>Dual-Database Active:</strong> Published sessions, media, and channels from
+                your existing database (<span className="font-mono text-[12px]">principal-day-6n50x</span>)
+                still serve the live site automatically.
+              </p>
+              <button
+                type="button"
+                disabled={syncingLegacy}
+                onClick={async () => {
+                  setSyncingLegacy(true);
+                  try {
+                    const res = await syncLegacyContentToPrimary();
+                    showToast(
+                      `Synced ${res.sessionsImported} session(s), ${res.mediaImported} media item(s)${
+                        res.settingsImported ? ", and channel links" : ""
+                      } into this console.`,
+                    );
+                  } catch (err) {
+                    setActionError(formatFirestoreErrorMessage(err));
+                  } finally {
+                    setSyncingLegacy(false);
+                  }
+                }}
+                className="label-mono inline-flex min-h-[38px] shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-black/12 bg-[#f7f6f4] px-3.5 py-2 text-[#111111] transition-colors hover:bg-[#111111] hover:text-white disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${syncingLegacy ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+                <span>{syncingLegacy ? "Syncing..." : "Copy Legacy Items Here"}</span>
+              </button>
+            </div>
+
             {/* Overview KPI Strip */}
-            <div className="mt-8 grid grid-cols-1 gap-px border border-black/[0.09] bg-black/[0.09] sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-6 grid grid-cols-1 gap-px border border-black/[0.09] bg-black/[0.09] sm:grid-cols-2 lg:grid-cols-4">
               <div className="bg-[#f7f6f4] p-6">
                 <p className="label-mono text-[#111111]/55">Home Spotlight (Next Session)</p>
                 <p className="mt-2 text-[1.05rem] font-medium leading-snug">
-                  {nextSpotlight ? nextSpotlight.title : "Not yet assigned in Firestore"}
+                  {nextSpotlight ? nextSpotlight.title : "Served from Legacy DB or unassigned"}
                 </p>
               </div>
               <div className="bg-[#f7f6f4] p-6">
-                <p className="label-mono text-[#111111]/55">Published Think Sessions</p>
-                <p className="mt-2 font-mono text-[1.5rem] font-bold tabular-nums">
-                  {sessions.filter((s) => s.published).length}{" "}
-                  <span className="text-[13px] font-normal text-[#111111]/55">
-                    / {sessions.length} total
+                <p className="label-mono text-[#111111]/55">Wrapped Status</p>
+                <p className="mt-2 font-mono text-[1.25rem] font-bold">
+                  <span className={wrappedForm.enabled ? "text-[#fe3619]" : "text-[#111111]/55"}>
+                    {wrappedForm.enabled ? "LIVE" : "OFFLINE"}
+                  </span>{" "}
+                  <span className="text-[12px] font-normal text-[#111111]/55">
+                    · {wrappedForm.homeCountdownEnabled ? "Countdown ON" : "Countdown OFF"}
                   </span>
                 </p>
               </div>
               <div className="bg-[#f7f6f4] p-6">
-                <p className="label-mono text-[#111111]/55">Published Media Entries</p>
+                <p className="label-mono text-[#111111]/55">Published Media (Primary)</p>
                 <p className="mt-2 font-mono text-[1.5rem] font-bold tabular-nums">
                   {media.filter((m) => m.published).length}{" "}
                   <span className="text-[13px] font-normal text-[#111111]/55">
@@ -1295,7 +1348,16 @@ function AdminConsoleInner() {
               </section>
             )}
 
-            {/* TAB 3: SUBSCRIBERS */}
+            {/* TAB 3: WRAPPED CMS */}
+            {tab === "wrapped" && (
+              <AdminWrappedTab
+                form={wrappedForm}
+                setForm={setWrappedForm}
+                onSaved={(msg) => showToast(msg)}
+              />
+            )}
+
+            {/* TAB 4: SUBSCRIBERS */}
             {tab === "subscribers" && (
               <section className="mt-10">
                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1587,6 +1649,15 @@ function AdminConsoleInner() {
                     <div className="flex items-center justify-between border-b border-black/[0.09] py-4">
                       <div>
                         <p className="font-medium">Primary Owner (Bootstrapped)</p>
+                        <p className="font-mono text-[12px] text-[#111111]/65">
+                          oladipupoinioluwa93@gmail.com
+                        </p>
+                      </div>
+                      <span className="label-mono text-[#fe3619]">Locked</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-black/[0.09] py-4">
+                      <div>
+                        <p className="font-medium">Secondary Owner (Bootstrapped)</p>
                         <p className="font-mono text-[12px] text-[#111111]/65">
                           officialinioluwaoladipupo@gmail.com
                         </p>

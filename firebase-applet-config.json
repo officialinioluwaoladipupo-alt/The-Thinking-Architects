@@ -1,12 +1,12 @@
 {
-  "projectId": "principal-day-6n50x",
-  "appId": "1:90210330512:web:5cd10ca407c21d22393515",
-  "apiKey": "AIzaSyCi1cfnEluu8TblgW-aZDm43wTVUWr29sY",
-  "authDomain": "principal-day-6n50x.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-friendlyjourney-9fce1a55-d36b-4c9e-8ad2-3ae65a176302",
-  "storageBucket": "principal-day-6n50x.firebasestorage.app",
-  "messagingSenderId": "90210330512",
+  "projectId": "gen-lang-client-0140838922",
+  "appId": "1:559522300397:web:42259d9b6041dce9c567e4",
+  "apiKey": "AIzaSyBMyvRtC0mXX-tLbXnUXL0-UJON6dcYTKU",
+  "authDomain": "gen-lang-client-0140838922.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-thethinkingarchi-1e9b040d-cfa1-4d6c-a675-ba417193fd0b",
+  "storageBucket": "gen-lang-client-0140838922.firebasestorage.app",
+  "messagingSenderId": "559522300397",
   "measurementId": "",
-  "oAuthClientId": "90210330512-cgr04k2qqcpfq1sp7ttkkb1mje8bc03j.apps.googleusercontent.com",
+  "oAuthClientId": "559522300397-i9r7785u8ie6sntndgrobs9jumd47g0j.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

@@ -29,7 +29,10 @@ service cloud.firestore {
     }
 
     function isBootstrappedAdmin() {
-      return isVerifiedUser() && request.auth.token.email == 'officialinioluwaoladipupo@gmail.com';
+      return isVerifiedUser() && (
+        request.auth.token.email == 'oladipupoinioluwa93@gmail.com' ||
+        request.auth.token.email == 'officialinioluwaoladipupo@gmail.com'
+      );
     }
 
     function isAdmin() {
@@ -45,6 +48,25 @@ service cloud.firestore {
         && arr[0] is string
         && arr[0].size() >= 1
         && arr[0].size() <= 160;
+    }
+
+    function isValidWrappedRequiredList(arr, maxItems, maxLen) {
+      return arr is list
+        && arr.size() >= 1
+        && arr.size() <= maxItems
+        && arr[0] is string
+        && arr[0].size() >= 1
+        && arr[0].size() <= maxLen;
+    }
+
+    function isValidWrappedOptionalList(arr, maxItems, maxLen) {
+      return arr is list
+        && arr.size() <= maxItems
+        && (arr.size() == 0 || (arr[0] is string && arr[0].size() >= 1 && arr[0].size() <= maxLen));
+    }
+
+    function isValidCount(val) {
+      return val is int && val >= 0 && val <= 10000000;
     }
 
     // --- Validation Blueprints (Anti-Update-Gap) ---
@@ -132,6 +154,106 @@ service cloud.firestore {
         && data.youtubeUrl is string && data.youtubeUrl.size() <= 300 && data.youtubeUrl.matches('^(https://.*)?$')
         && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
         && data.updatedAt is timestamp;
+    }
+
+    function isValidWrappedKeys(data) {
+      return data.keys().hasAll([
+          'enabled', 'showInFooter', 'homeBannerEnabled', 'homeCountdownEnabled',
+          'yearLabel', 'eyebrow', 'pageTitle', 'pageSubtitle', 'shareCaption',
+          'offlineTitle', 'offlineMessage', 'homeBannerEyebrow', 'homeBannerTitle',
+          'homeBannerCtaLabel', 'launchDateIso', 'coverTitle', 'coverSubtitle',
+          'startLead', 'startStatement', 'audienceCount', 'audiencePrefix',
+          'audienceSuffix', 'audienceCaption', 'returningCount', 'returningSuffix',
+          'returningCaption', 'sessionsHeading', 'sessionHighlights', 'awarenessDate',
+          'awarenessPrefix', 'awarenessProgramTitle', 'awarenessSpeaker',
+          'communityTotal', 'communityCaption', 'studentsCount', 'professionalsCount',
+          'discoveryHighlight', 'discoveryBody', 'discoveryPercent', 'locationsLead',
+          'locationPrimary', 'locationSecondary', 'extraLocations', 'welcomeStatement',
+          'thankYouStatement', 'closingStatement', 'closingCtaLabel', 'customStats',
+          'updatedBy', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'enabled', 'showInFooter', 'homeBannerEnabled', 'homeCountdownEnabled',
+          'yearLabel', 'eyebrow', 'pageTitle', 'pageSubtitle', 'shareCaption',
+          'offlineTitle', 'offlineMessage', 'homeBannerEyebrow', 'homeBannerTitle',
+          'homeBannerCtaLabel', 'launchDateIso', 'coverTitle', 'coverSubtitle',
+          'startLead', 'startStatement', 'audienceCount', 'audiencePrefix',
+          'audienceSuffix', 'audienceCaption', 'returningCount', 'returningSuffix',
+          'returningCaption', 'sessionsHeading', 'sessionHighlights', 'awarenessDate',
+          'awarenessPrefix', 'awarenessProgramTitle', 'awarenessSpeaker',
+          'communityTotal', 'communityCaption', 'studentsCount', 'professionalsCount',
+          'discoveryHighlight', 'discoveryBody', 'discoveryPercent', 'locationsLead',
+          'locationPrimary', 'locationSecondary', 'extraLocations', 'welcomeStatement',
+          'thankYouStatement', 'closingStatement', 'closingCtaLabel', 'customStats',
+          'updatedBy', 'updatedAt'
+        ]);
+    }
+
+    function isValidWrappedMeta(data) {
+      return data.enabled is bool
+        && data.showInFooter is bool
+        && data.homeBannerEnabled is bool
+        && data.homeCountdownEnabled is bool
+        && data.yearLabel is string && data.yearLabel.size() >= 1 && data.yearLabel.size() <= 20
+        && data.eyebrow is string && data.eyebrow.size() >= 1 && data.eyebrow.size() <= 80
+        && data.pageTitle is string && data.pageTitle.size() >= 2 && data.pageTitle.size() <= 120
+        && data.pageSubtitle is string && data.pageSubtitle.size() >= 2 && data.pageSubtitle.size() <= 240
+        && data.shareCaption is string && data.shareCaption.size() >= 10 && data.shareCaption.size() <= 420
+        && data.offlineTitle is string && data.offlineTitle.size() >= 2 && data.offlineTitle.size() <= 120
+        && data.offlineMessage is string && data.offlineMessage.size() >= 2 && data.offlineMessage.size() <= 320
+        && data.homeBannerEyebrow is string && data.homeBannerEyebrow.size() >= 1 && data.homeBannerEyebrow.size() <= 80
+        && data.homeBannerTitle is string && data.homeBannerTitle.size() >= 2 && data.homeBannerTitle.size() <= 140
+        && data.homeBannerCtaLabel is string && data.homeBannerCtaLabel.size() >= 1 && data.homeBannerCtaLabel.size() <= 50
+        && data.launchDateIso is string && data.launchDateIso.size() <= 40
+        && data.launchDateIso.matches('^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(Z|[+\\-][0-9]{2}:[0-9]{2})?)?$');
+    }
+
+    function isValidWrappedNumbers(data) {
+      return isValidCount(data.audienceCount)
+        && data.audiencePrefix is string && data.audiencePrefix.size() <= 10
+        && data.audienceSuffix is string && data.audienceSuffix.size() <= 10
+        && data.audienceCaption is string && data.audienceCaption.size() >= 2 && data.audienceCaption.size() <= 180
+        && isValidCount(data.returningCount)
+        && data.returningSuffix is string && data.returningSuffix.size() <= 10
+        && data.returningCaption is string && data.returningCaption.size() >= 2 && data.returningCaption.size() <= 180
+        && isValidCount(data.communityTotal)
+        && data.communityCaption is string && data.communityCaption.size() >= 2 && data.communityCaption.size() <= 160
+        && isValidCount(data.studentsCount)
+        && isValidCount(data.professionalsCount)
+        && data.discoveryPercent is int && data.discoveryPercent >= 1 && data.discoveryPercent <= 100;
+    }
+
+    function isValidWrappedCopyAndLists(data) {
+      return data.coverTitle is string && data.coverTitle.size() >= 2 && data.coverTitle.size() <= 120
+        && data.coverSubtitle is string && data.coverSubtitle.size() >= 2 && data.coverSubtitle.size() <= 180
+        && data.startLead is string && data.startLead.size() >= 2 && data.startLead.size() <= 140
+        && data.startStatement is string && data.startStatement.size() >= 2 && data.startStatement.size() <= 200
+        && data.sessionsHeading is string && data.sessionsHeading.size() >= 2 && data.sessionsHeading.size() <= 160
+        && isValidWrappedRequiredList(data.sessionHighlights, 8, 220)
+        && data.awarenessDate is string && data.awarenessDate.size() >= 1 && data.awarenessDate.size() <= 40
+        && data.awarenessPrefix is string && data.awarenessPrefix.size() >= 2 && data.awarenessPrefix.size() <= 180
+        && data.awarenessProgramTitle is string && data.awarenessProgramTitle.size() >= 2 && data.awarenessProgramTitle.size() <= 120
+        && data.awarenessSpeaker is string && data.awarenessSpeaker.size() >= 2 && data.awarenessSpeaker.size() <= 140
+        && data.discoveryHighlight is string && data.discoveryHighlight.size() >= 2 && data.discoveryHighlight.size() <= 80
+        && data.discoveryBody is string && data.discoveryBody.size() >= 2 && data.discoveryBody.size() <= 200
+        && data.locationsLead is string && data.locationsLead.size() >= 2 && data.locationsLead.size() <= 140
+        && data.locationPrimary is string && data.locationPrimary.size() >= 1 && data.locationPrimary.size() <= 60
+        && data.locationSecondary is string && data.locationSecondary.size() <= 60
+        && isValidWrappedOptionalList(data.extraLocations, 10, 60)
+        && data.welcomeStatement is string && data.welcomeStatement.size() >= 2 && data.welcomeStatement.size() <= 260
+        && data.thankYouStatement is string && data.thankYouStatement.size() >= 2 && data.thankYouStatement.size() <= 260
+        && data.closingStatement is string && data.closingStatement.size() >= 2 && data.closingStatement.size() <= 220
+        && data.closingCtaLabel is string && data.closingCtaLabel.size() >= 2 && data.closingCtaLabel.size() <= 60
+        && isValidWrappedOptionalList(data.customStats, 6, 220)
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWrappedConfig(data) {
+      return isValidWrappedKeys(data)
+        && isValidWrappedMeta(data)
+        && isValidWrappedNumbers(data)
+        && isValidWrappedCopyAndLists(data);
     }
 
     // --- Collection: Think Sessions (/sessions/{sessionId}) ---
@@ -254,6 +376,43 @@ service cloud.firestore {
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly([
           'instagramUrl', 'xUrl', 'linkedinUrl', 'youtubeUrl', 'updatedBy', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    // --- Collection: Public Wrapped CMS Configuration (/wrappedConfig/{configId}) ---
+    match /wrappedConfig/{configId} {
+      allow get: if isValidId(configId) && configId == 'public';
+      allow list: if isAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(configId)
+        && configId == 'public'
+        && isValidWrappedConfig(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(configId)
+        && configId == 'public'
+        && isValidWrappedConfig(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'enabled', 'showInFooter', 'homeBannerEnabled', 'homeCountdownEnabled',
+          'yearLabel', 'eyebrow', 'pageTitle', 'pageSubtitle', 'shareCaption',
+          'offlineTitle', 'offlineMessage', 'homeBannerEyebrow', 'homeBannerTitle',
+          'homeBannerCtaLabel', 'launchDateIso', 'coverTitle', 'coverSubtitle',
+          'startLead', 'startStatement', 'audienceCount', 'audiencePrefix',
+          'audienceSuffix', 'audienceCaption', 'returningCount', 'returningSuffix',
+          'returningCaption', 'sessionsHeading', 'sessionHighlights', 'awarenessDate',
+          'awarenessPrefix', 'awarenessProgramTitle', 'awarenessSpeaker',
+          'communityTotal', 'communityCaption', 'studentsCount', 'professionalsCount',
+          'discoveryHighlight', 'discoveryBody', 'discoveryPercent', 'locationsLead',
+          'locationPrimary', 'locationSecondary', 'extraLocations', 'welcomeStatement',
+          'thankYouStatement', 'closingStatement', 'closingCtaLabel', 'customStats',
+          'updatedBy', 'updatedAt'
         ]);
 
       allow delete: if false;

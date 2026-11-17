@@ -20,6 +20,7 @@ import {
   handleFirestoreError,
   OperationType,
 } from "./firebase";
+import { legacyDb } from "./legacyFirebase";
 
 export type ThinkSession = {
   id: string;
@@ -53,6 +54,7 @@ export const BLUEPRINT_LIMITS = {
   idPattern: /^[a-zA-Z0-9_-]+$/,
   httpsPattern: /^(https:\/\/.*)?$/,
   emailPattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/,
+  isoDatePattern: /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
   session: {
     number: { min: 2, max: 40 },
     title: { min: 3, max: 140 },
@@ -90,6 +92,47 @@ export const BLUEPRINT_LIMITS = {
   siteSettings: {
     url: { max: 300 },
   },
+  wrapped: {
+    yearLabel: { min: 1, max: 20 },
+    eyebrow: { min: 1, max: 80 },
+    pageTitle: { min: 2, max: 120 },
+    pageSubtitle: { min: 2, max: 240 },
+    shareCaption: { min: 10, max: 420 },
+    offlineTitle: { min: 2, max: 120 },
+    offlineMessage: { min: 2, max: 320 },
+    homeBannerEyebrow: { min: 1, max: 80 },
+    homeBannerTitle: { min: 2, max: 140 },
+    homeBannerCtaLabel: { min: 1, max: 50 },
+    launchDateIso: { max: 40 },
+    coverTitle: { min: 2, max: 120 },
+    coverSubtitle: { min: 2, max: 180 },
+    startLead: { min: 2, max: 140 },
+    startStatement: { min: 2, max: 200 },
+    prefixSuffixMax: 10,
+    audienceCaption: { min: 2, max: 180 },
+    returningCaption: { min: 2, max: 180 },
+    sessionsHeading: { min: 2, max: 160 },
+    maxSessionHighlights: 8,
+    sessionHighlightMaxLength: 220,
+    awarenessDate: { min: 1, max: 40 },
+    awarenessPrefix: { min: 2, max: 180 },
+    awarenessProgramTitle: { min: 2, max: 120 },
+    awarenessSpeaker: { min: 2, max: 140 },
+    communityCaption: { min: 2, max: 160 },
+    discoveryHighlight: { min: 2, max: 80 },
+    discoveryBody: { min: 2, max: 200 },
+    locationsLead: { min: 2, max: 140 },
+    locationPrimary: { min: 1, max: 60 },
+    locationSecondary: { max: 60 },
+    maxExtraLocations: 10,
+    extraLocationMaxLength: 60,
+    welcomeStatement: { min: 2, max: 260 },
+    thankYouStatement: { min: 2, max: 260 },
+    closingStatement: { min: 2, max: 220 },
+    closingCtaLabel: { min: 2, max: 60 },
+    maxCustomStats: 6,
+    customStatMaxLength: 220,
+  },
 } as const;
 
 export type FirestoreSessionRecord = ThinkSession & {
@@ -98,6 +141,7 @@ export type FirestoreSessionRecord = ThinkSession & {
   registrationUrl: string;
   createdBy: string;
   updatedAtMs?: number;
+  sourceDb?: "primary" | "legacy";
 };
 
 export type FirestoreMediaRecord = MediaFeature & {
@@ -105,6 +149,7 @@ export type FirestoreMediaRecord = MediaFeature & {
   published: boolean;
   createdBy: string;
   updatedAtMs?: number;
+  sourceDb?: "primary" | "legacy";
 };
 
 export type AdminRecord = {
@@ -145,6 +190,121 @@ export type SiteSettingsInput = {
   xUrl: string;
   linkedinUrl: string;
   youtubeUrl: string;
+};
+
+export type WrappedConfigInput = {
+  enabled: boolean;
+  showInFooter: boolean;
+  homeBannerEnabled: boolean;
+  homeCountdownEnabled: boolean;
+  yearLabel: string;
+  eyebrow: string;
+  pageTitle: string;
+  pageSubtitle: string;
+  shareCaption: string;
+  offlineTitle: string;
+  offlineMessage: string;
+  homeBannerEyebrow: string;
+  homeBannerTitle: string;
+  homeBannerCtaLabel: string;
+  launchDateIso: string;
+  coverTitle: string;
+  coverSubtitle: string;
+  startLead: string;
+  startStatement: string;
+  audienceCount: number;
+  audiencePrefix: string;
+  audienceSuffix: string;
+  audienceCaption: string;
+  returningCount: number;
+  returningSuffix: string;
+  returningCaption: string;
+  sessionsHeading: string;
+  sessionHighlights: string[];
+  awarenessDate: string;
+  awarenessPrefix: string;
+  awarenessProgramTitle: string;
+  awarenessSpeaker: string;
+  communityTotal: number;
+  communityCaption: string;
+  studentsCount: number;
+  professionalsCount: number;
+  discoveryHighlight: string;
+  discoveryBody: string;
+  discoveryPercent: number;
+  locationsLead: string;
+  locationPrimary: string;
+  locationSecondary: string;
+  extraLocations: string[];
+  welcomeStatement: string;
+  thankYouStatement: string;
+  closingStatement: string;
+  closingCtaLabel: string;
+  customStats: string[];
+};
+
+export type WrappedConfigRecord = WrappedConfigInput & {
+  exists: boolean;
+  updatedAtMs?: number;
+};
+
+export const DEFAULT_WRAPPED_CONFIG: WrappedConfigInput = {
+  enabled: true,
+  showInFooter: true,
+  homeBannerEnabled: true,
+  homeCountdownEnabled: false,
+  yearLabel: "2026",
+  eyebrow: "Annual Review · 2026",
+  pageTitle: "TTA Year Wrapped 2026",
+  pageSubtitle: "Our first year, in conversations. Tap through to see what we built together.",
+  shareCaption:
+    "Our first year at The Thinking Architects, in conversations. Around 300 people registered, 76 joined the community, and we're just getting started.",
+  offlineTitle: "TTA Year Wrapped is currently offline",
+  offlineMessage:
+    "We are putting together the next edition of our annual review. Join the community to get notified the moment it goes live.",
+  homeBannerEyebrow: "TTA Year Wrapped · 2026",
+  homeBannerTitle: "Our first year, in conversations.",
+  homeBannerCtaLabel: "Open Wrapped",
+  launchDateIso: "2026-12-20T18:00:00Z",
+  coverTitle: "TTA Year Wrapped 2026",
+  coverSubtitle: "Our first year, in conversations.",
+  startLead: "In January 2026, we started with one idea:",
+  startStatement: "nobody should have to figure this profession out alone.",
+  audienceCount: 300,
+  audiencePrefix: "~",
+  audienceSuffix: "",
+  audienceCaption: "people registered for at least one of our events.",
+  returningCount: 50,
+  returningSuffix: "+",
+  returningCaption: "registered for more than one session.",
+  sessionsHeading: "Real conversations with practising architects.",
+  sessionHighlights: [
+    "Apr 18 | Building Your Name Before You Build Buildings, with Sana Tabassum",
+    "May 30 | The Project That Broke Me, and What I Built After, with Arc. Stephen Iyobosa Omwanghe",
+    "Sep 26 | Career-Proofing: How Architects Stay Relevant and Resilient, with Arc. Ololade Babajide Suleiman and Dr. Burabari Akpe Nwako",
+  ],
+  awarenessDate: "Nov 14",
+  awarenessPrefix: "we walked students and early-career architects through ARCON registration in",
+  awarenessProgramTitle: "Pathway to Practice",
+  awarenessSpeaker: "with Arc. Agboola Tomiloba Matthew.",
+  communityTotal: 76,
+  communityCaption: "members have joined the community.",
+  studentsCount: 40,
+  professionalsCount: 26,
+  discoveryHighlight: "More than half",
+  discoveryBody: "of our members joined after attending a Think Session.",
+  discoveryPercent: 58,
+  locationsLead: "Members from across Nigeria, led by",
+  locationPrimary: "Lagos",
+  locationSecondary: "Oyo",
+  extraLocations: [],
+  welcomeStatement:
+    "Every new member gets a welcome email from us. Nobody joins and hears nothing.",
+  thankYouStatement:
+    "To our guests, our team, and everyone who showed up and asked a question: thank you.",
+  closingStatement: "More sessions. More conversations. See you in 2027.",
+  closingCtaLabel: "Join the community",
+  customStats: [],
 };
 
 export type SessionInput = {
@@ -195,12 +355,24 @@ function clampStr(val: string, max: number): string {
   return val.trim().slice(0, max);
 }
 
+function clampInt(val: number, min = 0, max = 10000000): number {
+  if (!Number.isFinite(val)) return min;
+  return Math.max(min, Math.min(max, Math.round(val)));
+}
+
 function sanitizeStringArray(arr: string[], maxItems: number, maxLen: number): string[] {
   const cleaned = arr
     .map((item) => item.trim().slice(0, maxLen))
     .filter((item) => item.length > 0)
     .slice(0, maxItems);
   return cleaned.length > 0 ? cleaned : ["Open member Q&A"];
+}
+
+function sanitizeOptionalStringArray(arr: string[], maxItems: number, maxLen: number): string[] {
+  return arr
+    .map((item) => item.trim().slice(0, maxLen))
+    .filter((item) => item.length > 0)
+    .slice(0, maxItems);
 }
 
 export function validateSessionInput(input: SessionInput): string | null {
@@ -254,7 +426,51 @@ export function validateSiteSettingsInput(input: SiteSettingsInput): string | nu
   return null;
 }
 
-function mapSessionDoc(id: string, data: Record<string, unknown>): FirestoreSessionRecord {
+export function validateWrappedConfigInput(input: WrappedConfigInput): string | null {
+  const L = BLUEPRINT_LIMITS.wrapped;
+  if (input.yearLabel.trim().length < L.yearLabel.min) return "Year label is required.";
+  if (input.eyebrow.trim().length < L.eyebrow.min) return "Eyebrow label is required.";
+  if (input.pageTitle.trim().length < L.pageTitle.min) return "Page title must be at least 2 characters.";
+  if (input.pageSubtitle.trim().length < L.pageSubtitle.min) return "Page subtitle must be at least 2 characters.";
+  if (input.shareCaption.trim().length < L.shareCaption.min) return "Share caption must be at least 10 characters.";
+  if (input.offlineTitle.trim().length < L.offlineTitle.min) return "Offline headline must be at least 2 characters.";
+  if (input.offlineMessage.trim().length < L.offlineMessage.min) return "Offline message must be at least 2 characters.";
+  if (input.homeBannerEyebrow.trim().length < L.homeBannerEyebrow.min) return "Home banner eyebrow is required.";
+  if (input.homeBannerTitle.trim().length < L.homeBannerTitle.min) return "Home banner title must be at least 2 characters.";
+  if (input.homeBannerCtaLabel.trim().length < L.homeBannerCtaLabel.min) return "Home banner CTA label is required.";
+  const iso = input.launchDateIso.trim();
+  if (iso && !BLUEPRINT_LIMITS.isoDatePattern.test(iso)) {
+    return "Launch date must be ISO-8601 format (e.g. 2026-12-20T18:00:00Z) or left blank.";
+  }
+  if (input.coverTitle.trim().length < L.coverTitle.min) return "Cover title must be at least 2 characters.";
+  if (input.coverSubtitle.trim().length < L.coverSubtitle.min) return "Cover subtitle must be at least 2 characters.";
+  if (input.startLead.trim().length < L.startLead.min) return "Start lead must be at least 2 characters.";
+  if (input.startStatement.trim().length < L.startStatement.min) return "Start statement must be at least 2 characters.";
+  if (input.audienceCaption.trim().length < L.audienceCaption.min) return "Audience caption must be at least 2 characters.";
+  if (input.returningCaption.trim().length < L.returningCaption.min) return "Returning caption must be at least 2 characters.";
+  if (input.sessionsHeading.trim().length < L.sessionsHeading.min) return "Sessions heading must be at least 2 characters.";
+  if (input.awarenessDate.trim().length < L.awarenessDate.min) return "Awareness date is required.";
+  if (input.awarenessPrefix.trim().length < L.awarenessPrefix.min) return "Awareness intro must be at least 2 characters.";
+  if (input.awarenessProgramTitle.trim().length < L.awarenessProgramTitle.min) return "Awareness program title must be at least 2 characters.";
+  if (input.awarenessSpeaker.trim().length < L.awarenessSpeaker.min) return "Awareness speaker attribution must be at least 2 characters.";
+  if (input.communityCaption.trim().length < L.communityCaption.min) return "Community caption must be at least 2 characters.";
+  if (input.discoveryHighlight.trim().length < L.discoveryHighlight.min) return "Discovery highlight must be at least 2 characters.";
+  if (input.discoveryBody.trim().length < L.discoveryBody.min) return "Discovery body must be at least 2 characters.";
+  if (input.discoveryPercent < 1 || input.discoveryPercent > 100) return "Discovery percent must be between 1 and 100.";
+  if (input.locationsLead.trim().length < L.locationsLead.min) return "Locations lead must be at least 2 characters.";
+  if (input.locationPrimary.trim().length < L.locationPrimary.min) return "Primary location is required.";
+  if (input.welcomeStatement.trim().length < L.welcomeStatement.min) return "Welcome statement must be at least 2 characters.";
+  if (input.thankYouStatement.trim().length < L.thankYouStatement.min) return "Thank you statement must be at least 2 characters.";
+  if (input.closingStatement.trim().length < L.closingStatement.min) return "Closing statement must be at least 2 characters.";
+  if (input.closingCtaLabel.trim().length < L.closingCtaLabel.min) return "Closing CTA label must be at least 2 characters.";
+  return null;
+}
+
+function mapSessionDoc(
+  id: string,
+  data: Record<string, unknown>,
+  sourceDb: "primary" | "legacy" = "primary",
+): FirestoreSessionRecord {
   const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
   return {
     id,
@@ -273,10 +489,15 @@ function mapSessionDoc(id: string, data: Record<string, unknown>): FirestoreSess
     registrationUrl: String(data.registrationUrl ?? ""),
     createdBy: String(data.createdBy ?? ""),
     updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+    sourceDb,
   };
 }
 
-function mapMediaDoc(id: string, data: Record<string, unknown>): FirestoreMediaRecord {
+function mapMediaDoc(
+  id: string,
+  data: Record<string, unknown>,
+  sourceDb: "primary" | "legacy" = "primary",
+): FirestoreMediaRecord {
   const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
   return {
     id,
@@ -292,10 +513,84 @@ function mapMediaDoc(id: string, data: Record<string, unknown>): FirestoreMediaR
     highlights: Array.isArray(data.highlights) ? data.highlights.map(String) : [],
     createdBy: String(data.createdBy ?? ""),
     updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+    sourceDb,
   };
 }
 
-// --- Public Live Subscriptions & Queries (strictly filtered by published == true per Pillar 8) ---
+function mapWrappedConfigDoc(data: Record<string, unknown>): WrappedConfigRecord {
+  const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
+  const d = DEFAULT_WRAPPED_CONFIG;
+  return {
+    exists: true,
+    enabled: typeof data.enabled === "boolean" ? data.enabled : d.enabled,
+    showInFooter: typeof data.showInFooter === "boolean" ? data.showInFooter : d.showInFooter,
+    homeBannerEnabled:
+      typeof data.homeBannerEnabled === "boolean" ? data.homeBannerEnabled : d.homeBannerEnabled,
+    homeCountdownEnabled:
+      typeof data.homeCountdownEnabled === "boolean"
+        ? data.homeCountdownEnabled
+        : d.homeCountdownEnabled,
+    yearLabel: String(data.yearLabel ?? d.yearLabel),
+    eyebrow: String(data.eyebrow ?? d.eyebrow),
+    pageTitle: String(data.pageTitle ?? d.pageTitle),
+    pageSubtitle: String(data.pageSubtitle ?? d.pageSubtitle),
+    shareCaption: String(data.shareCaption ?? d.shareCaption),
+    offlineTitle: String(data.offlineTitle ?? d.offlineTitle),
+    offlineMessage: String(data.offlineMessage ?? d.offlineMessage),
+    homeBannerEyebrow: String(data.homeBannerEyebrow ?? d.homeBannerEyebrow),
+    homeBannerTitle: String(data.homeBannerTitle ?? d.homeBannerTitle),
+    homeBannerCtaLabel: String(data.homeBannerCtaLabel ?? d.homeBannerCtaLabel),
+    launchDateIso: String(data.launchDateIso ?? d.launchDateIso),
+    coverTitle: String(data.coverTitle ?? d.coverTitle),
+    coverSubtitle: String(data.coverSubtitle ?? d.coverSubtitle),
+    startLead: String(data.startLead ?? d.startLead),
+    startStatement: String(data.startStatement ?? d.startStatement),
+    audienceCount:
+      typeof data.audienceCount === "number" ? data.audienceCount : d.audienceCount,
+    audiencePrefix: String(data.audiencePrefix ?? d.audiencePrefix),
+    audienceSuffix: String(data.audienceSuffix ?? d.audienceSuffix),
+    audienceCaption: String(data.audienceCaption ?? d.audienceCaption),
+    returningCount:
+      typeof data.returningCount === "number" ? data.returningCount : d.returningCount,
+    returningSuffix: String(data.returningSuffix ?? d.returningSuffix),
+    returningCaption: String(data.returningCaption ?? d.returningCaption),
+    sessionsHeading: String(data.sessionsHeading ?? d.sessionsHeading),
+    sessionHighlights: Array.isArray(data.sessionHighlights)
+      ? data.sessionHighlights.map(String)
+      : d.sessionHighlights,
+    awarenessDate: String(data.awarenessDate ?? d.awarenessDate),
+    awarenessPrefix: String(data.awarenessPrefix ?? d.awarenessPrefix),
+    awarenessProgramTitle: String(data.awarenessProgramTitle ?? d.awarenessProgramTitle),
+    awarenessSpeaker: String(data.awarenessSpeaker ?? d.awarenessSpeaker),
+    communityTotal:
+      typeof data.communityTotal === "number" ? data.communityTotal : d.communityTotal,
+    communityCaption: String(data.communityCaption ?? d.communityCaption),
+    studentsCount:
+      typeof data.studentsCount === "number" ? data.studentsCount : d.studentsCount,
+    professionalsCount:
+      typeof data.professionalsCount === "number"
+        ? data.professionalsCount
+        : d.professionalsCount,
+    discoveryHighlight: String(data.discoveryHighlight ?? d.discoveryHighlight),
+    discoveryBody: String(data.discoveryBody ?? d.discoveryBody),
+    discoveryPercent:
+      typeof data.discoveryPercent === "number" ? data.discoveryPercent : d.discoveryPercent,
+    locationsLead: String(data.locationsLead ?? d.locationsLead),
+    locationPrimary: String(data.locationPrimary ?? d.locationPrimary),
+    locationSecondary: String(data.locationSecondary ?? d.locationSecondary),
+    extraLocations: Array.isArray(data.extraLocations)
+      ? data.extraLocations.map(String)
+      : d.extraLocations,
+    welcomeStatement: String(data.welcomeStatement ?? d.welcomeStatement),
+    thankYouStatement: String(data.thankYouStatement ?? d.thankYouStatement),
+    closingStatement: String(data.closingStatement ?? d.closingStatement),
+    closingCtaLabel: String(data.closingCtaLabel ?? d.closingCtaLabel),
+    customStats: Array.isArray(data.customStats) ? data.customStats.map(String) : d.customStats,
+    updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+  };
+}
+
+// --- Public Live Subscriptions & Dual-DB Merging (Primary + Legacy active DB) ---
 
 function sortPublishedSessions(items: FirestoreSessionRecord[]): FirestoreSessionRecord[] {
   return [...items].sort((a, b) => {
@@ -305,69 +600,173 @@ function sortPublishedSessions(items: FirestoreSessionRecord[]): FirestoreSessio
   });
 }
 
+function mergeById<T extends { id: string }>(legacyList: T[], primaryList: T[]): T[] {
+  const byId = new Map<string, T>();
+  for (const item of legacyList) {
+    byId.set(item.id, item);
+  }
+  for (const item of primaryList) {
+    byId.set(item.id, item);
+  }
+  return Array.from(byId.values());
+}
+
 export function subscribePublishedSessions(
   onData: (items: FirestoreSessionRecord[]) => void,
   onError: (err: Error) => void,
 ): Unsubscribe {
-  const q = query(collection(db, "sessions"), where("published", "==", true));
-  return onSnapshot(
-    q,
+  let primaryItems: FirestoreSessionRecord[] = [];
+  let legacyItems: FirestoreSessionRecord[] = [];
+  let primaryFailed = false;
+  let legacyFailed = false;
+
+  const emit = () => {
+    onData(sortPublishedSessions(mergeById(legacyItems, primaryItems)));
+  };
+
+  const unsubPrimary = onSnapshot(
+    query(collection(db, "sessions"), where("published", "==", true)),
     (snap) => {
-      const list = sortPublishedSessions(
-        snap.docs.map((d) => mapSessionDoc(d.id, d.data())),
-      );
-      onData(list);
+      primaryFailed = false;
+      primaryItems = snap.docs.map((d) => mapSessionDoc(d.id, d.data(), "primary"));
+      emit();
     },
     (error) => {
+      primaryFailed = true;
       const structured = captureFirestoreError(error, OperationType.LIST, "sessions");
-      onError(structured);
+      if (legacyFailed) {
+        onError(structured);
+      } else {
+        console.warn("Primary sessions listener error (falling back to legacy):", structured.message);
+      }
     },
   );
+
+  const unsubLegacy = onSnapshot(
+    query(collection(legacyDb, "sessions"), where("published", "==", true)),
+    (snap) => {
+      legacyFailed = false;
+      legacyItems = snap.docs.map((d) => mapSessionDoc(d.id, d.data(), "legacy"));
+      emit();
+    },
+    (error) => {
+      legacyFailed = true;
+      console.warn("Legacy sessions listener error:", error);
+      if (primaryFailed) {
+        onError(captureFirestoreError(error, OperationType.LIST, "legacy:sessions"));
+      }
+    },
+  );
+
+  return () => {
+    unsubPrimary();
+    unsubLegacy();
+  };
 }
 
 export function subscribePublishedMedia(
   onData: (items: FirestoreMediaRecord[]) => void,
   onError: (err: Error) => void,
 ): Unsubscribe {
-  const q = query(collection(db, "media"), where("published", "==", true));
-  return onSnapshot(
-    q,
+  let primaryItems: FirestoreMediaRecord[] = [];
+  let legacyItems: FirestoreMediaRecord[] = [];
+  let primaryFailed = false;
+  let legacyFailed = false;
+
+  const emit = () => {
+    const merged = mergeById(legacyItems, primaryItems).sort(
+      (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
+    );
+    onData(merged);
+  };
+
+  const unsubPrimary = onSnapshot(
+    query(collection(db, "media"), where("published", "==", true)),
     (snap) => {
-      const list = snap.docs
-        .map((d) => mapMediaDoc(d.id, d.data()))
-        .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0));
-      onData(list);
+      primaryFailed = false;
+      primaryItems = snap.docs.map((d) => mapMediaDoc(d.id, d.data(), "primary"));
+      emit();
     },
     (error) => {
+      primaryFailed = true;
       const structured = captureFirestoreError(error, OperationType.LIST, "media");
-      onError(structured);
+      if (legacyFailed) {
+        onError(structured);
+      } else {
+        console.warn("Primary media listener error (falling back to legacy):", structured.message);
+      }
     },
   );
+
+  const unsubLegacy = onSnapshot(
+    query(collection(legacyDb, "media"), where("published", "==", true)),
+    (snap) => {
+      legacyFailed = false;
+      legacyItems = snap.docs.map((d) => mapMediaDoc(d.id, d.data(), "legacy"));
+      emit();
+    },
+    (error) => {
+      legacyFailed = true;
+      console.warn("Legacy media listener error:", error);
+      if (primaryFailed) {
+        onError(captureFirestoreError(error, OperationType.LIST, "legacy:media"));
+      }
+    },
+  );
+
+  return () => {
+    unsubPrimary();
+    unsubLegacy();
+  };
 }
 
 export async function fetchPublishedSessions(): Promise<FirestoreSessionRecord[]> {
-  const q = query(collection(db, "sessions"), where("published", "==", true));
-  try {
-    const snap = await getDocs(q);
-    return sortPublishedSessions(snap.docs.map((d) => mapSessionDoc(d.id, d.data())));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, "sessions");
+  const [primaryRes, legacyRes] = await Promise.allSettled([
+    getDocs(query(collection(db, "sessions"), where("published", "==", true))),
+    getDocs(query(collection(legacyDb, "sessions"), where("published", "==", true))),
+  ]);
+
+  if (primaryRes.status === "rejected" && legacyRes.status === "rejected") {
+    handleFirestoreError(primaryRes.reason, OperationType.LIST, "sessions");
   }
+
+  const primaryItems =
+    primaryRes.status === "fulfilled"
+      ? primaryRes.value.docs.map((d) => mapSessionDoc(d.id, d.data(), "primary"))
+      : [];
+  const legacyItems =
+    legacyRes.status === "fulfilled"
+      ? legacyRes.value.docs.map((d) => mapSessionDoc(d.id, d.data(), "legacy"))
+      : [];
+
+  return sortPublishedSessions(mergeById(legacyItems, primaryItems));
 }
 
 export async function fetchPublishedMedia(): Promise<FirestoreMediaRecord[]> {
-  const q = query(collection(db, "media"), where("published", "==", true));
-  try {
-    const snap = await getDocs(q);
-    return snap.docs
-      .map((d) => mapMediaDoc(d.id, d.data()))
-      .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, "media");
+  const [primaryRes, legacyRes] = await Promise.allSettled([
+    getDocs(query(collection(db, "media"), where("published", "==", true))),
+    getDocs(query(collection(legacyDb, "media"), where("published", "==", true))),
+  ]);
+
+  if (primaryRes.status === "rejected" && legacyRes.status === "rejected") {
+    handleFirestoreError(primaryRes.reason, OperationType.LIST, "media");
   }
+
+  const primaryItems =
+    primaryRes.status === "fulfilled"
+      ? primaryRes.value.docs.map((d) => mapMediaDoc(d.id, d.data(), "primary"))
+      : [];
+  const legacyItems =
+    legacyRes.status === "fulfilled"
+      ? legacyRes.value.docs.map((d) => mapMediaDoc(d.id, d.data(), "legacy"))
+      : [];
+
+  return mergeById(legacyItems, primaryItems).sort(
+    (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
+  );
 }
 
-// --- Admin Subscriptions (only attached when authenticated admin) ---
+// --- Admin Subscriptions (primary DB) & Legacy Snapshot ---
 
 export function subscribeAllSessions(
   onData: (items: FirestoreSessionRecord[]) => void,
@@ -377,7 +776,7 @@ export function subscribeAllSessions(
     collection(db, "sessions"),
     (snap) => {
       const list = sortPublishedSessions(
-        snap.docs.map((d) => mapSessionDoc(d.id, d.data())),
+        snap.docs.map((d) => mapSessionDoc(d.id, d.data(), "primary")),
       );
       onData(list);
     },
@@ -396,7 +795,7 @@ export function subscribeAllMedia(
     collection(db, "media"),
     (snap) => {
       const list = snap.docs
-        .map((d) => mapMediaDoc(d.id, d.data()))
+        .map((d) => mapMediaDoc(d.id, d.data(), "primary"))
         .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0));
       onData(list);
     },
@@ -432,7 +831,126 @@ export function subscribeAdmins(
   );
 }
 
-// --- Admin Mutations ---
+export async function syncLegacyContentToPrimary(): Promise<{
+  sessionsImported: number;
+  mediaImported: number;
+  settingsImported: boolean;
+}> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Authentication required.");
+
+  const [legacySessionsSnap, legacyMediaSnap, legacySettingsSnap] = await Promise.all([
+    getDocs(query(collection(legacyDb, "sessions"), where("published", "==", true))),
+    getDocs(query(collection(legacyDb, "media"), where("published", "==", true))),
+    getDoc(doc(legacyDb, "siteSettings", "public")),
+  ]);
+
+  const [existingSessionsSnap, existingMediaSnap, existingSettingsSnap] = await Promise.all([
+    getDocs(collection(db, "sessions")),
+    getDocs(collection(db, "media")),
+    getDoc(doc(db, "siteSettings", "public")),
+  ]);
+
+  const existingSessionIds = new Set(existingSessionsSnap.docs.map((d) => d.id));
+  const existingMediaIds = new Set(existingMediaSnap.docs.map((d) => d.id));
+
+  let sessionsImported = 0;
+  let mediaImported = 0;
+  let settingsImported = false;
+
+  const batch = writeBatch(db);
+  const SL = BLUEPRINT_LIMITS.session;
+  for (const sDoc of legacySessionsSnap.docs) {
+    if (existingSessionIds.has(sDoc.id) || !BLUEPRINT_LIMITS.idPattern.test(sDoc.id)) continue;
+    const raw = sDoc.data();
+    const regUrl = clampStr(String(raw.registrationUrl ?? ""), SL.registrationUrl.max);
+    batch.set(doc(db, "sessions", sDoc.id), {
+      number: clampStr(String(raw.number ?? "Session"), SL.number.max).padEnd(SL.number.min, " "),
+      title: clampStr(String(raw.title ?? "Untitled Session"), SL.title.max),
+      speaker: clampStr(String(raw.speaker ?? "Guest Speaker"), SL.speaker.max),
+      speakerRole: clampStr(String(raw.speakerRole ?? "Architect"), SL.speakerRole.max),
+      dateLabel: clampStr(String(raw.dateLabel ?? "Monthly"), SL.dateLabel.max),
+      timeLabel: clampStr(String(raw.timeLabel ?? "6:00 PM WAT"), SL.timeLabel.max),
+      format: clampStr(String(raw.format ?? "Live Session"), SL.format.max),
+      status: raw.status === "archived" ? "archived" : "upcoming",
+      isNextSession: Boolean(raw.isNextSession),
+      published: true,
+      summary: clampStr(
+        String(raw.summary ?? "Think Session conversation.").padEnd(SL.summary.min, "."),
+        SL.summary.max,
+      ),
+      topics: sanitizeStringArray(
+        Array.isArray(raw.topics) ? raw.topics.map(String) : ["Open Q&A"],
+        SL.maxTopics,
+        SL.topicMaxLength,
+      ),
+      registrationUrl: BLUEPRINT_LIMITS.httpsPattern.test(regUrl) ? regUrl : "",
+      createdBy: uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    sessionsImported += 1;
+  }
+
+  const ML = BLUEPRINT_LIMITS.media;
+  for (const mDoc of legacyMediaSnap.docs) {
+    if (existingMediaIds.has(mDoc.id) || !BLUEPRINT_LIMITS.idPattern.test(mDoc.id)) continue;
+    const raw = mDoc.data();
+    const mediaUrl = clampStr(String(raw.mediaUrl ?? ""), ML.mediaUrl.max);
+    batch.set(doc(db, "media", mDoc.id), {
+      kind: raw.kind === "Feature" ? "Feature" : "Recording",
+      sessionRef: clampStr(String(raw.sessionRef ?? "Think Session"), ML.sessionRef.max),
+      title: clampStr(String(raw.title ?? "Session Recording"), ML.title.max),
+      speaker: clampStr(String(raw.speaker ?? "Guest Speaker"), ML.speaker.max),
+      duration: clampStr(String(raw.duration ?? "60 mins"), ML.duration.max),
+      publishedAt: clampStr(String(raw.publishedAt ?? "Archive"), ML.publishedAt.max),
+      mediaUrl: BLUEPRINT_LIMITS.httpsPattern.test(mediaUrl) ? mediaUrl : "",
+      published: true,
+      summary: clampStr(
+        String(raw.summary ?? "Session recording summary.").padEnd(ML.summary.min, "."),
+        ML.summary.max,
+      ),
+      highlights: sanitizeStringArray(
+        Array.isArray(raw.highlights) ? raw.highlights.map(String) : ["Session highlights"],
+        ML.maxHighlights,
+        ML.highlightMaxLength,
+      ),
+      createdBy: uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    mediaImported += 1;
+  }
+
+  if (legacySettingsSnap.exists() && !existingSettingsSnap.exists()) {
+    const raw = legacySettingsSnap.data();
+    const safeUrl = (val: unknown) => {
+      const str = clampStr(String(val ?? ""), BLUEPRINT_LIMITS.siteSettings.url.max);
+      return BLUEPRINT_LIMITS.httpsPattern.test(str) ? str : "";
+    };
+    batch.set(doc(db, "siteSettings", "public"), {
+      instagramUrl: safeUrl(raw.instagramUrl),
+      xUrl: safeUrl(raw.xUrl),
+      linkedinUrl: safeUrl(raw.linkedinUrl),
+      youtubeUrl: safeUrl(raw.youtubeUrl),
+      updatedBy: uid,
+      updatedAt: serverTimestamp(),
+    });
+    settingsImported = true;
+  }
+
+  if (sessionsImported > 0 || mediaImported > 0 || settingsImported) {
+    try {
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, "legacy-sync");
+    }
+  }
+
+  return { sessionsImported, mediaImported, settingsImported };
+}
+
+// --- Admin Mutations (Primary DB) ---
 
 export async function saveSession(input: SessionInput, allExisting: FirestoreSessionRecord[]) {
   const uid = auth.currentUser?.uid;
@@ -710,39 +1228,108 @@ export async function removeSubscriber(subscriberId: string) {
   }
 }
 
-// --- Public Site Settings (/siteSettings/public) ---
+// --- Public Site Settings (/siteSettings/public, merged Primary + Legacy) ---
 
 export function subscribeSiteSettings(
   onData: (settings: SiteSettingsRecord) => void,
   onError?: (err: Error) => void,
 ): Unsubscribe {
-  return onSnapshot(
+  let primaryData: SiteSettingsRecord = {
+    instagramUrl: "",
+    xUrl: "",
+    linkedinUrl: "",
+    youtubeUrl: "",
+    exists: false,
+  };
+  let legacyData: SiteSettingsRecord = {
+    instagramUrl: "",
+    xUrl: "",
+    linkedinUrl: "",
+    youtubeUrl: "",
+    exists: false,
+  };
+  let primaryFailed = false;
+  let legacyFailed = false;
+
+  const emit = () => {
+    onData({
+      instagramUrl: primaryData.instagramUrl || legacyData.instagramUrl,
+      xUrl: primaryData.xUrl || legacyData.xUrl,
+      linkedinUrl: primaryData.linkedinUrl || legacyData.linkedinUrl,
+      youtubeUrl: primaryData.youtubeUrl || legacyData.youtubeUrl,
+      exists: primaryData.exists || legacyData.exists,
+    });
+  };
+
+  const unsubPrimary = onSnapshot(
     doc(db, "siteSettings", "public"),
     (snap) => {
+      primaryFailed = false;
       if (!snap.exists()) {
-        onData({
+        primaryData = {
           instagramUrl: "",
           xUrl: "",
           linkedinUrl: "",
           youtubeUrl: "",
           exists: false,
-        });
-        return;
+        };
+      } else {
+        const data = snap.data();
+        primaryData = {
+          instagramUrl: String(data.instagramUrl ?? ""),
+          xUrl: String(data.xUrl ?? ""),
+          linkedinUrl: String(data.linkedinUrl ?? ""),
+          youtubeUrl: String(data.youtubeUrl ?? ""),
+          exists: true,
+        };
       }
-      const data = snap.data();
-      onData({
-        instagramUrl: String(data.instagramUrl ?? ""),
-        xUrl: String(data.xUrl ?? ""),
-        linkedinUrl: String(data.linkedinUrl ?? ""),
-        youtubeUrl: String(data.youtubeUrl ?? ""),
-        exists: true,
-      });
+      emit();
     },
     (error) => {
+      primaryFailed = true;
       const structured = captureFirestoreError(error, OperationType.GET, "siteSettings/public");
-      if (onError) onError(structured);
+      if (legacyFailed && onError) {
+        onError(structured);
+      }
     },
   );
+
+  const unsubLegacy = onSnapshot(
+    doc(legacyDb, "siteSettings", "public"),
+    (snap) => {
+      legacyFailed = false;
+      if (!snap.exists()) {
+        legacyData = {
+          instagramUrl: "",
+          xUrl: "",
+          linkedinUrl: "",
+          youtubeUrl: "",
+          exists: false,
+        };
+      } else {
+        const data = snap.data();
+        legacyData = {
+          instagramUrl: String(data.instagramUrl ?? ""),
+          xUrl: String(data.xUrl ?? ""),
+          linkedinUrl: String(data.linkedinUrl ?? ""),
+          youtubeUrl: String(data.youtubeUrl ?? ""),
+          exists: true,
+        };
+      }
+      emit();
+    },
+    (error) => {
+      legacyFailed = true;
+      if (primaryFailed && onError) {
+        onError(captureFirestoreError(error, OperationType.GET, "legacy:siteSettings/public"));
+      }
+    },
+  );
+
+  return () => {
+    unsubPrimary();
+    unsubLegacy();
+  };
 }
 
 export async function saveSiteSettings(input: SiteSettingsInput) {
@@ -764,6 +1351,114 @@ export async function saveSiteSettings(input: SiteSettingsInput) {
   try {
     const existing = await getDoc(ref);
     if (existing.exists()) {
+      await updateDoc(ref, payload);
+    } else {
+      await setDoc(ref, payload);
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+// --- Public Wrapped CMS Configuration (/wrappedConfig/public in Primary DB) ---
+
+export function subscribeWrappedConfig(
+  onData: (config: WrappedConfigRecord) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, "wrappedConfig", "public"),
+    (snap) => {
+      if (!snap.exists()) {
+        onData({ ...DEFAULT_WRAPPED_CONFIG, exists: false });
+        return;
+      }
+      onData(mapWrappedConfigDoc(snap.data()));
+    },
+    (error) => {
+      const structured = captureFirestoreError(error, OperationType.GET, "wrappedConfig/public");
+      if (onError) onError(structured);
+    },
+  );
+}
+
+export async function saveWrappedConfig(input: WrappedConfigInput) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Authentication required.");
+
+  const L = BLUEPRINT_LIMITS.wrapped;
+  const isoTrimmed = clampStr(input.launchDateIso, L.launchDateIso.max);
+
+  const payload = {
+    enabled: Boolean(input.enabled),
+    showInFooter: Boolean(input.showInFooter),
+    homeBannerEnabled: Boolean(input.homeBannerEnabled),
+    homeCountdownEnabled: Boolean(input.homeCountdownEnabled),
+    yearLabel: clampStr(input.yearLabel, L.yearLabel.max),
+    eyebrow: clampStr(input.eyebrow, L.eyebrow.max),
+    pageTitle: clampStr(input.pageTitle, L.pageTitle.max),
+    pageSubtitle: clampStr(input.pageSubtitle, L.pageSubtitle.max),
+    shareCaption: clampStr(input.shareCaption, L.shareCaption.max),
+    offlineTitle: clampStr(input.offlineTitle, L.offlineTitle.max),
+    offlineMessage: clampStr(input.offlineMessage, L.offlineMessage.max),
+    homeBannerEyebrow: clampStr(input.homeBannerEyebrow, L.homeBannerEyebrow.max),
+    homeBannerTitle: clampStr(input.homeBannerTitle, L.homeBannerTitle.max),
+    homeBannerCtaLabel: clampStr(input.homeBannerCtaLabel, L.homeBannerCtaLabel.max),
+    launchDateIso: BLUEPRINT_LIMITS.isoDatePattern.test(isoTrimmed) ? isoTrimmed : "",
+    coverTitle: clampStr(input.coverTitle, L.coverTitle.max),
+    coverSubtitle: clampStr(input.coverSubtitle, L.coverSubtitle.max),
+    startLead: clampStr(input.startLead, L.startLead.max),
+    startStatement: clampStr(input.startStatement, L.startStatement.max),
+    audienceCount: clampInt(input.audienceCount),
+    audiencePrefix: clampStr(input.audiencePrefix, L.prefixSuffixMax),
+    audienceSuffix: clampStr(input.audienceSuffix, L.prefixSuffixMax),
+    audienceCaption: clampStr(input.audienceCaption, L.audienceCaption.max),
+    returningCount: clampInt(input.returningCount),
+    returningSuffix: clampStr(input.returningSuffix, L.prefixSuffixMax),
+    returningCaption: clampStr(input.returningCaption, L.returningCaption.max),
+    sessionsHeading: clampStr(input.sessionsHeading, L.sessionsHeading.max),
+    sessionHighlights: sanitizeStringArray(
+      input.sessionHighlights,
+      L.maxSessionHighlights,
+      L.sessionHighlightMaxLength,
+    ),
+    awarenessDate: clampStr(input.awarenessDate, L.awarenessDate.max),
+    awarenessPrefix: clampStr(input.awarenessPrefix, L.awarenessPrefix.max),
+    awarenessProgramTitle: clampStr(input.awarenessProgramTitle, L.awarenessProgramTitle.max),
+    awarenessSpeaker: clampStr(input.awarenessSpeaker, L.awarenessSpeaker.max),
+    communityTotal: clampInt(input.communityTotal),
+    communityCaption: clampStr(input.communityCaption, L.communityCaption.max),
+    studentsCount: clampInt(input.studentsCount),
+    professionalsCount: clampInt(input.professionalsCount),
+    discoveryHighlight: clampStr(input.discoveryHighlight, L.discoveryHighlight.max),
+    discoveryBody: clampStr(input.discoveryBody, L.discoveryBody.max),
+    discoveryPercent: clampInt(input.discoveryPercent, 1, 100),
+    locationsLead: clampStr(input.locationsLead, L.locationsLead.max),
+    locationPrimary: clampStr(input.locationPrimary, L.locationPrimary.max),
+    locationSecondary: clampStr(input.locationSecondary, L.locationSecondary.max),
+    extraLocations: sanitizeOptionalStringArray(
+      input.extraLocations,
+      L.maxExtraLocations,
+      L.extraLocationMaxLength,
+    ),
+    welcomeStatement: clampStr(input.welcomeStatement, L.welcomeStatement.max),
+    thankYouStatement: clampStr(input.thankYouStatement, L.thankYouStatement.max),
+    closingStatement: clampStr(input.closingStatement, L.closingStatement.max),
+    closingCtaLabel: clampStr(input.closingCtaLabel, L.closingCtaLabel.max),
+    customStats: sanitizeOptionalStringArray(
+      input.customStats,
+      L.maxCustomStats,
+      L.customStatMaxLength,
+    ),
+    updatedBy: uid,
+    updatedAt: serverTimestamp(),
+  };
+
+  const ref = doc(db, "wrappedConfig", "public");
+  const path = "wrappedConfig/public";
+  try {
+    const existingSnap = await getDoc(ref);
+    if (existingSnap.exists()) {
       await updateDoc(ref, payload);
     } else {
       await setDoc(ref, payload);
