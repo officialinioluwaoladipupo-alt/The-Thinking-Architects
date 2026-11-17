@@ -69,6 +69,11 @@ import {
   type WrappedConfigInput,
   type WrappedEditionRecord,
 } from "../lib/firebaseContent";
+import {
+  formatTimezonePreview,
+  isoToWatDatetimeLocal,
+  watDatetimeLocalToIso,
+} from "../lib/sessionCalendar";
 import { TALLY_FORM_URL } from "../lib/tally";
 import AdminWrappedTab from "./AdminWrappedTab";
 import { useFirebase } from "./FirebaseProvider";
@@ -88,6 +93,8 @@ const emptySessionForm = (): SessionInput => ({
   summary: "",
   topics: ["What comes after design school"],
   registrationUrl: TALLY_FORM_URL,
+  startAtIso: "",
+  resources: [],
 });
 
 const emptyMediaForm = (): MediaInput => ({
@@ -239,6 +246,8 @@ function AdminConsoleInner() {
       summary: s.summary,
       topics: s.topics,
       registrationUrl: s.registrationUrl || TALLY_FORM_URL,
+      startAtIso: s.startAtIso || "",
+      resources: s.resources ? s.resources.map((r) => ({ ...r })) : [],
     });
     setSessionTopicsText(s.topics.join("\n"));
     setSessionError("");
@@ -351,6 +360,8 @@ function AdminConsoleInner() {
       summary: p.outline.slice(0, BLUEPRINT_LIMITS.session.summary.max),
       topics,
       registrationUrl: TALLY_FORM_URL,
+      startAtIso: "",
+      resources: p.linkUrl ? [{ label: "Speaker Portfolio / Link", url: p.linkUrl }] : [],
     });
     setSessionTopicsText(topics.join("\n"));
     setSessionError("");
@@ -946,6 +957,43 @@ function AdminConsoleInner() {
 
                       <div className="sm:col-span-2">
                         <label className="label-mono block text-[#111111]/65">
+                          Exact Start Date &amp; Time (WAT · unlocks Calendar + Auto-Timezone)
+                        </label>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <input
+                            type="datetime-local"
+                            value={isoToWatDatetimeLocal(sessionForm.startAtIso)}
+                            onChange={(e) =>
+                              setSessionForm((f) => ({
+                                ...f,
+                                startAtIso: watDatetimeLocalToIso(e.target.value),
+                              }))
+                            }
+                            className="h-11 flex-1 rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          />
+                          {sessionForm.startAtIso && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSessionForm((f) => ({ ...f, startAtIso: "" }))
+                              }
+                              className="label-mono h-11 cursor-pointer rounded-lg border border-black/10 bg-[#f7f6f4] px-3 text-[11px] text-[#111111]/70 hover:text-[#fe3619]"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        {sessionForm.startAtIso && (
+                          <p className="mt-1 font-mono text-[11px] text-[#111111]/55">
+                            WAT: {formatTimezonePreview(sessionForm.startAtIso, "Africa/Lagos")} ·
+                            London: {formatTimezonePreview(sessionForm.startAtIso, "Europe/London")} ·
+                            NY: {formatTimezonePreview(sessionForm.startAtIso, "America/New_York")}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="label-mono block text-[#111111]/65">
                           Summary ({sessionForm.summary.length}/
                           {BLUEPRINT_LIMITS.session.summary.max})
                         </label>
@@ -971,6 +1019,83 @@ function AdminConsoleInner() {
                           onChange={(e) => setSessionTopicsText(e.target.value)}
                           className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 font-mono text-[13px]"
                         />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <label className="label-mono block text-[#111111]/65">
+                            Companion Links &amp; Resources (0–{BLUEPRINT_LIMITS.session.maxResources})
+                          </label>
+                          {(sessionForm.resources?.length ?? 0) <
+                            BLUEPRINT_LIMITS.session.maxResources && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSessionForm((f) => ({
+                                  ...f,
+                                  resources: [...(f.resources ?? []), { label: "", url: "" }],
+                                }))
+                              }
+                              className="label-mono inline-flex cursor-pointer items-center gap-1 rounded-lg border border-black/12 bg-[#f7f6f4] px-3 py-1.5 text-[11px] text-[#111111] hover:bg-[#111111] hover:text-white"
+                            >
+                              <Plus className="h-3 w-3" aria-hidden="true" />
+                              <span>Add resource link</span>
+                            </button>
+                          )}
+                        </div>
+                        {(sessionForm.resources?.length ?? 0) === 0 ? (
+                          <p className="mt-1.5 text-[13px] text-[#111111]/55">
+                            Optional: attach ARCON/NIA guides, logbook templates, slides, or reading
+                            lists shown on the session detail page.
+                          </p>
+                        ) : (
+                          <div className="mt-2 space-y-2.5">
+                            {(sessionForm.resources ?? []).map((res, idx) => (
+                              <div
+                                key={idx}
+                                className="grid gap-2 rounded-lg border border-black/10 bg-[#f7f6f4] p-3 sm:grid-cols-[1fr_1.4fr_auto]"
+                              >
+                                <input
+                                  type="text"
+                                  maxLength={BLUEPRINT_LIMITS.session.resourceLabelMax}
+                                  placeholder="Label (e.g. ARCON Logbook Template)"
+                                  value={res.label}
+                                  onChange={(e) => {
+                                    const next = [...(sessionForm.resources ?? [])];
+                                    next[idx] = { ...next[idx], label: e.target.value };
+                                    setSessionForm((f) => ({ ...f, resources: next }));
+                                  }}
+                                  className="h-10 rounded-lg border border-black/10 bg-white px-3 text-[13.5px]"
+                                />
+                                <input
+                                  type="url"
+                                  maxLength={BLUEPRINT_LIMITS.session.resourceUrlMax}
+                                  placeholder="https://..."
+                                  value={res.url}
+                                  onChange={(e) => {
+                                    const next = [...(sessionForm.resources ?? [])];
+                                    next[idx] = { ...next[idx], url: e.target.value };
+                                    setSessionForm((f) => ({ ...f, resources: next }));
+                                  }}
+                                  className="h-10 rounded-lg border border-black/10 bg-white px-3 text-[13.5px]"
+                                />
+                                <button
+                                  type="button"
+                                  aria-label={`Remove resource ${idx + 1}`}
+                                  onClick={() => {
+                                    const next = (sessionForm.resources ?? []).filter(
+                                      (_, i) => i !== idx,
+                                    );
+                                    setSessionForm((f) => ({ ...f, resources: next }));
+                                  }}
+                                  className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-black/10 text-[#111111]/60 hover:border-[#fe3619] hover:text-[#fe3619]"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-6 sm:col-span-2">
@@ -1073,6 +1198,11 @@ function AdminConsoleInner() {
                               <span className="label-mono inline-flex min-h-[38px] items-center rounded-lg border border-black/10 bg-[#efeeec] px-4 py-2 text-[11px] text-[#111111]">
                                 View all sessions
                               </span>
+                              {sessionForm.startAtIso && (
+                                <span className="label-mono inline-flex min-h-[38px] items-center rounded-lg border border-black/10 bg-[#f7f6f4] px-3 py-2 text-[11px] text-[#111111]/75">
+                                  Calendar + .ics ready
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1135,6 +1265,8 @@ function AdminConsoleInner() {
                           </h3>
                           <p className="mt-1 font-mono text-[12px] text-[#111111]/60">
                             {s.speaker} · {s.dateLabel} · {s.timeLabel}
+                            {s.startAtIso ? " · Calendar sync ON" : ""}
+                            {s.resources.length > 0 ? ` · ${s.resources.length} resource(s)` : ""}
                           </p>
                         </div>
 

@@ -7,17 +7,29 @@ import {
   ExternalLink,
   Play,
   RotateCcw,
+  Search,
+  Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import type { YouTubeVideoItem } from "../app/api/youtube/route";
+import {
+  buildSpeakerDirectory,
+  DISCOVERY_TOPICS,
+  matchesDiscoveryTopic,
+  matchesSearchQuery,
+  speakerMatchesFilter,
+  type DiscoveryTopic,
+} from "../lib/archiveDiscovery";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
   subscribePublishedMedia,
+  subscribePublishedSessions,
   subscribeSiteSettings,
   type FirestoreMediaRecord,
+  type FirestoreSessionRecord,
 } from "../lib/firebaseContent";
 import { getEmbedInfo } from "../lib/mediaEmbed";
 import { CONTACT_EMAIL, triggerTallyPopup } from "../lib/tally";
@@ -25,6 +37,7 @@ import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
+import { TakeawayQuoteButton } from "./TakeawayQuoteButton";
 
 function MediaPageInner() {
   const searchParams = useSearchParams();
@@ -33,7 +46,11 @@ function MediaPageInner() {
 
   const [joinOpen, setJoinOpen] = useState(false);
   const [filter, setFilter] = useState<"All" | "Recording" | "Feature">("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTopic, setActiveTopic] = useState<DiscoveryTopic>("All");
+  const [activeSpeakerKey, setActiveSpeakerKey] = useState("");
   const [mediaList, setMediaList] = useState<FirestoreMediaRecord[]>([]);
+  const [sessionList, setSessionList] = useState<FirestoreSessionRecord[]>([]);
   const [youtubeUrl, setYoutubeUrl] = useState<string>("");
   const [youtubeVideos, setYoutubeVideos] = useState<YouTubeVideoItem[]>([]);
   const [youtubeLoading, setYoutubeLoading] = useState(false);
@@ -62,6 +79,16 @@ function MediaPageInner() {
       },
     );
 
+    const unsubSessions = subscribePublishedSessions(
+      (items) => {
+        if (!active) return;
+        setSessionList(items);
+      },
+      () => {
+        // Optional cross-reference for speaker directory
+      },
+    );
+
     const unsubSettings = subscribeSiteSettings(
       (settings) => {
         if (!active) return;
@@ -75,6 +102,7 @@ function MediaPageInner() {
     return () => {
       active = false;
       unsubMedia();
+      unsubSessions();
       unsubSettings();
     };
   }, [retryKey]);
@@ -149,8 +177,27 @@ function MediaPageInner() {
 
   const baseList = normalizedQuery && sessionMatched.length > 0 ? sessionMatched : mergedList;
 
-  const filtered =
-    filter === "All" ? baseList : baseList.filter((item) => item.kind === filter);
+  const filtered = baseList.filter((item) => {
+    if (filter !== "All" && item.kind !== filter) return false;
+    const corpus = [
+      item.sessionRef,
+      item.title,
+      item.speaker,
+      item.summary,
+      item.publishedAt,
+      ...item.highlights,
+    ];
+    return (
+      matchesSearchQuery(corpus, searchQuery) &&
+      matchesDiscoveryTopic(corpus, activeTopic) &&
+      speakerMatchesFilter(item.speaker, activeSpeakerKey)
+    );
+  });
+
+  const mediaSpeakerDirectory = buildSpeakerDirectory(sessionList, mergedList);
+  const hasMediaDiscoveryFilters = Boolean(
+    filter !== "All" || searchQuery.trim() || activeTopic !== "All" || activeSpeakerKey,
+  );
 
   const activeMedia = filtered.find((m) => m.id === activeMediaId) ?? filtered[0] ?? null;
 
@@ -231,6 +278,109 @@ function MediaPageInner() {
                 );
               })}
             </div>
+          </div>
+
+          {/* Search + Topic Tags + Speakers Directory Bar */}
+          <div className="mt-8 space-y-4 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-4 sm:p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative flex-1 lg:max-w-[380px]">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#111111]/45"
+                  aria-hidden="true"
+                />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search recordings, takeaways, or speakers..."
+                  aria-label="Search media archive"
+                  className="h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] pr-9 pl-10 text-[14px] text-[#111111] placeholder:text-[#111111]/45 focus:border-[#fe3619] focus:outline-none"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    aria-label="Clear search"
+                    className="absolute top-1/2 right-2.5 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-[#111111]/50 hover:text-[#111111]"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter media by topic">
+                {DISCOVERY_TOPICS.map((topic) => {
+                  const selected = activeTopic === topic;
+                  return (
+                    <button
+                      key={topic}
+                      type="button"
+                      onClick={() => setActiveTopic(topic)}
+                      className={`label-mono min-h-[38px] cursor-pointer rounded-lg border px-3.5 py-1.5 text-[11px] whitespace-nowrap transition-colors ${
+                        selected
+                          ? "border-[#111111] bg-[#111111] text-white"
+                          : "border-black/10 bg-[#f7f6f4] text-[#111111]/70 hover:border-black/25 hover:text-[#111111]"
+                      }`}
+                    >
+                      {topic}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {mediaSpeakerDirectory.length > 0 && (
+              <div className="border-t border-black/[0.08] pt-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.07em] text-[#111111]/60">
+                    <Users className="h-3.5 w-3.5 text-[#fe3619]" aria-hidden="true" />
+                    <span>Past Speakers</span>
+                  </span>
+                  {hasMediaDiscoveryFilters && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilter("All");
+                        setSearchQuery("");
+                        setActiveTopic("All");
+                        setActiveSpeakerKey("");
+                      }}
+                      className="label-mono cursor-pointer text-[11px] text-[#fe3619] hover:underline"
+                    >
+                      Reset filters ({filtered.length} shown)
+                    </button>
+                  )}
+                </div>
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {mediaSpeakerDirectory.map((sp) => {
+                    const selected = activeSpeakerKey === sp.key;
+                    return (
+                      <button
+                        key={sp.key}
+                        type="button"
+                        onClick={() =>
+                          setActiveSpeakerKey((prev) => (prev === sp.key ? "" : sp.key))
+                        }
+                        className={`inline-flex min-h-[34px] cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1 text-[12.5px] transition-colors ${
+                          selected
+                            ? "border-[#fe3619] bg-[#fe3619] text-white"
+                            : "border-black/10 bg-[#f7f6f4] text-[#111111]/80 hover:border-black/25 hover:text-[#111111]"
+                        }`}
+                      >
+                        <span className="font-medium">{sp.name}</span>
+                        <span
+                          className={`font-mono text-[10px] tabular-nums ${
+                            selected ? "text-white/85" : "text-[#111111]/45"
+                          }`}
+                        >
+                          {sp.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {sessionQuery && (
@@ -404,11 +554,27 @@ function MediaPageInner() {
 
                   <div className="mt-6 grid gap-3 border-t border-black/[0.08] pt-6 sm:grid-cols-3">
                     {activeMedia.highlights.map((note, idx) => (
-                      <div key={note} className="rounded-lg bg-[#f7f6f4] p-4">
-                        <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
-                          Key Takeaway 0{idx + 1}
-                        </span>
-                        <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{note}</p>
+                      <div
+                        key={note}
+                        className="flex flex-col justify-between gap-4 rounded-lg bg-[#f7f6f4] p-4"
+                      >
+                        <div>
+                          <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
+                            Key Takeaway 0{idx + 1}
+                          </span>
+                          <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{note}</p>
+                        </div>
+                        <TakeawayQuoteButton
+                          payload={{
+                            quote: note,
+                            label: `${activeMedia.sessionRef} · Key Takeaway 0${idx + 1}`,
+                            sourceTitle: activeMedia.title,
+                            speaker: activeMedia.speaker,
+                            metaLabel: `${activeMedia.kind} · ${activeMedia.publishedAt}`,
+                            fileSlug: `${activeMedia.id}-takeaway-${idx + 1}`,
+                          }}
+                          className="self-start"
+                        />
                       </div>
                     ))}
                   </div>
@@ -446,11 +612,16 @@ function MediaPageInner() {
                 {filtered.length === 0 ? (
                   <div className="rounded-xl border border-black/[0.08] bg-[#efeeec] p-8 text-center">
                     <p className="text-[15px] text-[#111111]/75">
-                      No {filter.toLowerCase()}s published in this category yet.
+                      No media items match your current search or filters.
                     </p>
                     <button
                       type="button"
-                      onClick={() => setFilter("All")}
+                      onClick={() => {
+                        setFilter("All");
+                        setSearchQuery("");
+                        setActiveTopic("All");
+                        setActiveSpeakerKey("");
+                      }}
                       className="label-mono mt-4 inline-flex min-h-[42px] cursor-pointer items-center rounded-lg bg-[#111111] px-5 py-2 text-white"
                     >
                       Show all recordings

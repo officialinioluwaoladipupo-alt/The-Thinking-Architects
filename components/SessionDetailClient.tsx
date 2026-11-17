@@ -7,6 +7,7 @@ import {
   Calendar,
   Clock,
   ExternalLink,
+  Link2,
   Play,
   RotateCcw,
   User,
@@ -25,8 +26,10 @@ import { CONTACT_EMAIL, TALLY_FORM_URL, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
 import PitchModal from "./PitchModal";
+import { SessionCalendarActions, SessionLocalTimeNote } from "./SessionCalendarActions";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
+import { TakeawayQuoteButton } from "./TakeawayQuoteButton";
 
 type SessionDetailClientProps = {
   sessionId: string;
@@ -216,11 +219,12 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                   <p className="mt-2.5 text-[1.15rem] font-medium tracking-[-0.015em]">
                     {session.dateLabel}
                   </p>
-                  <p className="mt-1 inline-flex items-center gap-1.5 font-mono text-[13px] tabular-nums text-[#111111]/70">
+                  <p className="mt-1 inline-flex flex-wrap items-center gap-1.5 font-mono text-[13px] tabular-nums text-[#111111]/70">
                     <Clock className="h-3.5 w-3.5 text-[#111111]/45" aria-hidden="true" />
                     <span>
                       {session.timeLabel} · {session.format}
                     </span>
+                    <SessionLocalTimeNote startAtIso={session.startAtIso} />
                   </p>
                 </div>
               </div>
@@ -237,17 +241,128 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                     {session.topics.map((topic, idx) => (
                       <div
                         key={topic}
-                        className="rounded-xl border border-black/[0.08] bg-[#efeeec] p-5"
+                        className="flex flex-col justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#efeeec] p-5"
                       >
-                        <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
-                          0{idx + 1}
-                        </span>
-                        <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{topic}</p>
+                        <div>
+                          <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
+                            0{idx + 1}
+                          </span>
+                          <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{topic}</p>
+                        </div>
+                        <TakeawayQuoteButton
+                          payload={{
+                            quote: topic,
+                            label: `${session.number} · Topic 0${idx + 1}`,
+                            sourceTitle: session.title,
+                            speaker: session.speaker,
+                            speakerRole: session.speakerRole,
+                            metaLabel: `${session.number} · ${session.dateLabel}`,
+                            fileSlug: `${session.id}-topic-${idx + 1}`,
+                          }}
+                          className="self-start bg-[#f7f6f4]"
+                        />
                       </div>
                     ))}
                   </div>
                 )}
               </section>
+
+              {/* Key Takeaways from Linked Recording/Feature (when published) */}
+              {matchingMedia && matchingMedia.highlights.length > 0 && (
+                <section className="mt-10 border-t border-black/[0.09] pt-8">
+                  <div className="flex flex-wrap items-baseline justify-between gap-3">
+                    <div>
+                      <p className="label-mono text-[#fe3619]">Key Takeaways</p>
+                      <h2 className="mt-2 text-[1.45rem] font-medium tracking-[-0.02em]">
+                        Shareable highlights from this conversation
+                      </h2>
+                    </div>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.07em] text-[#111111]/55">
+                      1080×1350 Story / Post Cards
+                    </span>
+                  </div>
+                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                    {matchingMedia.highlights.map((note, idx) => (
+                      <div
+                        key={note}
+                        className="flex flex-col justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#efeeec] p-5"
+                      >
+                        <div>
+                          <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
+                            Takeaway 0{idx + 1}
+                          </span>
+                          <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{note}</p>
+                        </div>
+                        <TakeawayQuoteButton
+                          payload={{
+                            quote: note,
+                            label: `${session.number} · Key Takeaway 0${idx + 1}`,
+                            sourceTitle: session.title,
+                            speaker: matchingMedia.speaker || session.speaker,
+                            speakerRole: session.speakerRole,
+                            metaLabel: `${matchingMedia.kind} · ${session.dateLabel}`,
+                            fileSlug: `${session.id}-takeaway-${idx + 1}`,
+                          }}
+                          className="self-start bg-[#f7f6f4]"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Companion Links & Resources */}
+              {session.resources.length > 0 && (
+                <section className="mt-10 border-t border-black/[0.09] pt-8">
+                  <div className="flex flex-wrap items-baseline justify-between gap-3">
+                    <div>
+                      <p className="label-mono text-[#fe3619]">Session Companion Links</p>
+                      <h2 className="mt-2 text-[1.45rem] font-medium tracking-[-0.02em]">
+                        Templates, reading &amp; resources
+                      </h2>
+                    </div>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.07em] tabular-nums text-[#111111]/55">
+                      0{session.resources.length} curated link{session.resources.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <div className="mt-5 divide-y divide-black/[0.08] rounded-[12px] border border-black/[0.08] bg-[#efeeec]">
+                    {session.resources.map((res, idx) => {
+                      let hostname = "External resource";
+                      try {
+                        hostname = new URL(res.url).hostname.replace(/^www\./, "");
+                      } catch {
+                        // Ignore invalid URL parse
+                      }
+                      return (
+                        <a
+                          key={`${res.url}-${idx}`}
+                          href={res.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-black/[0.03]"
+                        >
+                          <div className="flex items-start gap-3">
+                            <Link2
+                              className="mt-0.5 h-4 w-4 shrink-0 text-[#fe3619]"
+                              aria-hidden="true"
+                            />
+                            <div>
+                              <p className="text-[15px] font-medium text-[#111111]">{res.label}</p>
+                              <p className="mt-0.5 font-mono text-[11px] text-[#111111]/55">
+                                {hostname}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="label-mono inline-flex items-center gap-1.5 text-[11px] text-[#111111]/75">
+                            <span>Open resource</span>
+                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                          </span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
 
               {/* Reserve your place (upcoming) OR Watch the recording (after session) */}
               {session.status === "upcoming" && (
@@ -281,6 +396,8 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                         <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                       </button>
                     )}
+
+                    <SessionCalendarActions session={session} />
                   </div>
                 </section>
               )}

@@ -22,6 +22,7 @@ import { TALLY_FORM_URL } from "../lib/tally";
 import studioImg from "../src/assets/images/hero_architecture_studio_1794913643987.jpg";
 import draftingImg from "../src/assets/images/track_licensure_path_1794913644519.jpg";
 import critiqueImg from "../src/assets/images/track_live_sessions_1794913644707.jpg";
+import { SessionCalendarActions, SessionLocalTimeNote } from "./SessionCalendarActions";
 
 type TracksGridProps = {
   onOpenJoin: () => void;
@@ -293,9 +294,10 @@ export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: Tra
                     <span>{nextSession.dateLabel}</span>
                   </span>
                   <span aria-hidden="true">·</span>
-                  <span className="inline-flex items-center gap-1.5 tabular-nums">
+                  <span className="inline-flex flex-wrap items-center gap-1.5 tabular-nums">
                     <Clock className="h-3.5 w-3.5 text-[#111111]/50" aria-hidden="true" />
                     <span>{nextSession.timeLabel}</span>
+                    <SessionLocalTimeNote startAtIso={nextSession.startAtIso} />
                   </span>
                 </div>
 
@@ -361,10 +363,14 @@ export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: Tra
 
                   <Link
                     href="/sessions"
-                    className="label-mono inline-flex min-h-[46px] items-center rounded-xl border border-black/10 bg-[#f7f6f4] px-5 py-3 text-[#111111] transition-colors hover:bg-[#e5e3e0]"
+                    className="label-mono inline-flex min-h-[44px] items-center rounded-xl border border-black/10 bg-[#f7f6f4] px-5 py-2.5 text-[#111111] transition-colors hover:bg-[#e5e3e0]"
                   >
                     <span>View all sessions</span>
                   </Link>
+
+                  {nextSession.status === "upcoming" && (
+                    <SessionCalendarActions session={nextSession} compact />
+                  )}
                 </div>
               </div>
             </div>

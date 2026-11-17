@@ -22,6 +22,11 @@ import {
 } from "./firebase";
 import { legacyDb } from "./legacyFirebase";
 
+export type SessionResource = {
+  label: string;
+  url: string;
+};
+
 export type ThinkSession = {
   id: string;
   number: string;
@@ -35,6 +40,8 @@ export type ThinkSession = {
   summary: string;
   topics: string[];
   duration?: string;
+  startAtIso?: string;
+  resources?: SessionResource[];
 };
 
 export type MediaFeature = {
@@ -53,6 +60,7 @@ export type MediaFeature = {
 export const BLUEPRINT_LIMITS = {
   idPattern: /^[a-zA-Z0-9_-]+$/,
   httpsPattern: /^(https:\/\/.*)?$/,
+  httpsRequiredPattern: /^https:\/\/.+/,
   emailPattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/,
   isoDatePattern: /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
   session: {
@@ -65,8 +73,12 @@ export const BLUEPRINT_LIMITS = {
     format: { min: 2, max: 80 },
     summary: { min: 10, max: 600 },
     registrationUrl: { max: 300 },
+    startAtIso: { max: 40 },
     maxTopics: 6,
     topicMaxLength: 160,
+    maxResources: 4,
+    resourceLabelMax: 80,
+    resourceUrlMax: 350,
   },
   media: {
     sessionRef: { min: 2, max: 60 },
@@ -147,6 +159,8 @@ export type FirestoreSessionRecord = ThinkSession & {
   isNextSession: boolean;
   published: boolean;
   registrationUrl: string;
+  startAtIso: string;
+  resources: SessionResource[];
   createdBy: string;
   updatedAtMs?: number;
   sourceDb?: "primary" | "legacy";
@@ -372,6 +386,8 @@ export type SessionInput = {
   summary: string;
   topics: string[];
   registrationUrl: string;
+  startAtIso?: string;
+  resources?: SessionResource[];
 };
 
 export type MediaInput = {
@@ -425,6 +441,23 @@ function sanitizeOptionalStringArray(arr: string[], maxItems: number, maxLen: nu
     .slice(0, maxItems);
 }
 
+function sanitizeResources(items?: SessionResource[]): SessionResource[] {
+  if (!Array.isArray(items)) return [];
+  const L = BLUEPRINT_LIMITS.session;
+  return items
+    .map((item) => ({
+      label: clampStr(String(item?.label ?? ""), L.resourceLabelMax),
+      url: clampStr(String(item?.url ?? ""), L.resourceUrlMax),
+    }))
+    .filter(
+      (item) =>
+        item.label.length >= 1 &&
+        item.url.length >= 10 &&
+        BLUEPRINT_LIMITS.httpsRequiredPattern.test(item.url),
+    )
+    .slice(0, L.maxResources);
+}
+
 export function validateSessionInput(input: SessionInput): string | null {
   const L = BLUEPRINT_LIMITS.session;
   if (input.number.trim().length < L.number.min) return "Session label must be at least 2 characters.";
@@ -438,6 +471,22 @@ export function validateSessionInput(input: SessionInput): string | null {
   const url = input.registrationUrl.trim();
   if (url && !BLUEPRINT_LIMITS.httpsPattern.test(url)) {
     return "Registration URL must start with https:// or be left blank.";
+  }
+  const iso = (input.startAtIso ?? "").trim();
+  if (iso && (!BLUEPRINT_LIMITS.isoDatePattern.test(iso) || Number.isNaN(Date.parse(iso)))) {
+    return "Start date/time must be a valid ISO-8601 timestamp (e.g. 2026-11-28T18:00:00+01:00) or left blank.";
+  }
+  if (Array.isArray(input.resources)) {
+    for (let i = 0; i < Math.min(input.resources.length, L.maxResources); i += 1) {
+      const r = input.resources[i];
+      const label = (r?.label ?? "").trim();
+      const rUrl = (r?.url ?? "").trim();
+      if (!label && !rUrl) continue;
+      if (!label) return `Resource #${i + 1} needs a label.`;
+      if (!rUrl || !BLUEPRINT_LIMITS.httpsRequiredPattern.test(rUrl) || rUrl.length < 10) {
+        return `Resource #${i + 1} URL must be a full https:// link.`;
+      }
+    }
   }
   return null;
 }
@@ -536,6 +585,21 @@ export function validateWrappedConfigInput(input: WrappedConfigInput): string | 
   return null;
 }
 
+function mapSessionResources(raw: unknown): SessionResource[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const obj = item as Record<string, unknown>;
+      const label = String(obj.label ?? "").trim();
+      const url = String(obj.url ?? "").trim();
+      if (!label || !url.startsWith("https://")) return null;
+      return { label, url };
+    })
+    .filter((item): item is SessionResource => item !== null)
+    .slice(0, BLUEPRINT_LIMITS.session.maxResources);
+}
+
 function mapSessionDoc(
   id: string,
   data: Record<string, unknown>,
@@ -557,6 +621,8 @@ function mapSessionDoc(
     summary: String(data.summary ?? ""),
     topics: Array.isArray(data.topics) ? data.topics.map(String) : [],
     registrationUrl: String(data.registrationUrl ?? ""),
+    startAtIso: typeof data.startAtIso === "string" ? data.startAtIso : "",
+    resources: mapSessionResources(data.resources),
     createdBy: String(data.createdBy ?? ""),
     updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
     sourceDb,
@@ -1031,6 +1097,12 @@ export async function saveSession(input: SessionInput, allExisting: FirestoreSes
   const docId = input.id ? input.id : toValidDocId(input.title, "session");
   const path = `sessions/${docId}`;
 
+  const rawIso = clampStr(input.startAtIso ?? "", L.startAtIso.max);
+  const safeStartAtIso =
+    rawIso && BLUEPRINT_LIMITS.isoDatePattern.test(rawIso) && !Number.isNaN(Date.parse(rawIso))
+      ? rawIso
+      : "";
+
   const payloadFields = {
     number: clampStr(input.number, L.number.max),
     title: clampStr(input.title, L.title.max),
@@ -1045,6 +1117,8 @@ export async function saveSession(input: SessionInput, allExisting: FirestoreSes
     summary: clampStr(input.summary, L.summary.max),
     topics: sanitizeStringArray(input.topics, L.maxTopics, L.topicMaxLength),
     registrationUrl: clampStr(input.registrationUrl, L.registrationUrl.max),
+    startAtIso: safeStartAtIso,
+    resources: sanitizeResources(input.resources),
   };
 
   try {

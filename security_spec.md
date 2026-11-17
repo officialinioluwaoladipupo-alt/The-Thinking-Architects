@@ -24,7 +24,7 @@
 8. **Immutable Field Tampering on Update**: Admin updates session or pitch attempting to change `createdBy` or `createdAt` -> Denied.
 9. **Client Timestamp Forgery**: Admin creates session or updates `/wrappedConfig/public` with a backdated timestamp instead of `request.time` -> Denied.
 10. **Oversized String / Array Exhaustion**: Admin sends a `title` of 5,000 characters, `topics` array of 50 elements, or `extraLocations` array of 50 elements -> Denied (`size() <= ...`, bounded array checks).
-11. **Insecure `javascript:` URL or Malformed Date Injection**: Admin sets `mediaUrl: "javascript:alert(1)"`, submitter sets `linkUrl: "javascript:alert(1)"`, or admin sets `launchDateIso: "not-a-date"` -> Denied (`matches(...)` regex enforcement).
+11. **Insecure `javascript:` URL or Malformed Date Injection**: Admin sets `mediaUrl: "javascript:alert(1)"`, session `resources[0].url: "javascript:alert(1)"`, submitter sets `linkUrl: "javascript:alert(1)"`, or admin sets `launchDateIso` / `startAtIso: "not-a-date"` -> Denied (`matches(...)` regex enforcement).
 12. **Subscriber & Pitch PII Scraping**: Non-admin attempts `getDoc` or `list` on `/subscribers` or `/pitches` -> Denied (`isAdmin()` required).
 13. **Wrapped Arbitrary Document ID Poisoning**: Client attempts to create `/wrappedConfig/private-draft` -> Denied (`configId == 'public' || configId.matches('^year-[0-9]{4}$')`).
 14. **Public Pitch Status Escalation**: Unauthenticated client submits a `/pitches` document with `status: "scheduled"` instead of `"new"` -> Denied (`incoming().status == 'new'`).

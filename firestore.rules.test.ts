@@ -183,4 +183,14 @@ export const dirtyDozenSecurityCases: SecurityTestCase[] = [
     expectedResult: "PERMISSION_DENIED",
     enforcedByGate: "incoming().status == 'new'",
   },
+  {
+    id: 17,
+    name: "Session Resource Link Javascript URI Injection",
+    collection: "sessions",
+    operation: "update",
+    actor: "verified-admin",
+    payload: { resources: [{ label: "Template", url: "javascript:alert(1)" }] },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "isValidResourceItem enforces item.url.matches('^https://.*')",
+  },
 ];

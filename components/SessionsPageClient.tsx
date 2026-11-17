@@ -9,9 +9,20 @@ import {
   ExternalLink,
   Play,
   RotateCcw,
+  Search,
+  Users,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import {
+  buildSpeakerDirectory,
+  DISCOVERY_TOPICS,
+  matchesDiscoveryTopic,
+  matchesSearchQuery,
+  speakerMatchesFilter,
+  type DiscoveryTopic,
+} from "../lib/archiveDiscovery";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
   subscribePublishedMedia,
@@ -24,6 +35,7 @@ import { CONTACT_EMAIL, TALLY_FORM_URL, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
 import PitchModal from "./PitchModal";
+import { SessionCalendarActions, SessionLocalTimeNote } from "./SessionCalendarActions";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 
@@ -49,8 +61,12 @@ function SessionsPageInner() {
   const [pitchOpen, setPitchOpen] = useState(false);
   const [pitchMode, setPitchMode] = useState<PitchType>("topic");
   const [nextSession, setNextSession] = useState<FirestoreSessionRecord | null>(null);
+  const [allSessions, setAllSessions] = useState<FirestoreSessionRecord[]>([]);
   const [pastSessions, setPastSessions] = useState<FirestoreSessionRecord[]>([]);
   const [mediaItems, setMediaItems] = useState<FirestoreMediaRecord[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTopic, setActiveTopic] = useState<DiscoveryTopic>("All");
+  const [activeSpeakerKey, setActiveSpeakerKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -63,6 +79,7 @@ function SessionsPageInner() {
     const unsubSessions = subscribePublishedSessions(
       (items) => {
         if (!active) return;
+        setAllSessions(items);
         const upcoming =
           items.find((item) => item.isNextSession && item.status === "upcoming") ??
           items.find((item) => item.status === "upcoming") ??
@@ -101,6 +118,30 @@ function SessionsPageInner() {
   const handleOpenJoin = () => {
     triggerTallyPopup(() => setJoinOpen(true));
   };
+
+  const hasArchiveFilters = Boolean(
+    searchQuery.trim() || activeTopic !== "All" || activeSpeakerKey,
+  );
+  const directorySource = hasArchiveFilters ? allSessions : pastSessions;
+  const filteredSessions = directorySource.filter((session) => {
+    const corpus = [
+      session.number,
+      session.title,
+      session.speaker,
+      session.speakerRole,
+      session.summary,
+      session.dateLabel,
+      ...session.topics,
+    ];
+    return (
+      matchesSearchQuery(corpus, searchQuery) &&
+      matchesDiscoveryTopic(corpus, activeTopic) &&
+      speakerMatchesFilter(session.speaker, activeSpeakerKey)
+    );
+  });
+
+  const speakerDirectory = buildSpeakerDirectory(allSessions);
+  const activeSpeakerEntry = speakerDirectory.find((s) => s.key === activeSpeakerKey) ?? null;
 
   return (
     <>
@@ -225,9 +266,10 @@ function SessionsPageInner() {
                       <span>{nextSession.dateLabel}</span>
                     </span>
                     <span aria-hidden="true">·</span>
-                    <span className="inline-flex items-center gap-1.5 tabular-nums">
+                    <span className="inline-flex flex-wrap items-center gap-1.5 tabular-nums">
                       <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>{nextSession.timeLabel}</span>
+                      <SessionLocalTimeNote startAtIso={nextSession.startAtIso} />
                     </span>
                   </div>
 
@@ -292,16 +334,25 @@ function SessionsPageInner() {
                     >
                       <span>Session details</span>
                     </Link>
+
+                    <SessionCalendarActions session={nextSession} />
                   </div>
                 </section>
               )}
 
-              {/* Past Sessions Hairline List */}
+              {/* Archive Discovery & Past Sessions Hairline List */}
               <section className="mt-16">
                 <div className="flex flex-wrap items-baseline justify-between gap-4 pb-4">
-                  <h2 className="text-[1.65rem] font-medium tracking-[-0.025em]">
-                    Past sessions
-                  </h2>
+                  <div>
+                    <h2 className="text-[1.65rem] font-medium tracking-[-0.025em]">
+                      {hasArchiveFilters ? "Matching sessions" : "Past sessions"}
+                    </h2>
+                    <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.07em] tabular-nums text-[#111111]/55">
+                      Showing {filteredSessions.length} of {directorySource.length} conversation
+                      {directorySource.length === 1 ? "" : "s"}
+                      {activeSpeakerEntry ? ` · Speaker: ${activeSpeakerEntry.name}` : ""}
+                    </p>
+                  </div>
                   <Link
                     href="/media"
                     className="label-mono text-[#111111]/65 underline-offset-4 hover:text-[#111111] hover:underline"
@@ -310,13 +361,134 @@ function SessionsPageInner() {
                   </Link>
                 </div>
 
+                {/* Search + Topic Filters */}
+                <div className="mb-6 space-y-4 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-4 sm:p-5">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="relative flex-1 lg:max-w-[380px]">
+                      <Search
+                        className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#111111]/45"
+                        aria-hidden="true"
+                      />
+                      <input
+                        type="search"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search sessions by title, speaker, or topic..."
+                        aria-label="Search Think Sessions"
+                        className="h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] pr-9 pl-10 text-[14px] text-[#111111] placeholder:text-[#111111]/45 focus:border-[#fe3619] focus:outline-none"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery("")}
+                          aria-label="Clear search"
+                          className="absolute top-1/2 right-2.5 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-[#111111]/50 hover:text-[#111111]"
+                        >
+                          <X className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by topic">
+                      {DISCOVERY_TOPICS.map((topic) => {
+                        const selected = activeTopic === topic;
+                        return (
+                          <button
+                            key={topic}
+                            type="button"
+                            onClick={() => setActiveTopic(topic)}
+                            className={`label-mono min-h-[38px] cursor-pointer rounded-lg border px-3.5 py-1.5 text-[11px] whitespace-nowrap transition-colors ${
+                              selected
+                                ? "border-[#111111] bg-[#111111] text-white"
+                                : "border-black/10 bg-[#f7f6f4] text-[#111111]/70 hover:border-black/25 hover:text-[#111111]"
+                            }`}
+                          >
+                            {topic}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Past Speakers Directory Strip */}
+                  {speakerDirectory.length > 0 && (
+                    <div className="border-t border-black/[0.08] pt-3.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.07em] text-[#111111]/60">
+                          <Users className="h-3.5 w-3.5 text-[#fe3619]" aria-hidden="true" />
+                          <span>Past Speakers Directory</span>
+                        </span>
+                        {hasArchiveFilters && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery("");
+                              setActiveTopic("All");
+                              setActiveSpeakerKey("");
+                            }}
+                            className="label-mono cursor-pointer text-[11px] text-[#fe3619] hover:underline"
+                          >
+                            Reset all filters
+                          </button>
+                        )}
+                      </div>
+                      <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        {speakerDirectory.map((sp) => {
+                          const selected = activeSpeakerKey === sp.key;
+                          return (
+                            <button
+                              key={sp.key}
+                              type="button"
+                              onClick={() =>
+                                setActiveSpeakerKey((prev) => (prev === sp.key ? "" : sp.key))
+                              }
+                              title={sp.role || sp.name}
+                              className={`inline-flex min-h-[34px] cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1 text-[12.5px] transition-colors ${
+                                selected
+                                  ? "border-[#fe3619] bg-[#fe3619] text-white"
+                                  : "border-black/10 bg-[#f7f6f4] text-[#111111]/80 hover:border-black/25 hover:text-[#111111]"
+                              }`}
+                            >
+                              <span className="font-medium">{sp.name}</span>
+                              <span
+                                className={`font-mono text-[10px] tabular-nums ${
+                                  selected ? "text-white/85" : "text-[#111111]/45"
+                                }`}
+                              >
+                                {sp.count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="border-t border-black/[0.09]">
-                  {pastSessions.length === 0 ? (
-                    <p className="border-b border-black/[0.09] py-10 text-[15px] text-[#111111]/65">
-                      Past Think Sessions will appear here after they conclude.
-                    </p>
+                  {filteredSessions.length === 0 ? (
+                    <div className="border-b border-black/[0.09] py-10">
+                      <p className="text-[15px] text-[#111111]/65">
+                        {hasArchiveFilters
+                          ? "No sessions match your current search or filter."
+                          : "Past Think Sessions will appear here after they conclude."}
+                      </p>
+                      {hasArchiveFilters && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery("");
+                            setActiveTopic("All");
+                            setActiveSpeakerKey("");
+                          }}
+                          className="label-mono mt-4 inline-flex min-h-[42px] cursor-pointer items-center rounded-lg bg-[#111111] px-5 py-2 text-white"
+                        >
+                          Show all sessions
+                        </button>
+                      )}
+                    </div>
                   ) : (
-                    pastSessions.map((session) => {
+                    filteredSessions.map((session) => {
                       const canWatch = hasMatchingRecording(session, mediaItems);
                       return (
                         <article
@@ -333,6 +505,12 @@ function SessionsPageInner() {
                             <p className="mt-0.5 font-mono text-[11px] tabular-nums text-[#111111]/50">
                               {session.timeLabel}
                             </p>
+                            {session.status === "upcoming" && session.startAtIso && (
+                              <SessionLocalTimeNote
+                                startAtIso={session.startAtIso}
+                                className="mt-1 block text-[11px]"
+                              />
+                            )}
                           </div>
 
                           <div>
@@ -346,6 +524,10 @@ function SessionsPageInner() {
                             </h3>
                             <p className="mt-1.5 font-mono text-[12px] text-[#111111]/60">
                               {session.speaker} · {session.speakerRole}
+                              {session.resources.length > 0 &&
+                                ` · ${session.resources.length} resource${
+                                  session.resources.length === 1 ? "" : "s"
+                                }`}
                             </p>
                             <p className="mt-3 max-w-[60ch] text-[15px] leading-[1.6] text-[#111111]/75">
                               {session.summary}
