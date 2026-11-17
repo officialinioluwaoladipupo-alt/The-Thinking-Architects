@@ -27,6 +27,7 @@ import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
 import PitchModal from "./PitchModal";
 import { SessionCalendarActions, SessionLocalTimeNote } from "./SessionCalendarActions";
+import { SessionRemindButton } from "./SessionRemindButton";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 import { TakeawayQuoteButton } from "./TakeawayQuoteButton";
@@ -375,7 +376,7 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                     Every Think Session reserves open Q&amp;A time with our speakers. RSVP to get
                     the session link and calendar invite.
                   </p>
-                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <div className="mt-6 flex flex-wrap items-start gap-3">
                     {hasCustomRegistration ? (
                       <a
                         href={session.registrationUrl}
@@ -398,6 +399,8 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                     )}
 
                     <SessionCalendarActions session={session} />
+
+                    <SessionRemindButton session={session} />
                   </div>
                 </section>
               )}

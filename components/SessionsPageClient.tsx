@@ -36,6 +36,7 @@ import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
 import PitchModal from "./PitchModal";
 import { SessionCalendarActions, SessionLocalTimeNote } from "./SessionCalendarActions";
+import { SessionRemindButton } from "./SessionRemindButton";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 
@@ -301,7 +302,7 @@ function SessionsPageInner() {
                     ))}
                   </div>
 
-                  <div className="mt-8 flex flex-wrap items-center gap-4">
+                  <div className="mt-8 flex flex-wrap items-start gap-3 sm:gap-4">
                     {nextSession.registrationUrl &&
                     nextSession.registrationUrl.trim().startsWith("https://") &&
                     nextSession.registrationUrl.trim() !== TALLY_FORM_URL ? (
@@ -336,6 +337,8 @@ function SessionsPageInner() {
                     </Link>
 
                     <SessionCalendarActions session={nextSession} />
+
+                    <SessionRemindButton session={nextSession} />
                   </div>
                 </section>
               )}
@@ -534,7 +537,7 @@ function SessionsPageInner() {
                             </p>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-wrap items-start gap-2">
                             {canWatch && (
                               <Link
                                 href={`/media?session=${encodeURIComponent(session.number)}`}
@@ -544,6 +547,7 @@ function SessionsPageInner() {
                                 <span>Watch</span>
                               </Link>
                             )}
+                            <SessionRemindButton session={session} compact />
                             <Link
                               href={`/sessions/${encodeURIComponent(session.id)}`}
                               className="label-mono inline-flex min-h-[42px] items-center gap-1.5 rounded-lg border border-black/10 bg-[#efeeec] px-4 py-2 text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"

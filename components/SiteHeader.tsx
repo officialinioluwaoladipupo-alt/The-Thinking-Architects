@@ -9,6 +9,7 @@ import {
   subscribePublishedSessions,
   subscribeWrappedConfig,
 } from "../lib/firebaseContent";
+import { SessionReminderRunner } from "./SessionRemindButton";
 
 type SiteHeaderProps = {
   onOpenJoin: () => void;
@@ -73,6 +74,7 @@ export default function SiteHeader({ onOpenJoin }: SiteHeaderProps) {
 
   return (
     <header className="fixed inset-x-0 top-4 z-40 flex justify-center px-4">
+      <SessionReminderRunner />
       <nav
         aria-label="Primary navigation"
         className="w-full max-w-[1120px] overflow-hidden rounded-2xl border border-black/[0.06] bg-[#EAEAEA]/85 shadow-[0_8px_30px_rgba(17,17,17,0.06)] backdrop-blur-xl"
