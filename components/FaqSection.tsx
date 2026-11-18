@@ -1,28 +1,28 @@
 "use client";
 
-import { Minus, Plus } from "lucide-react";
+import { ArrowUpRight, Mic, Minus, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { CONTACT_EMAIL } from "../lib/tally";
 
 type FaqItem = {
   question: string;
-  answer: ReactNode;
+  answer: (onOpenPitch?: () => void) => ReactNode;
 };
 
 const questions: FaqItem[] = [
   {
     question: "What is The Thinking Architects?",
-    answer:
+    answer: () =>
       "A media and events community for people in architecture at every stage. We run monthly live sessions with practising architects, publish recordings and features from them, and give members a place to talk openly with each other.",
   },
   {
     question: "Is TTA connected to ARCON or NIA?",
-    answer:
+    answer: () =>
       "No. We are an independent community. For registration and professional requirements, always check ARCON and NIA directly. Our sessions help you understand the process and ask better questions.",
   },
   {
     question: "What will you do with my email?",
-    answer: (
+    answer: () => (
       <>
         We use it to send you a welcome message, session invitations, and updates. We don&apos;t
         share it. To have it deleted, email{" "}
@@ -38,22 +38,40 @@ const questions: FaqItem[] = [
   },
   {
     question: "Can I speak at a session or suggest a topic?",
-    answer: (
-      <>
-        Yes. Email{" "}
-        <a
-          href={`mailto:${CONTACT_EMAIL}`}
-          className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
-        >
-          {CONTACT_EMAIL}
-        </a>{" "}
-        with your idea, a short note on what you&apos;d cover, and who it would help.
-      </>
+    answer: (onOpenPitch) => (
+      <div className="space-y-4">
+        <p>
+          Yes. Pitch a talk idea, volunteer as a guest architect, or suggest a topic for the
+          community—every submission goes straight to our programming team.
+        </p>
+        <div className="flex flex-wrap items-center gap-4">
+          {onOpenPitch && (
+            <button
+              type="button"
+              onClick={onOpenPitch}
+              className="label-mono group inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl bg-[#111111] px-5 py-2.5 text-white transition-colors hover:bg-[#fe3619]"
+            >
+              <Mic className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Suggest a topic or offer to speak</span>
+              <ArrowUpRight
+                className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                aria-hidden="true"
+              />
+            </button>
+          )}
+          <a
+            href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Pitch`}
+            className="text-[13px] font-medium text-[#111111]/70 underline underline-offset-4 transition-colors hover:text-[#fe3619]"
+          >
+            Or email {CONTACT_EMAIL}
+          </a>
+        </div>
+      </div>
     ),
   },
 ];
 
-export default function FaqSection() {
+export default function FaqSection({ onOpenPitch }: { onOpenPitch?: () => void }) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
@@ -89,9 +107,9 @@ export default function FaqSection() {
 
                 {isOpen && (
                   <div className="pb-6 pr-10">
-                    <p className="max-w-[65ch] text-[15px] leading-[1.65] text-[#111111]/72">
-                      {item.answer}
-                    </p>
+                    <div className="max-w-[65ch] text-[15px] leading-[1.65] text-[#111111]/72">
+                      {item.answer(onOpenPitch)}
+                    </div>
                   </div>
                 )}
               </div>

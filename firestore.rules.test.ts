@@ -14,7 +14,11 @@ export type SecurityTestCase = {
     | "subscribers"
     | "pitches"
     | "siteSettings"
-    | "wrappedConfig";
+    | "wrappedConfig"
+    | "communityStats"
+    | "adminConfig"
+    | "liveState"
+    | "sessionQuestions";
   operation: "get" | "list" | "create" | "update" | "delete";
   actor: "unauthenticated" | "non-admin-verified" | "spoofed-unverified-admin" | "verified-admin";
   payload: Record<string, unknown>;
@@ -192,5 +196,75 @@ export const dirtyDozenSecurityCases: SecurityTestCase[] = [
     payload: { resources: [{ label: "Template", url: "javascript:alert(1)" }] },
     expectedResult: "PERMISSION_DENIED",
     enforcedByGate: "isValidResourceItem enforces item.url.matches('^https://.*')",
+  },
+  {
+    id: 18,
+    name: "Confidential Spreadsheet Config Read by Non-Admin",
+    collection: "adminConfig",
+    operation: "get",
+    actor: "non-admin-verified",
+    payload: { configId: "googleSheets" },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "allow get: if isAdmin() && isValidId(configId) && configId == 'googleSheets'",
+  },
+  {
+    id: 19,
+    name: "Non-Admin Overwrite of Community Stats",
+    collection: "communityStats",
+    operation: "update",
+    actor: "non-admin-verified",
+    payload: { communityTotal: 99999 },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "allow update: if isAdmin() && statId == 'public' && isValidCommunityStats(incoming())",
+  },
+  {
+    id: 20,
+    name: "Community Stats Arbitrary Doc ID & Negative Count",
+    collection: "communityStats",
+    operation: "create",
+    actor: "verified-admin",
+    payload: { statId: "arbitrary", communityTotal: -5 },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "statId == 'public' && isValidCount(data.communityTotal)",
+  },
+  {
+    id: 21,
+    name: "Non-Admin Live Mode Broadcast Hijack",
+    collection: "liveState",
+    operation: "update",
+    actor: "non-admin-verified",
+    payload: { isLive: true, roomUrl: "https://evil.example" },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "allow update: if isAdmin() && stateId == 'current' && isValidLiveState(incoming())",
+  },
+  {
+    id: 22,
+    name: "Session Question Vote-Stuffing (+50 on Upvote)",
+    collection: "sessionQuestions",
+    operation: "update",
+    actor: "unauthenticated",
+    payload: { upvotes: 55 },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "incoming().upvotes == existing().upvotes + 1",
+  },
+  {
+    id: 23,
+    name: "Attendee Q&A Status Escalation (Self-Pin On-Air)",
+    collection: "sessionQuestions",
+    operation: "update",
+    actor: "non-admin-verified",
+    payload: { status: "on_air" },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "incoming().diff(existing()).affectedKeys().hasOnly(['upvotes', 'updatedAt'])",
+  },
+  {
+    id: 24,
+    name: "Unbounded Q&A Collection List Scraping",
+    collection: "sessionQuestions",
+    operation: "list",
+    actor: "unauthenticated",
+    payload: { limit: 10000 },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "request.query.limit <= 200 || isAdmin()",
   },
 ];

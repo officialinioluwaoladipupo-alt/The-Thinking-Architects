@@ -247,6 +247,93 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidCommunityStats(data) {
+      return data.keys().hasAll([
+          'showOnCommunity', 'communityTotal', 'studentsCount', 'graduatesCount',
+          'professionalsCount', 'countriesCount', 'topLocations', 'sourceLabel',
+          'lastSyncedIso', 'updatedBy', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'showOnCommunity', 'communityTotal', 'studentsCount', 'graduatesCount',
+          'professionalsCount', 'countriesCount', 'topLocations', 'sourceLabel',
+          'lastSyncedIso', 'updatedBy', 'updatedAt'
+        ])
+        && data.showOnCommunity is bool
+        && isValidCount(data.communityTotal)
+        && isValidCount(data.studentsCount)
+        && isValidCount(data.graduatesCount)
+        && isValidCount(data.professionalsCount)
+        && data.countriesCount is int && data.countriesCount >= 0 && data.countriesCount <= 1000
+        && isValidWrappedOptionalList(data.topLocations, 10, 60)
+        && data.sourceLabel is string && data.sourceLabel.size() <= 80
+        && data.lastSyncedIso is string && data.lastSyncedIso.size() <= 40
+        && (data.lastSyncedIso == '' || data.lastSyncedIso.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(Z|[-+][0-9]{2}:[0-9]{2})$'))
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGoogleSheetsConfig(data) {
+      return data.keys().hasAll([
+          'spreadsheetId', 'spreadsheetTitle', 'sheetName', 'emailColumn',
+          'stageColumn', 'locationColumn', 'lastSyncedIso', 'updatedBy', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'spreadsheetId', 'spreadsheetTitle', 'sheetName', 'emailColumn',
+          'stageColumn', 'locationColumn', 'lastSyncedIso', 'updatedBy', 'updatedAt'
+        ])
+        && data.spreadsheetId is string && data.spreadsheetId.size() <= 128 && data.spreadsheetId.matches('^[a-zA-Z0-9_\\-]*$')
+        && data.spreadsheetTitle is string && data.spreadsheetTitle.size() <= 140
+        && data.sheetName is string && data.sheetName.size() <= 100
+        && data.emailColumn is string && data.emailColumn.size() <= 80
+        && data.stageColumn is string && data.stageColumn.size() <= 80
+        && data.locationColumn is string && data.locationColumn.size() <= 80
+        && data.lastSyncedIso is string && data.lastSyncedIso.size() <= 40
+        && (data.lastSyncedIso == '' || data.lastSyncedIso.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(Z|[-+][0-9]{2}:[0-9]{2})$'))
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLiveState(data) {
+      return data.keys().hasAll([
+          'isLive', 'sessionId', 'sessionNumber', 'sessionTitle', 'speaker',
+          'startedAtIso', 'roomUrl', 'qaOpen', 'updatedBy', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'isLive', 'sessionId', 'sessionNumber', 'sessionTitle', 'speaker',
+          'startedAtIso', 'roomUrl', 'qaOpen', 'updatedBy', 'updatedAt'
+        ])
+        && data.isLive is bool
+        && data.sessionId is string && data.sessionId.size() <= 128 && data.sessionId.matches('^[a-zA-Z0-9_\\-]*$')
+        && data.sessionNumber is string && data.sessionNumber.size() <= 40
+        && data.sessionTitle is string && data.sessionTitle.size() <= 140
+        && data.speaker is string && data.speaker.size() <= 100
+        && data.startedAtIso is string && data.startedAtIso.size() <= 40
+        && (data.startedAtIso == '' || data.startedAtIso.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(Z|[-+][0-9]{2}:[0-9]{2})$'))
+        && data.roomUrl is string && data.roomUrl.size() <= 400 && data.roomUrl.matches('^(https://.*)?$')
+        && data.qaOpen is bool
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSessionQuestion(data) {
+      return data.keys().hasAll([
+          'sessionId', 'authorName', 'authorStage', 'questionText',
+          'upvotes', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'sessionId', 'authorName', 'authorStage', 'questionText',
+          'upvotes', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.sessionId)
+        && data.authorName is string && data.authorName.size() >= 2 && data.authorName.size() <= 80
+        && data.authorStage is string && data.authorStage.size() <= 60
+        && data.questionText is string && data.questionText.size() >= 6 && data.questionText.size() <= 320
+        && data.upvotes is int && data.upvotes >= 1 && data.upvotes <= 100000
+        && data.status is string && data.status in ['queued', 'on_air', 'answered']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     // --- Collection: Think Sessions (/sessions/{sessionId}) ---
     match /sessions/{sessionId} {
       allow get: if isValidId(sessionId) && (existing().published == true || isAdmin());
@@ -472,6 +559,127 @@ service cloud.firestore {
         );
 
       allow delete: if isAdmin() && isValidId(slideId);
+    }
+
+    // --- Collection: Public Aggregate Community Stats (/communityStats/{statId}) ---
+    match /communityStats/{statId} {
+      allow get: if isValidId(statId) && statId == 'public';
+      allow list: if isAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(statId)
+        && statId == 'public'
+        && isValidCommunityStats(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(statId)
+        && statId == 'public'
+        && isValidCommunityStats(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'showOnCommunity', 'communityTotal', 'studentsCount', 'graduatesCount',
+          'professionalsCount', 'countriesCount', 'topLocations', 'sourceLabel',
+          'lastSyncedIso', 'updatedBy', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    // --- Collection: Admin-Only Integration Config (/adminConfig/{configId}) ---
+    match /adminConfig/{configId} {
+      allow get: if isAdmin() && isValidId(configId) && configId == 'googleSheets';
+      allow list: if isAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(configId)
+        && configId == 'googleSheets'
+        && isValidGoogleSheetsConfig(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(configId)
+        && configId == 'googleSheets'
+        && isValidGoogleSheetsConfig(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'spreadsheetId', 'spreadsheetTitle', 'sheetName', 'emailColumn',
+          'stageColumn', 'locationColumn', 'lastSyncedIso', 'updatedBy', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    // --- Collection: Live Session Companion State (/liveState/{stateId}) ---
+    match /liveState/{stateId} {
+      allow get: if isValidId(stateId) && stateId == 'current';
+      allow list: if isAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(stateId)
+        && stateId == 'current'
+        && isValidLiveState(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(stateId)
+        && stateId == 'current'
+        && isValidLiveState(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'isLive', 'sessionId', 'sessionNumber', 'sessionTitle', 'speaker',
+          'startedAtIso', 'roomUrl', 'qaOpen', 'updatedBy', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    // --- Collection: Real-Time Session Q&A Queue (/sessionQuestions/{questionId}) ---
+    match /sessionQuestions/{questionId} {
+      allow get: if isValidId(questionId);
+      allow list: if request.query.limit <= 200 || isAdmin();
+
+      allow create: if isValidId(questionId)
+        && isValidSessionQuestion(incoming())
+        && incoming().upvotes == 1
+        && incoming().status == 'queued'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if (
+          isValidId(questionId)
+          && isValidSessionQuestion(incoming())
+          && incoming().sessionId == existing().sessionId
+          && incoming().authorName == existing().authorName
+          && incoming().authorStage == existing().authorStage
+          && incoming().questionText == existing().questionText
+          && incoming().status == existing().status
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && existing().status in ['queued', 'on_air']
+          && incoming().upvotes == existing().upvotes + 1
+          && incoming().diff(existing()).affectedKeys().hasOnly(['upvotes', 'updatedAt'])
+        ) || (
+          isAdmin()
+          && isValidId(questionId)
+          && isValidSessionQuestion(incoming())
+          && incoming().sessionId == existing().sessionId
+          && incoming().authorName == existing().authorName
+          && incoming().authorStage == existing().authorStage
+          && incoming().questionText == existing().questionText
+          && incoming().upvotes == existing().upvotes
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        );
+
+      allow delete: if isAdmin() && isValidId(questionId);
     }
   }
 }

@@ -4,9 +4,10 @@ import {
   doc,
   getDoc,
   getDocs,
-  increment,
+  limit,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -21,6 +22,12 @@ import {
   handleFirestoreError,
   OperationType,
 } from "./firebase";
+import { legacyDb } from "./legacyFirebase";
+
+export type SessionResource = {
+  label: string;
+  url: string;
+};
 
 export type ThinkSession = {
   id: string;
@@ -35,6 +42,8 @@ export type ThinkSession = {
   summary: string;
   topics: string[];
   duration?: string;
+  startAtIso?: string;
+  resources?: SessionResource[];
 };
 
 export type MediaFeature = {
@@ -53,7 +62,9 @@ export type MediaFeature = {
 export const BLUEPRINT_LIMITS = {
   idPattern: /^[a-zA-Z0-9_-]+$/,
   httpsPattern: /^(https:\/\/.*)?$/,
+  httpsRequiredPattern: /^https:\/\/.+/,
   emailPattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/,
+  isoDatePattern: /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
   session: {
     number: { min: 2, max: 40 },
     title: { min: 3, max: 140 },
@@ -64,8 +75,12 @@ export const BLUEPRINT_LIMITS = {
     format: { min: 2, max: 80 },
     summary: { min: 10, max: 600 },
     registrationUrl: { max: 300 },
+    startAtIso: { max: 40 },
     maxTopics: 6,
     topicMaxLength: 160,
+    maxResources: 4,
+    resourceLabelMax: 80,
+    resourceUrlMax: 350,
   },
   media: {
     sessionRef: { min: 2, max: 60 },
@@ -88,54 +103,85 @@ export const BLUEPRINT_LIMITS = {
     stage: { max: 80 },
     question: { max: 300 },
   },
+  pitch: {
+    name: { min: 2, max: 100 },
+    email: { min: 5, max: 254 },
+    roleOrStudio: { max: 120 },
+    topicTitle: { min: 3, max: 140 },
+    outline: { min: 10, max: 800 },
+    linkUrl: { max: 300 },
+  },
   siteSettings: {
     url: { max: 300 },
   },
-  wrappedSettings: {
-    countdownTargetPattern:
-      /^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})?)?$/,
-    countdownTargetIso: { max: 40 },
-    countdownHeadline: { min: 3, max: 140 },
-    countdownSubtext: { min: 5, max: 260 },
-    pageTitle: { min: 3, max: 100 },
-    pageIntro: { min: 5, max: 240 },
-    closingHeadline: { min: 3, max: 120 },
-    closingBody: { min: 5, max: 240 },
-    shareCaption: { min: 10, max: 400 },
-    autoplaySeconds: { min: 0, max: 60 },
+  wrapped: {
+    yearLabel: { min: 1, max: 20 },
+    eyebrow: { min: 1, max: 80 },
+    pageTitle: { min: 2, max: 120 },
+    pageSubtitle: { min: 2, max: 240 },
+    shareCaption: { min: 10, max: 420 },
+    offlineTitle: { min: 2, max: 120 },
+    offlineMessage: { min: 2, max: 320 },
+    homeBannerEyebrow: { min: 1, max: 80 },
+    homeBannerTitle: { min: 2, max: 140 },
+    homeBannerCtaLabel: { min: 1, max: 50 },
+    launchDateIso: { max: 40 },
+    coverTitle: { min: 2, max: 120 },
+    coverSubtitle: { min: 2, max: 180 },
+    startLead: { min: 2, max: 140 },
+    startStatement: { min: 2, max: 200 },
+    prefixSuffixMax: 10,
+    audienceCaption: { min: 2, max: 180 },
+    returningCaption: { min: 2, max: 180 },
+    sessionsHeading: { min: 2, max: 160 },
+    maxSessionHighlights: 8,
+    sessionHighlightMaxLength: 220,
+    awarenessDate: { min: 1, max: 40 },
+    awarenessPrefix: { min: 2, max: 180 },
+    awarenessProgramTitle: { min: 2, max: 120 },
+    awarenessSpeaker: { min: 2, max: 140 },
+    communityCaption: { min: 2, max: 160 },
+    discoveryHighlight: { min: 2, max: 80 },
+    discoveryBody: { min: 2, max: 200 },
+    locationsLead: { min: 2, max: 140 },
+    locationPrimary: { min: 1, max: 60 },
+    locationSecondary: { max: 60 },
+    maxExtraLocations: 10,
+    extraLocationMaxLength: 60,
+    welcomeStatement: { min: 2, max: 260 },
+    thankYouStatement: { min: 2, max: 260 },
+    closingStatement: { min: 2, max: 220 },
+    closingCtaLabel: { min: 2, max: 60 },
+    maxCustomStats: 6,
+    customStatMaxLength: 220,
   },
-  wrappedSlide: {
-    order: { min: 0, max: 1000 },
-    label: { min: 1, max: 40 },
-    eyebrow: { max: 100 },
-    headline: { max: 240 },
-    body: { max: 320 },
-    accentDate: { max: 40 },
-    metricPrefix: { max: 8 },
-    metricValue: { min: 0, max: 10000000 },
-    metricSuffix: { max: 16 },
-    secondaryMetricA: { min: 0, max: 10000000 },
-    secondaryLabelA: { max: 60 },
-    secondaryMetricB: { min: 0, max: 10000000 },
-    secondaryLabelB: { max: 60 },
-    maxItems: 8,
-    itemMaxLength: 220,
-    ctaLabel: { max: 50 },
+  communityStats: {
+    countriesMax: 1000,
+    maxTopLocations: 10,
+    topLocationMaxLength: 60,
+    sourceLabelMax: 80,
+    lastSyncedIsoMax: 40,
   },
-  liveSettings: {
-    sessionIdPattern: /^([a-zA-Z0-9_-]+)?$/,
-    announcementHrefPattern: /^((https:\/\/.*)|(\/.*))?$/,
-    liveSessionId: { max: 128 },
-    liveTitle: { max: 140 },
-    liveRoomUrl: { max: 400 },
-    liveStartedAtIso: { max: 40 },
-    announcementText: { max: 140 },
-    announcementLinkLabel: { max: 40 },
-    announcementLinkHref: { max: 300 },
+  googleSheets: {
+    spreadsheetIdMax: 128,
+    spreadsheetTitleMax: 140,
+    sheetNameMax: 100,
+    columnNameMax: 80,
+    lastSyncedIsoMax: 40,
   },
-  sessionQuestion: {
-    authorName: { min: 1, max: 60 },
-    question: { min: 5, max: 280 },
+  liveState: {
+    sessionIdMax: 128,
+    sessionNumberMax: 40,
+    sessionTitleMax: 140,
+    speakerMax: 100,
+    startedAtIsoMax: 40,
+    roomUrlMax: 400,
+  },
+  question: {
+    sessionIdMax: 128,
+    authorName: { min: 2, max: 80 },
+    authorStageMax: 60,
+    questionText: { min: 6, max: 320 },
     maxUpvotes: 100000,
   },
 } as const;
@@ -144,8 +190,11 @@ export type FirestoreSessionRecord = ThinkSession & {
   isNextSession: boolean;
   published: boolean;
   registrationUrl: string;
+  startAtIso: string;
+  resources: SessionResource[];
   createdBy: string;
   updatedAtMs?: number;
+  sourceDb?: "primary" | "legacy";
 };
 
 export type FirestoreMediaRecord = MediaFeature & {
@@ -153,6 +202,7 @@ export type FirestoreMediaRecord = MediaFeature & {
   published: boolean;
   createdBy: string;
   updatedAtMs?: number;
+  sourceDb?: "primary" | "legacy";
 };
 
 export type AdminRecord = {
@@ -195,6 +245,265 @@ export type SiteSettingsInput = {
   youtubeUrl: string;
 };
 
+export type PitchType = "speaker" | "topic";
+export type PitchStatus = "new" | "reviewed" | "scheduled" | "archived";
+export const PITCH_TARGET_STAGES = [
+  "Students",
+  "Graduates & Early-Career",
+  "Practising Architects",
+  "All Stages",
+] as const;
+export type PitchTargetStage = (typeof PITCH_TARGET_STAGES)[number];
+
+export type TopicPitchInput = {
+  pitchType: PitchType;
+  name: string;
+  email: string;
+  roleOrStudio?: string;
+  topicTitle: string;
+  targetStage: PitchTargetStage;
+  outline: string;
+  linkUrl?: string;
+};
+
+export type TopicPitchRecord = {
+  id: string;
+  pitchType: PitchType;
+  name: string;
+  email: string;
+  roleOrStudio: string;
+  topicTitle: string;
+  targetStage: PitchTargetStage;
+  outline: string;
+  linkUrl: string;
+  status: PitchStatus;
+  createdAtMs: number;
+  updatedAtMs: number;
+};
+
+export type WrappedConfigInput = {
+  enabled: boolean;
+  showInFooter: boolean;
+  showInNav: boolean;
+  homeBannerEnabled: boolean;
+  homeCountdownEnabled: boolean;
+  yearLabel: string;
+  eyebrow: string;
+  pageTitle: string;
+  pageSubtitle: string;
+  shareCaption: string;
+  offlineTitle: string;
+  offlineMessage: string;
+  homeBannerEyebrow: string;
+  homeBannerTitle: string;
+  homeBannerCtaLabel: string;
+  launchDateIso: string;
+  coverTitle: string;
+  coverSubtitle: string;
+  startLead: string;
+  startStatement: string;
+  audienceCount: number;
+  audiencePrefix: string;
+  audienceSuffix: string;
+  audienceCaption: string;
+  returningCount: number;
+  returningSuffix: string;
+  returningCaption: string;
+  sessionsHeading: string;
+  sessionHighlights: string[];
+  awarenessDate: string;
+  awarenessPrefix: string;
+  awarenessProgramTitle: string;
+  awarenessSpeaker: string;
+  communityTotal: number;
+  communityCaption: string;
+  studentsCount: number;
+  professionalsCount: number;
+  discoveryHighlight: string;
+  discoveryBody: string;
+  discoveryPercent: number;
+  locationsLead: string;
+  locationPrimary: string;
+  locationSecondary: string;
+  extraLocations: string[];
+  welcomeStatement: string;
+  thankYouStatement: string;
+  closingStatement: string;
+  closingCtaLabel: string;
+  customStats: string[];
+};
+
+export type WrappedConfigRecord = WrappedConfigInput & {
+  exists: boolean;
+  updatedAtMs?: number;
+};
+
+export type WrappedEditionRecord = WrappedConfigRecord & {
+  id: string;
+};
+
+export const DEFAULT_WRAPPED_CONFIG: WrappedConfigInput = {
+  enabled: true,
+  showInFooter: true,
+  showInNav: false,
+  homeBannerEnabled: true,
+  homeCountdownEnabled: false,
+  yearLabel: "2026",
+  eyebrow: "Annual Review · 2026",
+  pageTitle: "TTA Year Wrapped 2026",
+  pageSubtitle: "Our first year, in conversations. Tap through to see what we built together.",
+  shareCaption:
+    "Our first year at The Thinking Architects, in conversations. Around 300 people registered, 76 joined the community, and we're just getting started.",
+  offlineTitle: "TTA Year Wrapped is currently offline",
+  offlineMessage:
+    "We are putting together the next edition of our annual review. Join the community to get notified the moment it goes live.",
+  homeBannerEyebrow: "TTA Year Wrapped · 2026",
+  homeBannerTitle: "Our first year, in conversations.",
+  homeBannerCtaLabel: "Open Wrapped",
+  launchDateIso: "2026-12-20T18:00:00Z",
+  coverTitle: "TTA Year Wrapped 2026",
+  coverSubtitle: "Our first year, in conversations.",
+  startLead: "In January 2026, we started with one idea:",
+  startStatement: "nobody should have to figure this profession out alone.",
+  audienceCount: 300,
+  audiencePrefix: "~",
+  audienceSuffix: "",
+  audienceCaption: "people registered for at least one of our events.",
+  returningCount: 50,
+  returningSuffix: "+",
+  returningCaption: "registered for more than one session.",
+  sessionsHeading: "Real conversations with practising architects.",
+  sessionHighlights: [
+    "Apr 18 | Building Your Name Before You Build Buildings, with Sana Tabassum",
+    "May 30 | The Project That Broke Me, and What I Built After, with Arc. Stephen Iyobosa Omwanghe",
+    "Sep 26 | Career-Proofing: How Architects Stay Relevant and Resilient, with Arc. Ololade Babajide Suleiman and Dr. Burabari Akpe Nwako",
+  ],
+  awarenessDate: "Nov 14",
+  awarenessPrefix: "we walked students and early-career architects through ARCON registration in",
+  awarenessProgramTitle: "Pathway to Practice",
+  awarenessSpeaker: "with Arc. Agboola Tomiloba Matthew.",
+  communityTotal: 76,
+  communityCaption: "members have joined the community.",
+  studentsCount: 40,
+  professionalsCount: 26,
+  discoveryHighlight: "More than half",
+  discoveryBody: "of our members joined after attending a Think Session.",
+  discoveryPercent: 58,
+  locationsLead: "Members from across Nigeria, led by",
+  locationPrimary: "Lagos",
+  locationSecondary: "Oyo",
+  extraLocations: [],
+  welcomeStatement:
+    "Every new member gets a welcome email from us. Nobody joins and hears nothing.",
+  thankYouStatement:
+    "To our guests, our team, and everyone who showed up and asked a question: thank you.",
+  closingStatement: "More sessions. More conversations. See you in 2027.",
+  closingCtaLabel: "Join the community",
+  customStats: [],
+};
+
+export type CommunityStatsInput = {
+  showOnCommunity: boolean;
+  communityTotal: number;
+  studentsCount: number;
+  graduatesCount: number;
+  professionalsCount: number;
+  countriesCount: number;
+  topLocations: string[];
+  sourceLabel: string;
+  lastSyncedIso: string;
+};
+
+export type CommunityStatsRecord = CommunityStatsInput & {
+  exists: boolean;
+  updatedAtMs?: number;
+};
+
+export const DEFAULT_COMMUNITY_STATS: CommunityStatsInput = {
+  showOnCommunity: true,
+  communityTotal: 76,
+  studentsCount: 40,
+  graduatesCount: 10,
+  professionalsCount: 26,
+  countriesCount: 1,
+  topLocations: ["Nigeria"],
+  sourceLabel: "Community Directory",
+  lastSyncedIso: "",
+};
+
+export type GoogleSheetsConfigInput = {
+  spreadsheetId: string;
+  spreadsheetTitle: string;
+  sheetName: string;
+  emailColumn: string;
+  stageColumn: string;
+  locationColumn: string;
+  lastSyncedIso: string;
+};
+
+export type GoogleSheetsConfigRecord = GoogleSheetsConfigInput & {
+  exists: boolean;
+  updatedAtMs?: number;
+};
+
+export const DEFAULT_GOOGLE_SHEETS_CONFIG: GoogleSheetsConfigInput = {
+  spreadsheetId: "",
+  spreadsheetTitle: "",
+  sheetName: "",
+  emailColumn: "",
+  stageColumn: "",
+  locationColumn: "",
+  lastSyncedIso: "",
+};
+
+export type LiveStateInput = {
+  isLive: boolean;
+  sessionId: string;
+  sessionNumber: string;
+  sessionTitle: string;
+  speaker: string;
+  startedAtIso: string;
+  roomUrl: string;
+  qaOpen: boolean;
+};
+
+export type LiveStateRecord = LiveStateInput & {
+  exists: boolean;
+  updatedAtMs?: number;
+};
+
+export const DEFAULT_LIVE_STATE: LiveStateInput = {
+  isLive: false,
+  sessionId: "",
+  sessionNumber: "",
+  sessionTitle: "",
+  speaker: "",
+  startedAtIso: "",
+  roomUrl: "",
+  qaOpen: false,
+};
+
+export type QuestionStatus = "queued" | "on_air" | "answered";
+
+export type SessionQuestionInput = {
+  sessionId: string;
+  authorName: string;
+  authorStage?: string;
+  questionText: string;
+};
+
+export type SessionQuestionRecord = {
+  id: string;
+  sessionId: string;
+  authorName: string;
+  authorStage: string;
+  questionText: string;
+  upvotes: number;
+  status: QuestionStatus;
+  createdAtMs: number;
+  updatedAtMs: number;
+};
+
 export type SessionInput = {
   id?: string;
   number: string;
@@ -210,6 +519,8 @@ export type SessionInput = {
   summary: string;
   topics: string[];
   registrationUrl: string;
+  startAtIso?: string;
+  resources?: SessionResource[];
 };
 
 export type MediaInput = {
@@ -243,12 +554,41 @@ function clampStr(val: string, max: number): string {
   return val.trim().slice(0, max);
 }
 
+function clampInt(val: number, min = 0, max = 10000000): number {
+  if (!Number.isFinite(val)) return min;
+  return Math.max(min, Math.min(max, Math.round(val)));
+}
+
 function sanitizeStringArray(arr: string[], maxItems: number, maxLen: number): string[] {
   const cleaned = arr
     .map((item) => item.trim().slice(0, maxLen))
     .filter((item) => item.length > 0)
     .slice(0, maxItems);
   return cleaned.length > 0 ? cleaned : ["Open member Q&A"];
+}
+
+function sanitizeOptionalStringArray(arr: string[], maxItems: number, maxLen: number): string[] {
+  return arr
+    .map((item) => item.trim().slice(0, maxLen))
+    .filter((item) => item.length > 0)
+    .slice(0, maxItems);
+}
+
+function sanitizeResources(items?: SessionResource[]): SessionResource[] {
+  if (!Array.isArray(items)) return [];
+  const L = BLUEPRINT_LIMITS.session;
+  return items
+    .map((item) => ({
+      label: clampStr(String(item?.label ?? ""), L.resourceLabelMax),
+      url: clampStr(String(item?.url ?? ""), L.resourceUrlMax),
+    }))
+    .filter(
+      (item) =>
+        item.label.length >= 1 &&
+        item.url.length >= 10 &&
+        BLUEPRINT_LIMITS.httpsRequiredPattern.test(item.url),
+    )
+    .slice(0, L.maxResources);
 }
 
 export function validateSessionInput(input: SessionInput): string | null {
@@ -264,6 +604,22 @@ export function validateSessionInput(input: SessionInput): string | null {
   const url = input.registrationUrl.trim();
   if (url && !BLUEPRINT_LIMITS.httpsPattern.test(url)) {
     return "Registration URL must start with https:// or be left blank.";
+  }
+  const iso = (input.startAtIso ?? "").trim();
+  if (iso && (!BLUEPRINT_LIMITS.isoDatePattern.test(iso) || Number.isNaN(Date.parse(iso)))) {
+    return "Start date/time must be a valid ISO-8601 timestamp (e.g. 2026-11-28T18:00:00+01:00) or left blank.";
+  }
+  if (Array.isArray(input.resources)) {
+    for (let i = 0; i < Math.min(input.resources.length, L.maxResources); i += 1) {
+      const r = input.resources[i];
+      const label = (r?.label ?? "").trim();
+      const rUrl = (r?.url ?? "").trim();
+      if (!label && !rUrl) continue;
+      if (!label) return `Resource #${i + 1} needs a label.`;
+      if (!rUrl || !BLUEPRINT_LIMITS.httpsRequiredPattern.test(rUrl) || rUrl.length < 10) {
+        return `Resource #${i + 1} URL must be a full https:// link.`;
+      }
+    }
   }
   return null;
 }
@@ -302,7 +658,86 @@ export function validateSiteSettingsInput(input: SiteSettingsInput): string | nu
   return null;
 }
 
-function mapSessionDoc(id: string, data: Record<string, unknown>): FirestoreSessionRecord {
+export function validatePitchInput(input: TopicPitchInput): string | null {
+  const L = BLUEPRINT_LIMITS.pitch;
+  if (input.name.trim().length < L.name.min) return "Please enter your name.";
+  const email = input.email.trim().toLowerCase();
+  if (email.length < L.email.min || !BLUEPRINT_LIMITS.emailPattern.test(email)) {
+    return "Please enter a valid email address.";
+  }
+  if (input.topicTitle.trim().length < L.topicTitle.min) {
+    return "Please provide a topic title (at least 3 characters).";
+  }
+  if (input.outline.trim().length < L.outline.min) {
+    return "Please add a short outline of what you'd cover (at least 10 characters).";
+  }
+  const url = (input.linkUrl ?? "").trim();
+  if (url && !BLUEPRINT_LIMITS.httpsPattern.test(url)) {
+    return "Optional link must start with https:// or be left blank.";
+  }
+  return null;
+}
+
+export function validateWrappedConfigInput(input: WrappedConfigInput): string | null {
+  const L = BLUEPRINT_LIMITS.wrapped;
+  if (input.yearLabel.trim().length < L.yearLabel.min) return "Year label is required.";
+  if (input.eyebrow.trim().length < L.eyebrow.min) return "Eyebrow label is required.";
+  if (input.pageTitle.trim().length < L.pageTitle.min) return "Page title must be at least 2 characters.";
+  if (input.pageSubtitle.trim().length < L.pageSubtitle.min) return "Page subtitle must be at least 2 characters.";
+  if (input.shareCaption.trim().length < L.shareCaption.min) return "Share caption must be at least 10 characters.";
+  if (input.offlineTitle.trim().length < L.offlineTitle.min) return "Offline headline must be at least 2 characters.";
+  if (input.offlineMessage.trim().length < L.offlineMessage.min) return "Offline message must be at least 2 characters.";
+  if (input.homeBannerEyebrow.trim().length < L.homeBannerEyebrow.min) return "Home banner eyebrow is required.";
+  if (input.homeBannerTitle.trim().length < L.homeBannerTitle.min) return "Home banner title must be at least 2 characters.";
+  if (input.homeBannerCtaLabel.trim().length < L.homeBannerCtaLabel.min) return "Home banner CTA label is required.";
+  const iso = input.launchDateIso.trim();
+  if (iso && !BLUEPRINT_LIMITS.isoDatePattern.test(iso)) {
+    return "Launch date must be ISO-8601 format (e.g. 2026-12-20T18:00:00Z) or left blank.";
+  }
+  if (input.coverTitle.trim().length < L.coverTitle.min) return "Cover title must be at least 2 characters.";
+  if (input.coverSubtitle.trim().length < L.coverSubtitle.min) return "Cover subtitle must be at least 2 characters.";
+  if (input.startLead.trim().length < L.startLead.min) return "Start lead must be at least 2 characters.";
+  if (input.startStatement.trim().length < L.startStatement.min) return "Start statement must be at least 2 characters.";
+  if (input.audienceCaption.trim().length < L.audienceCaption.min) return "Audience caption must be at least 2 characters.";
+  if (input.returningCaption.trim().length < L.returningCaption.min) return "Returning caption must be at least 2 characters.";
+  if (input.sessionsHeading.trim().length < L.sessionsHeading.min) return "Sessions heading must be at least 2 characters.";
+  if (input.awarenessDate.trim().length < L.awarenessDate.min) return "Awareness date is required.";
+  if (input.awarenessPrefix.trim().length < L.awarenessPrefix.min) return "Awareness intro must be at least 2 characters.";
+  if (input.awarenessProgramTitle.trim().length < L.awarenessProgramTitle.min) return "Awareness program title must be at least 2 characters.";
+  if (input.awarenessSpeaker.trim().length < L.awarenessSpeaker.min) return "Awareness speaker attribution must be at least 2 characters.";
+  if (input.communityCaption.trim().length < L.communityCaption.min) return "Community caption must be at least 2 characters.";
+  if (input.discoveryHighlight.trim().length < L.discoveryHighlight.min) return "Discovery highlight must be at least 2 characters.";
+  if (input.discoveryBody.trim().length < L.discoveryBody.min) return "Discovery body must be at least 2 characters.";
+  if (input.discoveryPercent < 1 || input.discoveryPercent > 100) return "Discovery percent must be between 1 and 100.";
+  if (input.locationsLead.trim().length < L.locationsLead.min) return "Locations lead must be at least 2 characters.";
+  if (input.locationPrimary.trim().length < L.locationPrimary.min) return "Primary location is required.";
+  if (input.welcomeStatement.trim().length < L.welcomeStatement.min) return "Welcome statement must be at least 2 characters.";
+  if (input.thankYouStatement.trim().length < L.thankYouStatement.min) return "Thank you statement must be at least 2 characters.";
+  if (input.closingStatement.trim().length < L.closingStatement.min) return "Closing statement must be at least 2 characters.";
+  if (input.closingCtaLabel.trim().length < L.closingCtaLabel.min) return "Closing CTA label must be at least 2 characters.";
+  return null;
+}
+
+function mapSessionResources(raw: unknown): SessionResource[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const obj = item as Record<string, unknown>;
+      const label = String(obj.label ?? "").trim();
+      const url = String(obj.url ?? "").trim();
+      if (!label || !url.startsWith("https://")) return null;
+      return { label, url };
+    })
+    .filter((item): item is SessionResource => item !== null)
+    .slice(0, BLUEPRINT_LIMITS.session.maxResources);
+}
+
+function mapSessionDoc(
+  id: string,
+  data: Record<string, unknown>,
+  sourceDb: "primary" | "legacy" = "primary",
+): FirestoreSessionRecord {
   const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
   return {
     id,
@@ -319,12 +754,19 @@ function mapSessionDoc(id: string, data: Record<string, unknown>): FirestoreSess
     summary: String(data.summary ?? ""),
     topics: Array.isArray(data.topics) ? data.topics.map(String) : [],
     registrationUrl: String(data.registrationUrl ?? ""),
+    startAtIso: typeof data.startAtIso === "string" ? data.startAtIso : "",
+    resources: mapSessionResources(data.resources),
     createdBy: String(data.createdBy ?? ""),
     updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+    sourceDb,
   };
 }
 
-function mapMediaDoc(id: string, data: Record<string, unknown>): FirestoreMediaRecord {
+function mapMediaDoc(
+  id: string,
+  data: Record<string, unknown>,
+  sourceDb: "primary" | "legacy" = "primary",
+): FirestoreMediaRecord {
   const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
   return {
     id,
@@ -340,10 +782,85 @@ function mapMediaDoc(id: string, data: Record<string, unknown>): FirestoreMediaR
     highlights: Array.isArray(data.highlights) ? data.highlights.map(String) : [],
     createdBy: String(data.createdBy ?? ""),
     updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+    sourceDb,
   };
 }
 
-// --- Public Live Subscriptions & Queries (strictly filtered by published == true per Pillar 8) ---
+function mapWrappedConfigDoc(data: Record<string, unknown>): WrappedConfigRecord {
+  const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
+  const d = DEFAULT_WRAPPED_CONFIG;
+  return {
+    exists: true,
+    enabled: typeof data.enabled === "boolean" ? data.enabled : d.enabled,
+    showInFooter: typeof data.showInFooter === "boolean" ? data.showInFooter : d.showInFooter,
+    showInNav: typeof data.showInNav === "boolean" ? data.showInNav : d.showInNav,
+    homeBannerEnabled:
+      typeof data.homeBannerEnabled === "boolean" ? data.homeBannerEnabled : d.homeBannerEnabled,
+    homeCountdownEnabled:
+      typeof data.homeCountdownEnabled === "boolean"
+        ? data.homeCountdownEnabled
+        : d.homeCountdownEnabled,
+    yearLabel: String(data.yearLabel ?? d.yearLabel),
+    eyebrow: String(data.eyebrow ?? d.eyebrow),
+    pageTitle: String(data.pageTitle ?? d.pageTitle),
+    pageSubtitle: String(data.pageSubtitle ?? d.pageSubtitle),
+    shareCaption: String(data.shareCaption ?? d.shareCaption),
+    offlineTitle: String(data.offlineTitle ?? d.offlineTitle),
+    offlineMessage: String(data.offlineMessage ?? d.offlineMessage),
+    homeBannerEyebrow: String(data.homeBannerEyebrow ?? d.homeBannerEyebrow),
+    homeBannerTitle: String(data.homeBannerTitle ?? d.homeBannerTitle),
+    homeBannerCtaLabel: String(data.homeBannerCtaLabel ?? d.homeBannerCtaLabel),
+    launchDateIso: String(data.launchDateIso ?? d.launchDateIso),
+    coverTitle: String(data.coverTitle ?? d.coverTitle),
+    coverSubtitle: String(data.coverSubtitle ?? d.coverSubtitle),
+    startLead: String(data.startLead ?? d.startLead),
+    startStatement: String(data.startStatement ?? d.startStatement),
+    audienceCount:
+      typeof data.audienceCount === "number" ? data.audienceCount : d.audienceCount,
+    audiencePrefix: String(data.audiencePrefix ?? d.audiencePrefix),
+    audienceSuffix: String(data.audienceSuffix ?? d.audienceSuffix),
+    audienceCaption: String(data.audienceCaption ?? d.audienceCaption),
+    returningCount:
+      typeof data.returningCount === "number" ? data.returningCount : d.returningCount,
+    returningSuffix: String(data.returningSuffix ?? d.returningSuffix),
+    returningCaption: String(data.returningCaption ?? d.returningCaption),
+    sessionsHeading: String(data.sessionsHeading ?? d.sessionsHeading),
+    sessionHighlights: Array.isArray(data.sessionHighlights)
+      ? data.sessionHighlights.map(String)
+      : d.sessionHighlights,
+    awarenessDate: String(data.awarenessDate ?? d.awarenessDate),
+    awarenessPrefix: String(data.awarenessPrefix ?? d.awarenessPrefix),
+    awarenessProgramTitle: String(data.awarenessProgramTitle ?? d.awarenessProgramTitle),
+    awarenessSpeaker: String(data.awarenessSpeaker ?? d.awarenessSpeaker),
+    communityTotal:
+      typeof data.communityTotal === "number" ? data.communityTotal : d.communityTotal,
+    communityCaption: String(data.communityCaption ?? d.communityCaption),
+    studentsCount:
+      typeof data.studentsCount === "number" ? data.studentsCount : d.studentsCount,
+    professionalsCount:
+      typeof data.professionalsCount === "number"
+        ? data.professionalsCount
+        : d.professionalsCount,
+    discoveryHighlight: String(data.discoveryHighlight ?? d.discoveryHighlight),
+    discoveryBody: String(data.discoveryBody ?? d.discoveryBody),
+    discoveryPercent:
+      typeof data.discoveryPercent === "number" ? data.discoveryPercent : d.discoveryPercent,
+    locationsLead: String(data.locationsLead ?? d.locationsLead),
+    locationPrimary: String(data.locationPrimary ?? d.locationPrimary),
+    locationSecondary: String(data.locationSecondary ?? d.locationSecondary),
+    extraLocations: Array.isArray(data.extraLocations)
+      ? data.extraLocations.map(String)
+      : d.extraLocations,
+    welcomeStatement: String(data.welcomeStatement ?? d.welcomeStatement),
+    thankYouStatement: String(data.thankYouStatement ?? d.thankYouStatement),
+    closingStatement: String(data.closingStatement ?? d.closingStatement),
+    closingCtaLabel: String(data.closingCtaLabel ?? d.closingCtaLabel),
+    customStats: Array.isArray(data.customStats) ? data.customStats.map(String) : d.customStats,
+    updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+  };
+}
+
+// --- Public Live Subscriptions & Dual-DB Merging (Primary + Legacy active DB) ---
 
 function sortPublishedSessions(items: FirestoreSessionRecord[]): FirestoreSessionRecord[] {
   return [...items].sort((a, b) => {
@@ -353,69 +870,173 @@ function sortPublishedSessions(items: FirestoreSessionRecord[]): FirestoreSessio
   });
 }
 
+function mergeById<T extends { id: string }>(legacyList: T[], primaryList: T[]): T[] {
+  const byId = new Map<string, T>();
+  for (const item of legacyList) {
+    byId.set(item.id, item);
+  }
+  for (const item of primaryList) {
+    byId.set(item.id, item);
+  }
+  return Array.from(byId.values());
+}
+
 export function subscribePublishedSessions(
   onData: (items: FirestoreSessionRecord[]) => void,
   onError: (err: Error) => void,
 ): Unsubscribe {
-  const q = query(collection(db, "sessions"), where("published", "==", true));
-  return onSnapshot(
-    q,
+  let primaryItems: FirestoreSessionRecord[] = [];
+  let legacyItems: FirestoreSessionRecord[] = [];
+  let primaryFailed = false;
+  let legacyFailed = false;
+
+  const emit = () => {
+    onData(sortPublishedSessions(mergeById(legacyItems, primaryItems)));
+  };
+
+  const unsubPrimary = onSnapshot(
+    query(collection(db, "sessions"), where("published", "==", true)),
     (snap) => {
-      const list = sortPublishedSessions(
-        snap.docs.map((d) => mapSessionDoc(d.id, d.data())),
-      );
-      onData(list);
+      primaryFailed = false;
+      primaryItems = snap.docs.map((d) => mapSessionDoc(d.id, d.data(), "primary"));
+      emit();
     },
     (error) => {
+      primaryFailed = true;
       const structured = captureFirestoreError(error, OperationType.LIST, "sessions");
-      onError(structured);
+      if (legacyFailed) {
+        onError(structured);
+      } else {
+        console.warn("Primary sessions listener error (falling back to legacy):", structured.message);
+      }
     },
   );
+
+  const unsubLegacy = onSnapshot(
+    query(collection(legacyDb, "sessions"), where("published", "==", true)),
+    (snap) => {
+      legacyFailed = false;
+      legacyItems = snap.docs.map((d) => mapSessionDoc(d.id, d.data(), "legacy"));
+      emit();
+    },
+    (error) => {
+      legacyFailed = true;
+      console.warn("Legacy sessions listener error:", error);
+      if (primaryFailed) {
+        onError(captureFirestoreError(error, OperationType.LIST, "legacy:sessions"));
+      }
+    },
+  );
+
+  return () => {
+    unsubPrimary();
+    unsubLegacy();
+  };
 }
 
 export function subscribePublishedMedia(
   onData: (items: FirestoreMediaRecord[]) => void,
   onError: (err: Error) => void,
 ): Unsubscribe {
-  const q = query(collection(db, "media"), where("published", "==", true));
-  return onSnapshot(
-    q,
+  let primaryItems: FirestoreMediaRecord[] = [];
+  let legacyItems: FirestoreMediaRecord[] = [];
+  let primaryFailed = false;
+  let legacyFailed = false;
+
+  const emit = () => {
+    const merged = mergeById(legacyItems, primaryItems).sort(
+      (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
+    );
+    onData(merged);
+  };
+
+  const unsubPrimary = onSnapshot(
+    query(collection(db, "media"), where("published", "==", true)),
     (snap) => {
-      const list = snap.docs
-        .map((d) => mapMediaDoc(d.id, d.data()))
-        .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0));
-      onData(list);
+      primaryFailed = false;
+      primaryItems = snap.docs.map((d) => mapMediaDoc(d.id, d.data(), "primary"));
+      emit();
     },
     (error) => {
+      primaryFailed = true;
       const structured = captureFirestoreError(error, OperationType.LIST, "media");
-      onError(structured);
+      if (legacyFailed) {
+        onError(structured);
+      } else {
+        console.warn("Primary media listener error (falling back to legacy):", structured.message);
+      }
     },
   );
+
+  const unsubLegacy = onSnapshot(
+    query(collection(legacyDb, "media"), where("published", "==", true)),
+    (snap) => {
+      legacyFailed = false;
+      legacyItems = snap.docs.map((d) => mapMediaDoc(d.id, d.data(), "legacy"));
+      emit();
+    },
+    (error) => {
+      legacyFailed = true;
+      console.warn("Legacy media listener error:", error);
+      if (primaryFailed) {
+        onError(captureFirestoreError(error, OperationType.LIST, "legacy:media"));
+      }
+    },
+  );
+
+  return () => {
+    unsubPrimary();
+    unsubLegacy();
+  };
 }
 
 export async function fetchPublishedSessions(): Promise<FirestoreSessionRecord[]> {
-  const q = query(collection(db, "sessions"), where("published", "==", true));
-  try {
-    const snap = await getDocs(q);
-    return sortPublishedSessions(snap.docs.map((d) => mapSessionDoc(d.id, d.data())));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, "sessions");
+  const [primaryRes, legacyRes] = await Promise.allSettled([
+    getDocs(query(collection(db, "sessions"), where("published", "==", true))),
+    getDocs(query(collection(legacyDb, "sessions"), where("published", "==", true))),
+  ]);
+
+  if (primaryRes.status === "rejected" && legacyRes.status === "rejected") {
+    handleFirestoreError(primaryRes.reason, OperationType.LIST, "sessions");
   }
+
+  const primaryItems =
+    primaryRes.status === "fulfilled"
+      ? primaryRes.value.docs.map((d) => mapSessionDoc(d.id, d.data(), "primary"))
+      : [];
+  const legacyItems =
+    legacyRes.status === "fulfilled"
+      ? legacyRes.value.docs.map((d) => mapSessionDoc(d.id, d.data(), "legacy"))
+      : [];
+
+  return sortPublishedSessions(mergeById(legacyItems, primaryItems));
 }
 
 export async function fetchPublishedMedia(): Promise<FirestoreMediaRecord[]> {
-  const q = query(collection(db, "media"), where("published", "==", true));
-  try {
-    const snap = await getDocs(q);
-    return snap.docs
-      .map((d) => mapMediaDoc(d.id, d.data()))
-      .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, "media");
+  const [primaryRes, legacyRes] = await Promise.allSettled([
+    getDocs(query(collection(db, "media"), where("published", "==", true))),
+    getDocs(query(collection(legacyDb, "media"), where("published", "==", true))),
+  ]);
+
+  if (primaryRes.status === "rejected" && legacyRes.status === "rejected") {
+    handleFirestoreError(primaryRes.reason, OperationType.LIST, "media");
   }
+
+  const primaryItems =
+    primaryRes.status === "fulfilled"
+      ? primaryRes.value.docs.map((d) => mapMediaDoc(d.id, d.data(), "primary"))
+      : [];
+  const legacyItems =
+    legacyRes.status === "fulfilled"
+      ? legacyRes.value.docs.map((d) => mapMediaDoc(d.id, d.data(), "legacy"))
+      : [];
+
+  return mergeById(legacyItems, primaryItems).sort(
+    (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
+  );
 }
 
-// --- Admin Subscriptions (only attached when authenticated admin) ---
+// --- Admin Subscriptions (primary DB) & Legacy Snapshot ---
 
 export function subscribeAllSessions(
   onData: (items: FirestoreSessionRecord[]) => void,
@@ -425,7 +1046,7 @@ export function subscribeAllSessions(
     collection(db, "sessions"),
     (snap) => {
       const list = sortPublishedSessions(
-        snap.docs.map((d) => mapSessionDoc(d.id, d.data())),
+        snap.docs.map((d) => mapSessionDoc(d.id, d.data(), "primary")),
       );
       onData(list);
     },
@@ -444,7 +1065,7 @@ export function subscribeAllMedia(
     collection(db, "media"),
     (snap) => {
       const list = snap.docs
-        .map((d) => mapMediaDoc(d.id, d.data()))
+        .map((d) => mapMediaDoc(d.id, d.data(), "primary"))
         .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0));
       onData(list);
     },
@@ -480,7 +1101,126 @@ export function subscribeAdmins(
   );
 }
 
-// --- Admin Mutations ---
+export async function syncLegacyContentToPrimary(): Promise<{
+  sessionsImported: number;
+  mediaImported: number;
+  settingsImported: boolean;
+}> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Authentication required.");
+
+  const [legacySessionsSnap, legacyMediaSnap, legacySettingsSnap] = await Promise.all([
+    getDocs(query(collection(legacyDb, "sessions"), where("published", "==", true))),
+    getDocs(query(collection(legacyDb, "media"), where("published", "==", true))),
+    getDoc(doc(legacyDb, "siteSettings", "public")),
+  ]);
+
+  const [existingSessionsSnap, existingMediaSnap, existingSettingsSnap] = await Promise.all([
+    getDocs(collection(db, "sessions")),
+    getDocs(collection(db, "media")),
+    getDoc(doc(db, "siteSettings", "public")),
+  ]);
+
+  const existingSessionIds = new Set(existingSessionsSnap.docs.map((d) => d.id));
+  const existingMediaIds = new Set(existingMediaSnap.docs.map((d) => d.id));
+
+  let sessionsImported = 0;
+  let mediaImported = 0;
+  let settingsImported = false;
+
+  const batch = writeBatch(db);
+  const SL = BLUEPRINT_LIMITS.session;
+  for (const sDoc of legacySessionsSnap.docs) {
+    if (existingSessionIds.has(sDoc.id) || !BLUEPRINT_LIMITS.idPattern.test(sDoc.id)) continue;
+    const raw = sDoc.data();
+    const regUrl = clampStr(String(raw.registrationUrl ?? ""), SL.registrationUrl.max);
+    batch.set(doc(db, "sessions", sDoc.id), {
+      number: clampStr(String(raw.number ?? "Session"), SL.number.max).padEnd(SL.number.min, " "),
+      title: clampStr(String(raw.title ?? "Untitled Session"), SL.title.max),
+      speaker: clampStr(String(raw.speaker ?? "Guest Speaker"), SL.speaker.max),
+      speakerRole: clampStr(String(raw.speakerRole ?? "Architect"), SL.speakerRole.max),
+      dateLabel: clampStr(String(raw.dateLabel ?? "Monthly"), SL.dateLabel.max),
+      timeLabel: clampStr(String(raw.timeLabel ?? "6:00 PM WAT"), SL.timeLabel.max),
+      format: clampStr(String(raw.format ?? "Live Session"), SL.format.max),
+      status: raw.status === "archived" ? "archived" : "upcoming",
+      isNextSession: Boolean(raw.isNextSession),
+      published: true,
+      summary: clampStr(
+        String(raw.summary ?? "Think Session conversation.").padEnd(SL.summary.min, "."),
+        SL.summary.max,
+      ),
+      topics: sanitizeStringArray(
+        Array.isArray(raw.topics) ? raw.topics.map(String) : ["Open Q&A"],
+        SL.maxTopics,
+        SL.topicMaxLength,
+      ),
+      registrationUrl: BLUEPRINT_LIMITS.httpsPattern.test(regUrl) ? regUrl : "",
+      createdBy: uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    sessionsImported += 1;
+  }
+
+  const ML = BLUEPRINT_LIMITS.media;
+  for (const mDoc of legacyMediaSnap.docs) {
+    if (existingMediaIds.has(mDoc.id) || !BLUEPRINT_LIMITS.idPattern.test(mDoc.id)) continue;
+    const raw = mDoc.data();
+    const mediaUrl = clampStr(String(raw.mediaUrl ?? ""), ML.mediaUrl.max);
+    batch.set(doc(db, "media", mDoc.id), {
+      kind: raw.kind === "Feature" ? "Feature" : "Recording",
+      sessionRef: clampStr(String(raw.sessionRef ?? "Think Session"), ML.sessionRef.max),
+      title: clampStr(String(raw.title ?? "Session Recording"), ML.title.max),
+      speaker: clampStr(String(raw.speaker ?? "Guest Speaker"), ML.speaker.max),
+      duration: clampStr(String(raw.duration ?? "60 mins"), ML.duration.max),
+      publishedAt: clampStr(String(raw.publishedAt ?? "Archive"), ML.publishedAt.max),
+      mediaUrl: BLUEPRINT_LIMITS.httpsPattern.test(mediaUrl) ? mediaUrl : "",
+      published: true,
+      summary: clampStr(
+        String(raw.summary ?? "Session recording summary.").padEnd(ML.summary.min, "."),
+        ML.summary.max,
+      ),
+      highlights: sanitizeStringArray(
+        Array.isArray(raw.highlights) ? raw.highlights.map(String) : ["Session highlights"],
+        ML.maxHighlights,
+        ML.highlightMaxLength,
+      ),
+      createdBy: uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    mediaImported += 1;
+  }
+
+  if (legacySettingsSnap.exists() && !existingSettingsSnap.exists()) {
+    const raw = legacySettingsSnap.data();
+    const safeUrl = (val: unknown) => {
+      const str = clampStr(String(val ?? ""), BLUEPRINT_LIMITS.siteSettings.url.max);
+      return BLUEPRINT_LIMITS.httpsPattern.test(str) ? str : "";
+    };
+    batch.set(doc(db, "siteSettings", "public"), {
+      instagramUrl: safeUrl(raw.instagramUrl),
+      xUrl: safeUrl(raw.xUrl),
+      linkedinUrl: safeUrl(raw.linkedinUrl),
+      youtubeUrl: safeUrl(raw.youtubeUrl),
+      updatedBy: uid,
+      updatedAt: serverTimestamp(),
+    });
+    settingsImported = true;
+  }
+
+  if (sessionsImported > 0 || mediaImported > 0 || settingsImported) {
+    try {
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, "legacy-sync");
+    }
+  }
+
+  return { sessionsImported, mediaImported, settingsImported };
+}
+
+// --- Admin Mutations (Primary DB) ---
 
 export async function saveSession(input: SessionInput, allExisting: FirestoreSessionRecord[]) {
   const uid = auth.currentUser?.uid;
@@ -489,6 +1229,12 @@ export async function saveSession(input: SessionInput, allExisting: FirestoreSes
   const L = BLUEPRINT_LIMITS.session;
   const docId = input.id ? input.id : toValidDocId(input.title, "session");
   const path = `sessions/${docId}`;
+
+  const rawIso = clampStr(input.startAtIso ?? "", L.startAtIso.max);
+  const safeStartAtIso =
+    rawIso && BLUEPRINT_LIMITS.isoDatePattern.test(rawIso) && !Number.isNaN(Date.parse(rawIso))
+      ? rawIso
+      : "";
 
   const payloadFields = {
     number: clampStr(input.number, L.number.max),
@@ -504,6 +1250,8 @@ export async function saveSession(input: SessionInput, allExisting: FirestoreSes
     summary: clampStr(input.summary, L.summary.max),
     topics: sanitizeStringArray(input.topics, L.maxTopics, L.topicMaxLength),
     registrationUrl: clampStr(input.registrationUrl, L.registrationUrl.max),
+    startAtIso: safeStartAtIso,
+    resources: sanitizeResources(input.resources),
   };
 
   try {
@@ -758,39 +1506,216 @@ export async function removeSubscriber(subscriberId: string) {
   }
 }
 
-// --- Public Site Settings (/siteSettings/public) ---
+// --- Public Speaker & Topic Pitches (/pitches/{pitchId}) ---
+
+export async function submitTopicPitch(input: TopicPitchInput): Promise<string> {
+  const validationErr = validatePitchInput(input);
+  if (validationErr) {
+    throw new Error(validationErr);
+  }
+
+  const L = BLUEPRINT_LIMITS.pitch;
+  const randomSuffix = Math.random().toString(36).slice(2, 10);
+  const docId = `pitch-${Date.now()}-${randomSuffix}`;
+  const path = `pitches/${docId}`;
+
+  const rawUrl = clampStr(input.linkUrl ?? "", L.linkUrl.max);
+  const safeUrl = BLUEPRINT_LIMITS.httpsPattern.test(rawUrl) ? rawUrl : "";
+
+  try {
+    await setDoc(doc(db, "pitches", docId), {
+      pitchType: input.pitchType === "speaker" ? "speaker" : "topic",
+      name: clampStr(input.name, L.name.max),
+      email: clampStr(input.email, L.email.max).toLowerCase(),
+      roleOrStudio: clampStr(input.roleOrStudio ?? "", L.roleOrStudio.max),
+      topicTitle: clampStr(input.topicTitle, L.topicTitle.max),
+      targetStage: PITCH_TARGET_STAGES.includes(input.targetStage)
+        ? input.targetStage
+        : "All Stages",
+      outline: clampStr(input.outline, L.outline.max),
+      linkUrl: safeUrl,
+      status: "new",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return docId;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export function subscribePitches(
+  onData: (items: TopicPitchRecord[]) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, "pitches"),
+    (snap) => {
+      const list = snap.docs
+        .map((d) => {
+          const data = d.data();
+          const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
+          const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
+          const status = data.status;
+          const safeStatus: PitchStatus =
+            status === "reviewed" || status === "scheduled" || status === "archived"
+              ? status
+              : "new";
+          const stage = data.targetStage;
+          const safeStage: PitchTargetStage = PITCH_TARGET_STAGES.includes(
+            stage as PitchTargetStage,
+          )
+            ? (stage as PitchTargetStage)
+            : "All Stages";
+
+          return {
+            id: d.id,
+            pitchType: (data.pitchType === "speaker" ? "speaker" : "topic") as PitchType,
+            name: String(data.name ?? ""),
+            email: String(data.email ?? ""),
+            roleOrStudio: String(data.roleOrStudio ?? ""),
+            topicTitle: String(data.topicTitle ?? ""),
+            targetStage: safeStage,
+            outline: String(data.outline ?? ""),
+            linkUrl: String(data.linkUrl ?? ""),
+            status: safeStatus,
+            createdAtMs: createdAt?.toMillis ? createdAt.toMillis() : 0,
+            updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+          };
+        })
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
+      onData(list);
+    },
+    (error) => {
+      const structured = captureFirestoreError(error, OperationType.LIST, "pitches");
+      if (onError) onError(structured);
+    },
+  );
+}
+
+export async function updatePitchStatus(pitchId: string, status: PitchStatus) {
+  const path = `pitches/${pitchId}`;
+  try {
+    await updateDoc(doc(db, "pitches", pitchId), {
+      status,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function removePitch(pitchId: string) {
+  const path = `pitches/${pitchId}`;
+  try {
+    await deleteDoc(doc(db, "pitches", pitchId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+// --- Public Site Settings (/siteSettings/public, merged Primary + Legacy) ---
 
 export function subscribeSiteSettings(
   onData: (settings: SiteSettingsRecord) => void,
   onError?: (err: Error) => void,
 ): Unsubscribe {
-  return onSnapshot(
+  let primaryData: SiteSettingsRecord = {
+    instagramUrl: "",
+    xUrl: "",
+    linkedinUrl: "",
+    youtubeUrl: "",
+    exists: false,
+  };
+  let legacyData: SiteSettingsRecord = {
+    instagramUrl: "",
+    xUrl: "",
+    linkedinUrl: "",
+    youtubeUrl: "",
+    exists: false,
+  };
+  let primaryFailed = false;
+  let legacyFailed = false;
+
+  const emit = () => {
+    onData({
+      instagramUrl: primaryData.instagramUrl || legacyData.instagramUrl,
+      xUrl: primaryData.xUrl || legacyData.xUrl,
+      linkedinUrl: primaryData.linkedinUrl || legacyData.linkedinUrl,
+      youtubeUrl: primaryData.youtubeUrl || legacyData.youtubeUrl,
+      exists: primaryData.exists || legacyData.exists,
+    });
+  };
+
+  const unsubPrimary = onSnapshot(
     doc(db, "siteSettings", "public"),
     (snap) => {
+      primaryFailed = false;
       if (!snap.exists()) {
-        onData({
+        primaryData = {
           instagramUrl: "",
           xUrl: "",
           linkedinUrl: "",
           youtubeUrl: "",
           exists: false,
-        });
-        return;
+        };
+      } else {
+        const data = snap.data();
+        primaryData = {
+          instagramUrl: String(data.instagramUrl ?? ""),
+          xUrl: String(data.xUrl ?? ""),
+          linkedinUrl: String(data.linkedinUrl ?? ""),
+          youtubeUrl: String(data.youtubeUrl ?? ""),
+          exists: true,
+        };
       }
-      const data = snap.data();
-      onData({
-        instagramUrl: String(data.instagramUrl ?? ""),
-        xUrl: String(data.xUrl ?? ""),
-        linkedinUrl: String(data.linkedinUrl ?? ""),
-        youtubeUrl: String(data.youtubeUrl ?? ""),
-        exists: true,
-      });
+      emit();
     },
     (error) => {
+      primaryFailed = true;
       const structured = captureFirestoreError(error, OperationType.GET, "siteSettings/public");
-      if (onError) onError(structured);
+      if (legacyFailed && onError) {
+        onError(structured);
+      }
     },
   );
+
+  const unsubLegacy = onSnapshot(
+    doc(legacyDb, "siteSettings", "public"),
+    (snap) => {
+      legacyFailed = false;
+      if (!snap.exists()) {
+        legacyData = {
+          instagramUrl: "",
+          xUrl: "",
+          linkedinUrl: "",
+          youtubeUrl: "",
+          exists: false,
+        };
+      } else {
+        const data = snap.data();
+        legacyData = {
+          instagramUrl: String(data.instagramUrl ?? ""),
+          xUrl: String(data.xUrl ?? ""),
+          linkedinUrl: String(data.linkedinUrl ?? ""),
+          youtubeUrl: String(data.youtubeUrl ?? ""),
+          exists: true,
+        };
+      }
+      emit();
+    },
+    (error) => {
+      legacyFailed = true;
+      if (primaryFailed && onError) {
+        onError(captureFirestoreError(error, OperationType.GET, "legacy:siteSettings/public"));
+      }
+    },
+  );
+
+  return () => {
+    unsubPrimary();
+    unsubLegacy();
+  };
 }
 
 export async function saveSiteSettings(input: SiteSettingsInput) {
@@ -810,946 +1735,503 @@ export async function saveSiteSettings(input: SiteSettingsInput) {
   const ref = doc(db, "siteSettings", "public");
   const path = "siteSettings/public";
   try {
-    const existing = await getDoc(ref);
-    if (existing.exists()) {
-      await updateDoc(ref, payload);
-    } else {
-      await setDoc(ref, payload);
-    }
+    await setDoc(ref, payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
-// --- Year Wrapped Settings (/siteSettings/wrapped) & Slides (/wrappedSlides/{slideId}) ---
+// --- Public Wrapped CMS Configuration & Yearly Archives (/wrappedConfig/{configId}) ---
 
-export type WrappedSlideKind = "cover" | "statement" | "metric" | "sessions" | "community" | "cta";
-export type WrappedSlideTheme = "dark" | "cream";
-
-export type WrappedSettingsInput = {
-  enabled: boolean;
-  showHomeBanner: boolean;
-  countdownTargetIso: string;
-  countdownHeadline: string;
-  countdownSubtext: string;
-  pageTitle: string;
-  pageIntro: string;
-  closingHeadline: string;
-  closingBody: string;
-  shareCaption: string;
-  autoplaySeconds: number;
-};
-
-export type WrappedSettingsRecord = WrappedSettingsInput & {
-  exists: boolean;
-};
-
-export type WrappedSlideInput = {
-  id?: string;
-  order: number;
-  label: string;
-  kind: WrappedSlideKind;
-  theme: WrappedSlideTheme;
-  eyebrow: string;
-  headline: string;
-  body: string;
-  accentDate: string;
-  metricPrefix: string;
-  metricValue: number;
-  metricSuffix: string;
-  secondaryMetricA: number;
-  secondaryLabelA: string;
-  secondaryMetricB: number;
-  secondaryLabelB: string;
-  items: string[];
-  ctaLabel: string;
-  published: boolean;
-};
-
-export type WrappedSlideRecord = Omit<WrappedSlideInput, "id"> & {
-  id: string;
-  createdBy: string;
-  updatedAtMs?: number;
-};
-
-export const DEFAULT_WRAPPED_SETTINGS: WrappedSettingsRecord = {
-  enabled: true,
-  showHomeBanner: true,
-  countdownTargetIso: "2026-12-31T18:00:00Z",
-  countdownHeadline: "TTA Year Wrapped 2026 unlocks soon.",
-  countdownSubtext:
-    "Our first year, in conversations — the sessions, the numbers, and the architects who showed up.",
-  pageTitle: "TTA Year Wrapped 2026",
-  pageIntro: "Our first year, in conversations. Tap through to see what we built together.",
-  closingHeadline: "Be part of what comes next.",
-  closingBody: "Join the community and we'll send you the next session invitation.",
-  shareCaption:
-    "Our first year at The Thinking Architects, in conversations. Around 300 people registered, 76 joined the community, and we're just getting started. See our Year Wrapped: [link]",
-  autoplaySeconds: 0,
-  exists: false,
-};
-
-export const DEFAULT_WRAPPED_SLIDES: WrappedSlideRecord[] = [
-  {
-    id: "wrapped-01-cover",
-    order: 1,
-    label: "Cover",
-    kind: "cover",
-    theme: "dark",
-    eyebrow: "The Thinking Architects",
-    headline: "TTA Year Wrapped 2026",
-    body: "Our first year, in conversations.",
-    accentDate: "",
-    metricPrefix: "",
-    metricValue: 0,
-    metricSuffix: "",
-    secondaryMetricA: 0,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-02-start",
-    order: 2,
-    label: "Start",
-    kind: "statement",
-    theme: "cream",
-    eyebrow: "In January 2026, we started with one idea:",
-    headline: "nobody should have to figure this profession out alone.",
-    body: "",
-    accentDate: "",
-    metricPrefix: "",
-    metricValue: 0,
-    metricSuffix: "",
-    secondaryMetricA: 0,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-03-audience",
-    order: 3,
-    label: "Audience",
-    kind: "metric",
-    theme: "dark",
-    eyebrow: "",
-    headline: "",
-    body: "people registered for at least one of our events.",
-    accentDate: "",
-    metricPrefix: "~",
-    metricValue: 300,
-    metricSuffix: "",
-    secondaryMetricA: 0,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-04-returning",
-    order: 4,
-    label: "Coming back",
-    kind: "metric",
-    theme: "dark",
-    eyebrow: "",
-    headline: "",
-    body: "registered for more than one session.",
-    accentDate: "",
-    metricPrefix: "",
-    metricValue: 50,
-    metricSuffix: "+",
-    secondaryMetricA: 0,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-05-sessions",
-    order: 5,
-    label: "Think Sessions",
-    kind: "sessions",
-    theme: "cream",
-    eyebrow: "",
-    headline: "Real conversations with practising architects.",
-    body: "",
-    accentDate: "",
-    metricPrefix: "",
-    metricValue: 0,
-    metricSuffix: "",
-    secondaryMetricA: 0,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [
-      "Apr 18 :: Building Your Name Before You Build Buildings, with Sana Tabassum",
-      "May 30 :: The Project That Broke Me, and What I Built After, with Arc. Stephen Iyobosa Omwanghe",
-      "Sep 26 :: Career-Proofing: How Architects Stay Relevant and Resilient, with Arc. Ololade Babajide Suleiman and Dr. Burabari Akpe Nwako",
-    ],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-06-awareness",
-    order: 6,
-    label: "Awareness program",
-    kind: "statement",
-    theme: "cream",
-    eyebrow: "Pathway to Practice",
-    headline:
-      "On Nov 14, we walked students and early-career architects through ARCON registration in Pathway to Practice, with Arc. Agboola Tomiloba Matthew.",
-    body: "",
-    accentDate: "Nov 14",
-    metricPrefix: "",
-    metricValue: 0,
-    metricSuffix: "",
-    secondaryMetricA: 0,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-07-community",
-    order: 7,
-    label: "Community",
-    kind: "community",
-    theme: "dark",
-    eyebrow: "",
-    headline: "",
-    body: "members have joined the community.",
-    accentDate: "",
-    metricPrefix: "",
-    metricValue: 76,
-    metricSuffix: "",
-    secondaryMetricA: 40,
-    secondaryLabelA: "are students.",
-    secondaryMetricB: 26,
-    secondaryLabelB: "are professionals.",
-    items: [],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-08-discovery",
-    order: 8,
-    label: "How they found us",
-    kind: "statement",
-    theme: "cream",
-    eyebrow: "",
-    headline: "More than half of our members joined after attending a Think Session.",
-    body: "",
-    accentDate: "More than half",
-    metricPrefix: "",
-    metricValue: 0,
-    metricSuffix: "",
-    secondaryMetricA: 58,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-09-geography",
-    order: 9,
-    label: "Where they're from",
-    kind: "statement",
-    theme: "cream",
-    eyebrow: "Oyo",
-    headline: "Members from across Nigeria, led by Lagos and Oyo.",
-    body: "",
-    accentDate: "Lagos",
-    metricPrefix: "",
-    metricValue: 0,
-    metricSuffix: "",
-    secondaryMetricA: 0,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-10-welcome",
-    order: 10,
-    label: "Welcome",
-    kind: "statement",
-    theme: "cream",
-    eyebrow: "",
-    headline: "Every new member gets a welcome email from us. Nobody joins and hears nothing.",
-    body: "",
-    accentDate: "",
-    metricPrefix: "",
-    metricValue: 0,
-    metricSuffix: "",
-    secondaryMetricA: 0,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-11-thank-you",
-    order: 11,
-    label: "Thank you",
-    kind: "statement",
-    theme: "cream",
-    eyebrow: "",
-    headline:
-      "To our guests, our team, and everyone who showed up and asked a question: thank you.",
-    body: "",
-    accentDate: "",
-    metricPrefix: "",
-    metricValue: 0,
-    metricSuffix: "",
-    secondaryMetricA: 0,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [],
-    ctaLabel: "",
-    published: true,
-    createdBy: "default",
-  },
-  {
-    id: "wrapped-12-next",
-    order: 12,
-    label: "Next",
-    kind: "cta",
-    theme: "dark",
-    eyebrow: "",
-    headline: "More sessions. More conversations. See you in 2027.",
-    body: "",
-    accentDate: "",
-    metricPrefix: "",
-    metricValue: 0,
-    metricSuffix: "",
-    secondaryMetricA: 0,
-    secondaryLabelA: "",
-    secondaryMetricB: 0,
-    secondaryLabelB: "",
-    items: [],
-    ctaLabel: "Join the community",
-    published: true,
-    createdBy: "default",
-  },
-];
-
-export function validateWrappedSettingsInput(input: WrappedSettingsInput): string | null {
-  const L = BLUEPRINT_LIMITS.wrappedSettings;
-  const iso = input.countdownTargetIso.trim();
-  if (iso.length > L.countdownTargetIso.max || !L.countdownTargetPattern.test(iso)) {
-    return "Countdown target must be a valid ISO timestamp (e.g. 2026-12-31T18:00:00Z) or left blank.";
-  }
-  if (input.countdownHeadline.trim().length < L.countdownHeadline.min) {
-    return "Countdown headline must be at least 3 characters.";
-  }
-  if (input.countdownSubtext.trim().length < L.countdownSubtext.min) {
-    return "Countdown description must be at least 5 characters.";
-  }
-  if (input.pageTitle.trim().length < L.pageTitle.min) {
-    return "Page title must be at least 3 characters.";
-  }
-  if (input.pageIntro.trim().length < L.pageIntro.min) {
-    return "Page intro must be at least 5 characters.";
-  }
-  if (input.closingHeadline.trim().length < L.closingHeadline.min) {
-    return "Closing headline must be at least 3 characters.";
-  }
-  if (input.closingBody.trim().length < L.closingBody.min) {
-    return "Closing body must be at least 5 characters.";
-  }
-  if (input.shareCaption.trim().length < L.shareCaption.min) {
-    return "Share caption must be at least 10 characters.";
-  }
-  if (
-    !Number.isFinite(input.autoplaySeconds) ||
-    input.autoplaySeconds < L.autoplaySeconds.min ||
-    input.autoplaySeconds > L.autoplaySeconds.max
-  ) {
-    return "Autoplay seconds must be between 0 and 60.";
-  }
-  return null;
-}
-
-export function validateWrappedSlideInput(input: WrappedSlideInput): string | null {
-  const L = BLUEPRINT_LIMITS.wrappedSlide;
-  if (input.label.trim().length < L.label.min) {
-    return "Slide label must be at least 1 character.";
-  }
-  if (
-    !input.headline.trim() &&
-    !input.body.trim() &&
-    input.metricValue <= 0 &&
-    input.items.length === 0
-  ) {
-    return "Please enter a headline, metric value, body copy, or session list items.";
-  }
-  if (
-    !Number.isFinite(input.order) ||
-    input.order < L.order.min ||
-    input.order > L.order.max
-  ) {
-    return "Slide order must be between 0 and 1000.";
-  }
-  if (
-    !Number.isFinite(input.metricValue) ||
-    input.metricValue < L.metricValue.min ||
-    input.metricValue > L.metricValue.max
-  ) {
-    return "Metric value must be between 0 and 10,000,000.";
-  }
-  return null;
-}
-
-function clampNonNegativeInt(value: number, max: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(max, Math.round(value)));
-}
-
-function sanitizeWrappedItems(items: string[]): string[] {
-  const L = BLUEPRINT_LIMITS.wrappedSlide;
-  return items
-    .map((item) => item.trim().slice(0, L.itemMaxLength))
-    .filter((item) => item.length > 0)
-    .slice(0, L.maxItems);
-}
-
-const VALID_WRAPPED_KINDS: WrappedSlideKind[] = [
-  "cover",
-  "statement",
-  "metric",
-  "sessions",
-  "community",
-  "cta",
-];
-
-function mapWrappedSlideDoc(id: string, data: Record<string, unknown>): WrappedSlideRecord {
-  const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
-  const rawKind = String(data.kind ?? "statement") as WrappedSlideKind;
-  const kind = VALID_WRAPPED_KINDS.includes(rawKind) ? rawKind : "statement";
-  const theme: WrappedSlideTheme = data.theme === "dark" ? "dark" : "cream";
-
-  return {
-    id,
-    order: typeof data.order === "number" ? data.order : Number(data.order ?? 0) || 0,
-    label: String(data.label ?? "Slide"),
-    kind,
-    theme,
-    eyebrow: String(data.eyebrow ?? ""),
-    headline: String(data.headline ?? ""),
-    body: String(data.body ?? ""),
-    accentDate: String(data.accentDate ?? ""),
-    metricPrefix: String(data.metricPrefix ?? ""),
-    metricValue:
-      typeof data.metricValue === "number"
-        ? data.metricValue
-        : Number(data.metricValue ?? 0) || 0,
-    metricSuffix: String(data.metricSuffix ?? ""),
-    secondaryMetricA:
-      typeof data.secondaryMetricA === "number"
-        ? data.secondaryMetricA
-        : Number(data.secondaryMetricA ?? 0) || 0,
-    secondaryLabelA: String(data.secondaryLabelA ?? ""),
-    secondaryMetricB:
-      typeof data.secondaryMetricB === "number"
-        ? data.secondaryMetricB
-        : Number(data.secondaryMetricB ?? 0) || 0,
-    secondaryLabelB: String(data.secondaryLabelB ?? ""),
-    items: Array.isArray(data.items) ? data.items.map(String) : [],
-    ctaLabel: String(data.ctaLabel ?? ""),
-    published: Boolean(data.published),
-    createdBy: String(data.createdBy ?? ""),
-    updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
-  };
-}
-
-function sortWrappedSlides(items: WrappedSlideRecord[]): WrappedSlideRecord[] {
-  return [...items].sort((a, b) => {
-    if (a.order !== b.order) return a.order - b.order;
-    return (a.updatedAtMs ?? 0) - (b.updatedAtMs ?? 0);
-  });
-}
-
-export function subscribeWrappedSettings(
-  onData: (settings: WrappedSettingsRecord) => void,
+export function subscribeWrappedConfig(
+  onData: (config: WrappedConfigRecord) => void,
   onError?: (err: Error) => void,
+  configId = "public",
 ): Unsubscribe {
+  const safeId =
+    configId === "public" || /^year-\d{4}$/.test(configId) ? configId : "public";
   return onSnapshot(
-    doc(db, "siteSettings", "wrapped"),
+    doc(db, "wrappedConfig", safeId),
     (snap) => {
       if (!snap.exists()) {
-        onData({ ...DEFAULT_WRAPPED_SETTINGS, exists: false });
+        onData({ ...DEFAULT_WRAPPED_CONFIG, exists: false });
         return;
       }
-      const data = snap.data();
-      onData({
-        enabled: typeof data.enabled === "boolean" ? data.enabled : DEFAULT_WRAPPED_SETTINGS.enabled,
-        showHomeBanner:
-          typeof data.showHomeBanner === "boolean"
-            ? data.showHomeBanner
-            : DEFAULT_WRAPPED_SETTINGS.showHomeBanner,
-        countdownTargetIso: String(
-          data.countdownTargetIso ?? DEFAULT_WRAPPED_SETTINGS.countdownTargetIso,
-        ),
-        countdownHeadline: String(
-          data.countdownHeadline ?? DEFAULT_WRAPPED_SETTINGS.countdownHeadline,
-        ),
-        countdownSubtext: String(
-          data.countdownSubtext ?? DEFAULT_WRAPPED_SETTINGS.countdownSubtext,
-        ),
-        pageTitle: String(data.pageTitle ?? DEFAULT_WRAPPED_SETTINGS.pageTitle),
-        pageIntro: String(data.pageIntro ?? DEFAULT_WRAPPED_SETTINGS.pageIntro),
-        closingHeadline: String(data.closingHeadline ?? DEFAULT_WRAPPED_SETTINGS.closingHeadline),
-        closingBody: String(data.closingBody ?? DEFAULT_WRAPPED_SETTINGS.closingBody),
-        shareCaption: String(data.shareCaption ?? DEFAULT_WRAPPED_SETTINGS.shareCaption),
-        autoplaySeconds:
-          typeof data.autoplaySeconds === "number"
-            ? data.autoplaySeconds
-            : DEFAULT_WRAPPED_SETTINGS.autoplaySeconds,
-        exists: true,
-      });
+      onData(mapWrappedConfigDoc(snap.data()));
     },
     (error) => {
-      const structured = captureFirestoreError(error, OperationType.GET, "siteSettings/wrapped");
+      const structured = captureFirestoreError(error, OperationType.GET, `wrappedConfig/${safeId}`);
       if (onError) onError(structured);
     },
   );
 }
 
-export async function saveWrappedSettings(input: WrappedSettingsInput) {
+export function subscribePublishedWrappedEditions(
+  onData: (editions: WrappedEditionRecord[]) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, "wrappedConfig"), where("enabled", "==", true)),
+    (snap) => {
+      const list = snap.docs
+        .filter((d) => d.id === "public" || /^year-\d{4}$/.test(d.id))
+        .map((d) => ({
+          id: d.id,
+          ...mapWrappedConfigDoc(d.data()),
+        }))
+        .sort((a, b) => {
+          if (a.id === "public") return -1;
+          if (b.id === "public") return 1;
+          return b.yearLabel.localeCompare(a.yearLabel);
+        });
+      onData(list);
+    },
+    (error) => {
+      const structured = captureFirestoreError(error, OperationType.LIST, "wrappedConfig");
+      if (onError) onError(structured);
+    },
+  );
+}
+
+export function subscribeAllWrappedEditions(
+  onData: (editions: WrappedEditionRecord[]) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, "wrappedConfig"),
+    (snap) => {
+      const list = snap.docs
+        .filter((d) => d.id === "public" || /^year-\d{4}$/.test(d.id))
+        .map((d) => ({
+          id: d.id,
+          ...mapWrappedConfigDoc(d.data()),
+        }))
+        .sort((a, b) => {
+          if (a.id === "public") return -1;
+          if (b.id === "public") return 1;
+          return b.yearLabel.localeCompare(a.yearLabel);
+        });
+      onData(list);
+    },
+    (error) => {
+      const structured = captureFirestoreError(error, OperationType.LIST, "wrappedConfig");
+      if (onError) onError(structured);
+    },
+  );
+}
+
+export async function saveWrappedConfig(input: WrappedConfigInput, configId = "public") {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Authentication required.");
 
-  const L = BLUEPRINT_LIMITS.wrappedSettings;
+  const safeId =
+    configId === "public" || /^year-\d{4}$/.test(configId) ? configId : "public";
+  const L = BLUEPRINT_LIMITS.wrapped;
+  const isoTrimmed = clampStr(input.launchDateIso, L.launchDateIso.max);
+
   const payload = {
     enabled: Boolean(input.enabled),
-    showHomeBanner: Boolean(input.showHomeBanner),
-    countdownTargetIso: clampStr(input.countdownTargetIso, L.countdownTargetIso.max),
-    countdownHeadline: clampStr(input.countdownHeadline, L.countdownHeadline.max),
-    countdownSubtext: clampStr(input.countdownSubtext, L.countdownSubtext.max),
+    showInFooter: Boolean(input.showInFooter),
+    showInNav: Boolean(input.showInNav),
+    homeBannerEnabled: Boolean(input.homeBannerEnabled),
+    homeCountdownEnabled: Boolean(input.homeCountdownEnabled),
+    yearLabel: clampStr(input.yearLabel, L.yearLabel.max),
+    eyebrow: clampStr(input.eyebrow, L.eyebrow.max),
     pageTitle: clampStr(input.pageTitle, L.pageTitle.max),
-    pageIntro: clampStr(input.pageIntro, L.pageIntro.max),
-    closingHeadline: clampStr(input.closingHeadline, L.closingHeadline.max),
-    closingBody: clampStr(input.closingBody, L.closingBody.max),
+    pageSubtitle: clampStr(input.pageSubtitle, L.pageSubtitle.max),
     shareCaption: clampStr(input.shareCaption, L.shareCaption.max),
-    autoplaySeconds: clampNonNegativeInt(input.autoplaySeconds, L.autoplaySeconds.max),
+    offlineTitle: clampStr(input.offlineTitle, L.offlineTitle.max),
+    offlineMessage: clampStr(input.offlineMessage, L.offlineMessage.max),
+    homeBannerEyebrow: clampStr(input.homeBannerEyebrow, L.homeBannerEyebrow.max),
+    homeBannerTitle: clampStr(input.homeBannerTitle, L.homeBannerTitle.max),
+    homeBannerCtaLabel: clampStr(input.homeBannerCtaLabel, L.homeBannerCtaLabel.max),
+    launchDateIso: BLUEPRINT_LIMITS.isoDatePattern.test(isoTrimmed) ? isoTrimmed : "",
+    coverTitle: clampStr(input.coverTitle, L.coverTitle.max),
+    coverSubtitle: clampStr(input.coverSubtitle, L.coverSubtitle.max),
+    startLead: clampStr(input.startLead, L.startLead.max),
+    startStatement: clampStr(input.startStatement, L.startStatement.max),
+    audienceCount: clampInt(input.audienceCount),
+    audiencePrefix: clampStr(input.audiencePrefix, L.prefixSuffixMax),
+    audienceSuffix: clampStr(input.audienceSuffix, L.prefixSuffixMax),
+    audienceCaption: clampStr(input.audienceCaption, L.audienceCaption.max),
+    returningCount: clampInt(input.returningCount),
+    returningSuffix: clampStr(input.returningSuffix, L.prefixSuffixMax),
+    returningCaption: clampStr(input.returningCaption, L.returningCaption.max),
+    sessionsHeading: clampStr(input.sessionsHeading, L.sessionsHeading.max),
+    sessionHighlights: sanitizeStringArray(
+      input.sessionHighlights,
+      L.maxSessionHighlights,
+      L.sessionHighlightMaxLength,
+    ),
+    awarenessDate: clampStr(input.awarenessDate, L.awarenessDate.max),
+    awarenessPrefix: clampStr(input.awarenessPrefix, L.awarenessPrefix.max),
+    awarenessProgramTitle: clampStr(input.awarenessProgramTitle, L.awarenessProgramTitle.max),
+    awarenessSpeaker: clampStr(input.awarenessSpeaker, L.awarenessSpeaker.max),
+    communityTotal: clampInt(input.communityTotal),
+    communityCaption: clampStr(input.communityCaption, L.communityCaption.max),
+    studentsCount: clampInt(input.studentsCount),
+    professionalsCount: clampInt(input.professionalsCount),
+    discoveryHighlight: clampStr(input.discoveryHighlight, L.discoveryHighlight.max),
+    discoveryBody: clampStr(input.discoveryBody, L.discoveryBody.max),
+    discoveryPercent: clampInt(input.discoveryPercent, 1, 100),
+    locationsLead: clampStr(input.locationsLead, L.locationsLead.max),
+    locationPrimary: clampStr(input.locationPrimary, L.locationPrimary.max),
+    locationSecondary: clampStr(input.locationSecondary, L.locationSecondary.max),
+    extraLocations: sanitizeOptionalStringArray(
+      input.extraLocations,
+      L.maxExtraLocations,
+      L.extraLocationMaxLength,
+    ),
+    welcomeStatement: clampStr(input.welcomeStatement, L.welcomeStatement.max),
+    thankYouStatement: clampStr(input.thankYouStatement, L.thankYouStatement.max),
+    closingStatement: clampStr(input.closingStatement, L.closingStatement.max),
+    closingCtaLabel: clampStr(input.closingCtaLabel, L.closingCtaLabel.max),
+    customStats: sanitizeOptionalStringArray(
+      input.customStats,
+      L.maxCustomStats,
+      L.customStatMaxLength,
+    ),
     updatedBy: uid,
     updatedAt: serverTimestamp(),
   };
 
-  const ref = doc(db, "siteSettings", "wrapped");
-  const path = "siteSettings/wrapped";
+  const ref = doc(db, "wrappedConfig", safeId);
+  const path = `wrappedConfig/${safeId}`;
   try {
-    const existing = await getDoc(ref);
-    if (existing.exists()) {
-      await updateDoc(ref, payload);
-    } else {
-      await setDoc(ref, payload);
-    }
+    await setDoc(ref, payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
-export function subscribePublishedWrappedSlides(
-  onData: (items: WrappedSlideRecord[]) => void,
-  onError?: (err: Error) => void,
-): Unsubscribe {
-  const q = query(collection(db, "wrappedSlides"), where("published", "==", true));
-  return onSnapshot(
-    q,
-    (snap) => {
-      const list = sortWrappedSlides(snap.docs.map((d) => mapWrappedSlideDoc(d.id, d.data())));
-      onData(list);
-    },
-    (error) => {
-      const structured = captureFirestoreError(error, OperationType.LIST, "wrappedSlides");
-      if (onError) onError(structured);
-    },
-  );
-}
-
-export function subscribeAllWrappedSlides(
-  onData: (items: WrappedSlideRecord[]) => void,
-  onError?: (err: Error) => void,
-): Unsubscribe {
-  return onSnapshot(
-    collection(db, "wrappedSlides"),
-    (snap) => {
-      const list = sortWrappedSlides(snap.docs.map((d) => mapWrappedSlideDoc(d.id, d.data())));
-      onData(list);
-    },
-    (error) => {
-      const structured = captureFirestoreError(error, OperationType.LIST, "wrappedSlides");
-      if (onError) onError(structured);
-    },
-  );
-}
-
-export async function saveWrappedSlide(input: WrappedSlideInput) {
-  const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error("Authentication required.");
-
-  const L = BLUEPRINT_LIMITS.wrappedSlide;
-  const docId = input.id ? input.id : toValidDocId(input.label, "wrapped-slide");
-  const path = `wrappedSlides/${docId}`;
-
-  const payloadFields = {
-    order: clampNonNegativeInt(input.order, L.order.max),
-    label: clampStr(input.label, L.label.max),
-    kind: input.kind,
-    theme: input.theme,
-    eyebrow: clampStr(input.eyebrow, L.eyebrow.max),
-    headline: clampStr(input.headline, L.headline.max),
-    body: clampStr(input.body, L.body.max),
-    accentDate: clampStr(input.accentDate, L.accentDate.max),
-    metricPrefix: clampStr(input.metricPrefix, L.metricPrefix.max),
-    metricValue: clampNonNegativeInt(input.metricValue, L.metricValue.max),
-    metricSuffix: clampStr(input.metricSuffix, L.metricSuffix.max),
-    secondaryMetricA: clampNonNegativeInt(input.secondaryMetricA, L.secondaryMetricA.max),
-    secondaryLabelA: clampStr(input.secondaryLabelA, L.secondaryLabelA.max),
-    secondaryMetricB: clampNonNegativeInt(input.secondaryMetricB, L.secondaryMetricB.max),
-    secondaryLabelB: clampStr(input.secondaryLabelB, L.secondaryLabelB.max),
-    items: sanitizeWrappedItems(input.items),
-    ctaLabel: clampStr(input.ctaLabel, L.ctaLabel.max),
-    published: Boolean(input.published),
-  };
-
-  try {
-    if (input.id) {
-      await updateDoc(doc(db, "wrappedSlides", docId), {
-        ...payloadFields,
-        updatedAt: serverTimestamp(),
-      });
-    } else {
-      await setDoc(doc(db, "wrappedSlides", docId), {
-        ...payloadFields,
-        createdBy: uid,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-    return docId;
-  } catch (error) {
-    handleFirestoreError(error, input.id ? OperationType.UPDATE : OperationType.CREATE, path);
+export async function removeWrappedArchive(configId: string) {
+  if (!/^year-\d{4}$/.test(configId)) {
+    throw new Error("Only yearly Wrapped archives (year-YYYY) can be deleted.");
   }
-}
-
-export async function toggleWrappedSlidePublished(slide: WrappedSlideRecord) {
-  const path = `wrappedSlides/${slide.id}`;
+  const path = `wrappedConfig/${configId}`;
   try {
-    await updateDoc(doc(db, "wrappedSlides", slide.id), {
-      published: !slide.published,
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
-}
-
-export async function swapWrappedSlideOrder(
-  first: WrappedSlideRecord,
-  second: WrappedSlideRecord,
-) {
-  const path = `wrappedSlides/${first.id}`;
-  try {
-    const batch = writeBatch(db);
-    const firstOrder = first.order;
-    const secondOrder = second.order === firstOrder ? firstOrder + 1 : second.order;
-    batch.update(doc(db, "wrappedSlides", first.id), {
-      order: secondOrder,
-      updatedAt: serverTimestamp(),
-    });
-    batch.update(doc(db, "wrappedSlides", second.id), {
-      order: firstOrder,
-      updatedAt: serverTimestamp(),
-    });
-    await batch.commit();
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
-}
-
-export async function removeWrappedSlide(slideId: string) {
-  const path = `wrappedSlides/${slideId}`;
-  try {
-    await deleteDoc(doc(db, "wrappedSlides", slideId));
+    await deleteDoc(doc(db, "wrappedConfig", configId));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 
-export async function seedDefaultWrappedSlides(existingSlides: WrappedSlideRecord[] = []) {
-  const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error("Authentication required.");
+// --- Public Aggregate Community Stats (/communityStats/public) ---
 
-  const L = BLUEPRINT_LIMITS.wrappedSlide;
-  try {
-    const batch = writeBatch(db);
-    const existingIds = new Set(existingSlides.map((s) => s.id));
-
-    for (const slide of DEFAULT_WRAPPED_SLIDES) {
-      const ref = doc(db, "wrappedSlides", slide.id);
-      const baseFields = {
-        order: clampNonNegativeInt(slide.order, L.order.max),
-        label: clampStr(slide.label, L.label.max),
-        kind: slide.kind,
-        theme: slide.theme,
-        eyebrow: clampStr(slide.eyebrow, L.eyebrow.max),
-        headline: clampStr(slide.headline, L.headline.max),
-        body: clampStr(slide.body, L.body.max),
-        accentDate: clampStr(slide.accentDate, L.accentDate.max),
-        metricPrefix: clampStr(slide.metricPrefix, L.metricPrefix.max),
-        metricValue: clampNonNegativeInt(slide.metricValue, L.metricValue.max),
-        metricSuffix: clampStr(slide.metricSuffix, L.metricSuffix.max),
-        secondaryMetricA: clampNonNegativeInt(slide.secondaryMetricA, L.secondaryMetricA.max),
-        secondaryLabelA: clampStr(slide.secondaryLabelA, L.secondaryLabelA.max),
-        secondaryMetricB: clampNonNegativeInt(slide.secondaryMetricB, L.secondaryMetricB.max),
-        secondaryLabelB: clampStr(slide.secondaryLabelB, L.secondaryLabelB.max),
-        items: sanitizeWrappedItems(slide.items),
-        ctaLabel: clampStr(slide.ctaLabel, L.ctaLabel.max),
-        published: slide.published,
-      };
-
-      if (existingIds.has(slide.id)) {
-        batch.update(ref, {
-          ...baseFields,
-          updatedAt: serverTimestamp(),
-        });
-      } else {
-        batch.set(ref, {
-          ...baseFields,
-          createdBy: uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-    }
-
-    await batch.commit();
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, "wrappedSlides");
-  }
-}
-
-// --- Live Session Companion (/siteSettings/live) & Live Q&A (/sessionQuestions) ---
-
-export type LiveSettingsInput = {
-  isLive: boolean;
-  liveSessionId: string;
-  liveTitle: string;
-  liveRoomUrl: string;
-  liveStartedAtIso: string;
-  qaEnabled: boolean;
-  announcementEnabled: boolean;
-  announcementText: string;
-  announcementLinkLabel: string;
-  announcementLinkHref: string;
-};
-
-export type LiveSettingsRecord = LiveSettingsInput & {
-  exists: boolean;
-};
-
-export type SessionQuestionRecord = {
-  id: string;
-  sessionId: string;
-  authorName: string;
-  question: string;
-  upvotes: number;
-  answered: boolean;
-  createdAtMs: number;
-};
-
-export type SessionQuestionInput = {
-  sessionId: string;
-  authorName: string;
-  question: string;
-};
-
-export const DEFAULT_LIVE_SETTINGS: LiveSettingsRecord = {
-  isLive: false,
-  liveSessionId: "",
-  liveTitle: "",
-  liveRoomUrl: "",
-  liveStartedAtIso: "",
-  qaEnabled: true,
-  announcementEnabled: false,
-  announcementText: "TTA Year Wrapped 2026 is now live — explore our first year in conversations.",
-  announcementLinkLabel: "View Wrapped",
-  announcementLinkHref: "/wrapped",
-  exists: false,
-};
-
-export function validateLiveSettingsInput(input: LiveSettingsInput): string | null {
-  const L = BLUEPRINT_LIMITS.liveSettings;
-  const sid = input.liveSessionId.trim();
-  if (sid.length > L.liveSessionId.max || !L.sessionIdPattern.test(sid)) {
-    return "Selected session ID contains invalid characters.";
-  }
-  const roomUrl = input.liveRoomUrl.trim();
-  if (roomUrl.length > L.liveRoomUrl.max || (roomUrl && !BLUEPRINT_LIMITS.httpsPattern.test(roomUrl))) {
-    return "Live room URL must start with https:// or be left blank.";
-  }
-  const startedIso = input.liveStartedAtIso.trim();
-  if (
-    startedIso.length > L.liveStartedAtIso.max ||
-    !BLUEPRINT_LIMITS.wrappedSettings.countdownTargetPattern.test(startedIso)
-  ) {
-    return "Live start timestamp must be valid ISO-8601 or left blank.";
-  }
-  if (input.liveTitle.trim().length > L.liveTitle.max) {
-    return `Live title must be ${L.liveTitle.max} characters or less.`;
-  }
-  if (input.announcementText.trim().length > L.announcementText.max) {
-    return `Announcement bar text must be ${L.announcementText.max} characters or less.`;
-  }
-  if (input.announcementLinkLabel.trim().length > L.announcementLinkLabel.max) {
-    return `Announcement link label must be ${L.announcementLinkLabel.max} characters or less.`;
-  }
-  const href = input.announcementLinkHref.trim();
-  if (href.length > L.announcementLinkHref.max || !L.announcementHrefPattern.test(href)) {
-    return "Announcement link must start with / or https:// (or be left blank).";
-  }
-  return null;
-}
-
-export function validateSessionQuestionInput(input: SessionQuestionInput): string | null {
-  const L = BLUEPRINT_LIMITS.sessionQuestion;
-  const cleanSid = input.sessionId.trim();
-  if (!cleanSid || !BLUEPRINT_LIMITS.idPattern.test(cleanSid)) {
-    return "Invalid target session.";
-  }
-  if (input.authorName.trim().length < L.authorName.min) {
-    return "Please enter your name.";
-  }
-  if (input.question.trim().length < L.question.min) {
-    return "Question must be at least 5 characters.";
-  }
-  if (input.question.trim().length > L.question.max) {
-    return `Question must be ${L.question.max} characters or less.`;
-  }
-  return null;
-}
-
-function mapQuestionDoc(id: string, data: Record<string, unknown>): SessionQuestionRecord {
-  const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
+function mapCommunityStatsDoc(data: Record<string, unknown>): CommunityStatsRecord {
+  const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
+  const d = DEFAULT_COMMUNITY_STATS;
   return {
-    id,
-    sessionId: String(data.sessionId ?? ""),
-    authorName: String(data.authorName ?? ""),
-    question: String(data.question ?? ""),
-    upvotes: typeof data.upvotes === "number" ? data.upvotes : Number(data.upvotes ?? 1) || 1,
-    answered: Boolean(data.answered),
-    createdAtMs: createdAt?.toMillis ? createdAt.toMillis() : 0,
+    exists: true,
+    showOnCommunity:
+      typeof data.showOnCommunity === "boolean" ? data.showOnCommunity : d.showOnCommunity,
+    communityTotal:
+      typeof data.communityTotal === "number" ? data.communityTotal : d.communityTotal,
+    studentsCount: typeof data.studentsCount === "number" ? data.studentsCount : d.studentsCount,
+    graduatesCount:
+      typeof data.graduatesCount === "number" ? data.graduatesCount : d.graduatesCount,
+    professionalsCount:
+      typeof data.professionalsCount === "number" ? data.professionalsCount : d.professionalsCount,
+    countriesCount:
+      typeof data.countriesCount === "number" ? data.countriesCount : d.countriesCount,
+    topLocations: Array.isArray(data.topLocations) ? data.topLocations.map(String) : d.topLocations,
+    sourceLabel: String(data.sourceLabel ?? d.sourceLabel),
+    lastSyncedIso: String(data.lastSyncedIso ?? ""),
+    updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
   };
 }
 
-function sortQuestions(items: SessionQuestionRecord[]): SessionQuestionRecord[] {
-  return [...items].sort((a, b) => {
-    if (a.answered !== b.answered) return Number(a.answered) - Number(b.answered);
-    if (b.upvotes !== a.upvotes) return b.upvotes - a.upvotes;
-    return b.createdAtMs - a.createdAtMs;
-  });
-}
-
-export function subscribeLiveSettings(
-  onData: (settings: LiveSettingsRecord) => void,
+export function subscribeCommunityStats(
+  onData: (stats: CommunityStatsRecord) => void,
   onError?: (err: Error) => void,
 ): Unsubscribe {
   return onSnapshot(
-    doc(db, "siteSettings", "live"),
+    doc(db, "communityStats", "public"),
     (snap) => {
       if (!snap.exists()) {
-        onData({ ...DEFAULT_LIVE_SETTINGS, exists: false });
+        onData({ ...DEFAULT_COMMUNITY_STATS, exists: false });
         return;
       }
-      const data = snap.data();
-      onData({
-        isLive: Boolean(data.isLive),
-        liveSessionId: String(data.liveSessionId ?? ""),
-        liveTitle: String(data.liveTitle ?? ""),
-        liveRoomUrl: String(data.liveRoomUrl ?? ""),
-        liveStartedAtIso: String(data.liveStartedAtIso ?? ""),
-        qaEnabled: typeof data.qaEnabled === "boolean" ? data.qaEnabled : true,
-        announcementEnabled: Boolean(data.announcementEnabled),
-        announcementText: String(data.announcementText ?? DEFAULT_LIVE_SETTINGS.announcementText),
-        announcementLinkLabel: String(
-          data.announcementLinkLabel ?? DEFAULT_LIVE_SETTINGS.announcementLinkLabel,
-        ),
-        announcementLinkHref: String(
-          data.announcementLinkHref ?? DEFAULT_LIVE_SETTINGS.announcementLinkHref,
-        ),
-        exists: true,
-      });
+      onData(mapCommunityStatsDoc(snap.data()));
     },
     (error) => {
-      const structured = captureFirestoreError(error, OperationType.GET, "siteSettings/live");
+      const structured = captureFirestoreError(error, OperationType.GET, "communityStats/public");
       if (onError) onError(structured);
     },
   );
 }
 
-export async function saveLiveSettings(input: LiveSettingsInput) {
+export async function saveCommunityStats(input: CommunityStatsInput) {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Authentication required.");
 
-  const L = BLUEPRINT_LIMITS.liveSettings;
+  const L = BLUEPRINT_LIMITS.communityStats;
+  const rawIso = clampStr(input.lastSyncedIso ?? "", L.lastSyncedIsoMax);
+  const safeIso =
+    rawIso && BLUEPRINT_LIMITS.isoDatePattern.test(rawIso) ? rawIso : "";
+
   const payload = {
-    isLive: Boolean(input.isLive),
-    liveSessionId: clampStr(input.liveSessionId, L.liveSessionId.max),
-    liveTitle: clampStr(input.liveTitle, L.liveTitle.max),
-    liveRoomUrl: clampStr(input.liveRoomUrl, L.liveRoomUrl.max),
-    liveStartedAtIso: clampStr(input.liveStartedAtIso, L.liveStartedAtIso.max),
-    qaEnabled: Boolean(input.qaEnabled),
-    announcementEnabled: Boolean(input.announcementEnabled),
-    announcementText: clampStr(input.announcementText, L.announcementText.max),
-    announcementLinkLabel: clampStr(input.announcementLinkLabel, L.announcementLinkLabel.max),
-    announcementLinkHref: clampStr(input.announcementLinkHref, L.announcementLinkHref.max),
+    showOnCommunity: Boolean(input.showOnCommunity),
+    communityTotal: clampInt(input.communityTotal),
+    studentsCount: clampInt(input.studentsCount),
+    graduatesCount: clampInt(input.graduatesCount),
+    professionalsCount: clampInt(input.professionalsCount),
+    countriesCount: clampInt(input.countriesCount, 0, L.countriesMax),
+    topLocations: sanitizeOptionalStringArray(
+      input.topLocations,
+      L.maxTopLocations,
+      L.topLocationMaxLength,
+    ),
+    sourceLabel: clampStr(input.sourceLabel || "Community Directory", L.sourceLabelMax),
+    lastSyncedIso: safeIso,
     updatedBy: uid,
     updatedAt: serverTimestamp(),
   };
 
-  const ref = doc(db, "siteSettings", "live");
-  const path = "siteSettings/live";
   try {
-    const existing = await getDoc(ref);
-    if (existing.exists()) {
-      await updateDoc(ref, payload);
-    } else {
-      await setDoc(ref, payload);
-    }
+    await setDoc(doc(db, "communityStats", "public"), payload);
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    handleFirestoreError(error, OperationType.WRITE, "communityStats/public");
   }
+}
+
+// --- Admin-Only Google Sheets Integration Config (/adminConfig/googleSheets) ---
+
+function mapGoogleSheetsConfigDoc(data: Record<string, unknown>): GoogleSheetsConfigRecord {
+  const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
+  return {
+    exists: true,
+    spreadsheetId: String(data.spreadsheetId ?? ""),
+    spreadsheetTitle: String(data.spreadsheetTitle ?? ""),
+    sheetName: String(data.sheetName ?? ""),
+    emailColumn: String(data.emailColumn ?? ""),
+    stageColumn: String(data.stageColumn ?? ""),
+    locationColumn: String(data.locationColumn ?? ""),
+    lastSyncedIso: String(data.lastSyncedIso ?? ""),
+    updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+  };
+}
+
+export function subscribeGoogleSheetsConfig(
+  onData: (config: GoogleSheetsConfigRecord) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, "adminConfig", "googleSheets"),
+    (snap) => {
+      if (!snap.exists()) {
+        onData({ ...DEFAULT_GOOGLE_SHEETS_CONFIG, exists: false });
+        return;
+      }
+      onData(mapGoogleSheetsConfigDoc(snap.data()));
+    },
+    (error) => {
+      const structured = captureFirestoreError(error, OperationType.GET, "adminConfig/googleSheets");
+      if (onError) onError(structured);
+    },
+  );
+}
+
+export async function saveGoogleSheetsConfig(input: GoogleSheetsConfigInput) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Authentication required.");
+
+  const L = BLUEPRINT_LIMITS.googleSheets;
+  const cleanId = clampStr(input.spreadsheetId, L.spreadsheetIdMax);
+  if (cleanId && !BLUEPRINT_LIMITS.idPattern.test(cleanId)) {
+    throw new Error("Invalid Spreadsheet ID format.");
+  }
+
+  const rawIso = clampStr(input.lastSyncedIso ?? "", L.lastSyncedIsoMax);
+  const safeIso =
+    rawIso && BLUEPRINT_LIMITS.isoDatePattern.test(rawIso) ? rawIso : "";
+
+  const payload = {
+    spreadsheetId: cleanId,
+    spreadsheetTitle: clampStr(input.spreadsheetTitle, L.spreadsheetTitleMax),
+    sheetName: clampStr(input.sheetName, L.sheetNameMax),
+    emailColumn: clampStr(input.emailColumn, L.columnNameMax),
+    stageColumn: clampStr(input.stageColumn, L.columnNameMax),
+    locationColumn: clampStr(input.locationColumn, L.columnNameMax),
+    lastSyncedIso: safeIso,
+    updatedBy: uid,
+    updatedAt: serverTimestamp(),
+  };
+
+  try {
+    await setDoc(doc(db, "adminConfig", "googleSheets"), payload);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, "adminConfig/googleSheets");
+  }
+}
+
+// --- Live Session Companion State (/liveState/current) ---
+
+function mapLiveStateDoc(data: Record<string, unknown>): LiveStateRecord {
+  const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
+  return {
+    exists: true,
+    isLive: Boolean(data.isLive),
+    sessionId: String(data.sessionId ?? ""),
+    sessionNumber: String(data.sessionNumber ?? ""),
+    sessionTitle: String(data.sessionTitle ?? ""),
+    speaker: String(data.speaker ?? ""),
+    startedAtIso: String(data.startedAtIso ?? ""),
+    roomUrl: String(data.roomUrl ?? ""),
+    qaOpen: Boolean(data.qaOpen),
+    updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+  };
+}
+
+export function subscribeLiveState(
+  onData: (state: LiveStateRecord) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, "liveState", "current"),
+    (snap) => {
+      if (!snap.exists()) {
+        onData({ ...DEFAULT_LIVE_STATE, exists: false });
+        return;
+      }
+      onData(mapLiveStateDoc(snap.data()));
+    },
+    (error) => {
+      const structured = captureFirestoreError(error, OperationType.GET, "liveState/current");
+      if (onError) onError(structured);
+    },
+  );
+}
+
+export async function saveLiveState(input: LiveStateInput) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Authentication required.");
+
+  const L = BLUEPRINT_LIMITS.liveState;
+  const cleanSessionId = clampStr(input.sessionId, L.sessionIdMax);
+  if (cleanSessionId && !BLUEPRINT_LIMITS.idPattern.test(cleanSessionId)) {
+    throw new Error("Invalid live session ID format.");
+  }
+
+  const rawRoomUrl = clampStr(input.roomUrl ?? "", L.roomUrlMax);
+  if (rawRoomUrl && !BLUEPRINT_LIMITS.httpsPattern.test(rawRoomUrl)) {
+    throw new Error("Live room URL must start with https:// or be left blank.");
+  }
+
+  const rawIso = clampStr(input.startedAtIso ?? "", L.startedAtIsoMax);
+  const safeIso =
+    rawIso && BLUEPRINT_LIMITS.isoDatePattern.test(rawIso) && !Number.isNaN(Date.parse(rawIso))
+      ? rawIso
+      : "";
+
+  const payload = {
+    isLive: Boolean(input.isLive),
+    sessionId: cleanSessionId,
+    sessionNumber: clampStr(input.sessionNumber ?? "", L.sessionNumberMax),
+    sessionTitle: clampStr(input.sessionTitle ?? "", L.sessionTitleMax),
+    speaker: clampStr(input.speaker ?? "", L.speakerMax),
+    startedAtIso: safeIso,
+    roomUrl: rawRoomUrl,
+    qaOpen: Boolean(input.qaOpen),
+    updatedBy: uid,
+    updatedAt: serverTimestamp(),
+  };
+
+  try {
+    await setDoc(doc(db, "liveState", "current"), payload);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, "liveState/current");
+  }
+}
+
+export async function startLiveSession(
+  session: FirestoreSessionRecord,
+  options?: { roomUrl?: string; qaOpen?: boolean },
+) {
+  const cleanRoom = (options?.roomUrl ?? "").trim();
+  const fallbackRoom =
+    session.registrationUrl && session.registrationUrl.trim().startsWith("https://")
+      ? session.registrationUrl.trim()
+      : "";
+
+  await saveLiveState({
+    isLive: true,
+    sessionId: session.id,
+    sessionNumber: session.number,
+    sessionTitle: session.title,
+    speaker: session.speaker,
+    startedAtIso: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+    roomUrl: cleanRoom || fallbackRoom,
+    qaOpen: options?.qaOpen ?? true,
+  });
+}
+
+export async function endLiveSession(current?: LiveStateInput) {
+  await saveLiveState({
+    isLive: false,
+    sessionId: current?.sessionId ?? "",
+    sessionNumber: current?.sessionNumber ?? "",
+    sessionTitle: current?.sessionTitle ?? "",
+    speaker: current?.speaker ?? "",
+    startedAtIso: "",
+    roomUrl: current?.roomUrl ?? "",
+    qaOpen: false,
+  });
+}
+
+// --- Real-Time Session Q&A Queue (/sessionQuestions/{questionId}) ---
+
+export function validateSessionQuestionInput(input: SessionQuestionInput): string | null {
+  const L = BLUEPRINT_LIMITS.question;
+  const sessionId = input.sessionId.trim();
+  if (!sessionId || !BLUEPRINT_LIMITS.idPattern.test(sessionId)) {
+    return "Invalid session reference.";
+  }
+  if (input.authorName.trim().length < L.authorName.min) {
+    return "Please enter your name (at least 2 characters).";
+  }
+  if (input.questionText.trim().length < L.questionText.min) {
+    return "Please enter a question (at least 6 characters).";
+  }
+  return null;
+}
+
+function mapSessionQuestionDoc(
+  id: string,
+  data: Record<string, unknown>,
+): SessionQuestionRecord {
+  const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
+  const updatedAt = data.updatedAt as { toMillis?: () => number } | undefined;
+  const rawStatus = data.status;
+  const safeStatus: QuestionStatus =
+    rawStatus === "on_air" || rawStatus === "answered" ? rawStatus : "queued";
+  const rawVotes = typeof data.upvotes === "number" ? data.upvotes : 1;
+
+  return {
+    id,
+    sessionId: String(data.sessionId ?? ""),
+    authorName: String(data.authorName ?? ""),
+    authorStage: String(data.authorStage ?? ""),
+    questionText: String(data.questionText ?? ""),
+    upvotes: Math.max(1, Math.round(rawVotes)),
+    status: safeStatus,
+    createdAtMs: createdAt?.toMillis ? createdAt.toMillis() : 0,
+    updatedAtMs: updatedAt?.toMillis ? updatedAt.toMillis() : 0,
+  };
+}
+
+function sortSessionQuestions(items: SessionQuestionRecord[]): SessionQuestionRecord[] {
+  const rank: Record<QuestionStatus, number> = {
+    on_air: 0,
+    queued: 1,
+    answered: 2,
+  };
+  return [...items].sort((a, b) => {
+    const rDiff = rank[a.status] - rank[b.status];
+    if (rDiff !== 0) return rDiff;
+    if (b.upvotes !== a.upvotes) return b.upvotes - a.upvotes;
+    return a.createdAtMs - b.createdAtMs;
+  });
 }
 
 export function subscribeSessionQuestions(
@@ -1757,58 +2239,51 @@ export function subscribeSessionQuestions(
   onData: (items: SessionQuestionRecord[]) => void,
   onError?: (err: Error) => void,
 ): Unsubscribe {
-  const cleanId = sessionId.trim();
-  if (!cleanId) {
+  if (!sessionId || !BLUEPRINT_LIMITS.idPattern.test(sessionId)) {
     onData([]);
     return () => {};
   }
-  const q = query(collection(db, "sessionQuestions"), where("sessionId", "==", cleanId));
-  return onSnapshot(
-    q,
-    (snap) => {
-      const list = sortQuestions(snap.docs.map((d) => mapQuestionDoc(d.id, d.data())));
-      onData(list);
-    },
-    (error) => {
-      const structured = captureFirestoreError(error, OperationType.LIST, "sessionQuestions");
-      if (onError) onError(structured);
-    },
-  );
-}
 
-export function subscribeAllSessionQuestions(
-  onData: (items: SessionQuestionRecord[]) => void,
-  onError?: (err: Error) => void,
-): Unsubscribe {
   return onSnapshot(
-    collection(db, "sessionQuestions"),
+    query(
+      collection(db, "sessionQuestions"),
+      where("sessionId", "==", sessionId),
+      limit(200),
+    ),
     (snap) => {
-      const list = sortQuestions(snap.docs.map((d) => mapQuestionDoc(d.id, d.data())));
-      onData(list);
+      const list = snap.docs.map((d) => mapSessionQuestionDoc(d.id, d.data()));
+      onData(sortSessionQuestions(list));
     },
     (error) => {
-      const structured = captureFirestoreError(error, OperationType.LIST, "sessionQuestions");
+      const structured = captureFirestoreError(
+        error,
+        OperationType.LIST,
+        `sessionQuestions?sessionId=${sessionId}`,
+      );
       if (onError) onError(structured);
     },
   );
 }
 
 export async function submitSessionQuestion(input: SessionQuestionInput): Promise<string> {
-  const L = BLUEPRINT_LIMITS.sessionQuestion;
-  const err = validateSessionQuestionInput(input);
-  if (err) throw new Error(err);
+  const validationErr = validateSessionQuestionInput(input);
+  if (validationErr) {
+    throw new Error(validationErr);
+  }
 
+  const L = BLUEPRINT_LIMITS.question;
   const randomSuffix = Math.random().toString(36).slice(2, 10);
   const docId = `q-${Date.now()}-${randomSuffix}`;
   const path = `sessionQuestions/${docId}`;
 
   try {
     await setDoc(doc(db, "sessionQuestions", docId), {
-      sessionId: input.sessionId.trim(),
+      sessionId: clampStr(input.sessionId, L.sessionIdMax),
       authorName: clampStr(input.authorName, L.authorName.max),
-      question: clampStr(input.question, L.question.max),
+      authorStage: clampStr(input.authorStage ?? "", L.authorStageMax),
+      questionText: clampStr(input.questionText, L.questionText.max),
       upvotes: 1,
-      answered: false,
+      status: "queued",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -1820,21 +2295,40 @@ export async function submitSessionQuestion(input: SessionQuestionInput): Promis
 
 export async function upvoteSessionQuestion(questionId: string) {
   const path = `sessionQuestions/${questionId}`;
+  const ref = doc(db, "sessionQuestions", questionId);
   try {
-    await updateDoc(doc(db, "sessionQuestions", questionId), {
-      upvotes: increment(1),
-      updatedAt: serverTimestamp(),
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) {
+        throw new Error("Question no longer exists.");
+      }
+      const data = snap.data();
+      const status = String(data.status ?? "queued");
+      if (status !== "queued" && status !== "on_air") {
+        throw new Error("Answered questions can no longer be upvoted.");
+      }
+      const currentVotes = typeof data.upvotes === "number" ? data.upvotes : 1;
+      if (currentVotes >= BLUEPRINT_LIMITS.question.maxUpvotes) {
+        return;
+      }
+      tx.update(ref, {
+        upvotes: currentVotes + 1,
+        updatedAt: serverTimestamp(),
+      });
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
 
-export async function toggleQuestionAnswered(item: SessionQuestionRecord) {
-  const path = `sessionQuestions/${item.id}`;
+export async function updateSessionQuestionStatus(
+  questionId: string,
+  status: QuestionStatus,
+) {
+  const path = `sessionQuestions/${questionId}`;
   try {
-    await updateDoc(doc(db, "sessionQuestions", item.id), {
-      answered: !item.answered,
+    await updateDoc(doc(db, "sessionQuestions", questionId), {
+      status,
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
@@ -1850,3 +2344,4 @@ export async function removeSessionQuestion(questionId: string) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
+

@@ -5,7 +5,11 @@ import firebaseConfig from "../firebase-applet-config.json";
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const firestoreDatabaseId =
+  (firebaseConfig as { firestoreDatabaseId?: string }).firestoreDatabaseId ||
+  "ai-studio-thethinkingarchi-1e9b040d-cfa1-4d6c-a675-ba417193fd0b";
+
+export const db = getFirestore(app, firestoreDatabaseId);
 export const auth = getAuth(app);
 
 export enum OperationType {

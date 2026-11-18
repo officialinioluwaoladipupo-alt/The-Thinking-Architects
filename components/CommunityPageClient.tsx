@@ -2,7 +2,17 @@
 
 import { ArrowLeft, ArrowUpRight, Mail, Mic } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  DEFAULT_COMMUNITY_STATS,
+  DEFAULT_WRAPPED_CONFIG,
+  subscribeCommunityStats,
+  subscribePublishedSessions,
+  subscribeWrappedConfig,
+  type CommunityStatsRecord,
+  type FirestoreSessionRecord,
+  type WrappedConfigRecord,
+} from "../lib/firebaseContent";
 import { CONTACT_EMAIL, TALLY_FORM_ID, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
@@ -52,10 +62,70 @@ const groundRules = [
 function CommunityPageInner() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [pitchOpen, setPitchOpen] = useState(false);
+  const [communityStats, setCommunityStats] = useState<CommunityStatsRecord>({
+    ...DEFAULT_COMMUNITY_STATS,
+    exists: false,
+  });
+  const [wrappedConfig, setWrappedConfig] = useState<WrappedConfigRecord>({
+    ...DEFAULT_WRAPPED_CONFIG,
+    exists: false,
+  });
+  const [sessions, setSessions] = useState<FirestoreSessionRecord[]>([]);
+
+  useEffect(() => {
+    const unsubStats = subscribeCommunityStats(setCommunityStats, () => {
+      // Keep defaults gracefully on transient error
+    });
+    const unsubWrapped = subscribeWrappedConfig(setWrappedConfig, () => {
+      // Keep defaults gracefully on transient error
+    });
+    const unsubSessions = subscribePublishedSessions(setSessions, () => {
+      // Keep empty list gracefully on transient error
+    });
+    return () => {
+      unsubStats();
+      unsubWrapped();
+      unsubSessions();
+    };
+  }, []);
 
   const handleOpenJoin = () => {
     triggerTallyPopup(() => setJoinOpen(true));
   };
+
+  // Prefer synced Google Sheets / CommunityStats when present, falling back to Wrapped highlights cleanly
+  const totalMembers = communityStats.exists
+    ? communityStats.communityTotal
+    : wrappedConfig.communityTotal;
+  const studentsCount = communityStats.exists
+    ? communityStats.studentsCount
+    : wrappedConfig.studentsCount;
+  const professionalsCombined = communityStats.exists
+    ? communityStats.graduatesCount + communityStats.professionalsCount
+    : wrappedConfig.professionalsCount;
+
+  const fallbackLocations = [
+    wrappedConfig.locationPrimary,
+    wrappedConfig.locationSecondary,
+    ...wrappedConfig.extraLocations,
+  ]
+    .map((loc) => loc.trim())
+    .filter(Boolean);
+
+  const displayLocations =
+    communityStats.exists && communityStats.topLocations.length > 0
+      ? communityStats.topLocations
+      : fallbackLocations;
+
+  const countriesOrRegionsCount = communityStats.exists
+    ? communityStats.countriesCount
+    : displayLocations.length;
+
+  const uniqueSpeakersCount = new Set(
+    sessions.map((s) => s.speaker.trim().toLowerCase()).filter(Boolean),
+  ).size;
+
+  const showStatsBand = communityStats.showOnCommunity;
 
   return (
     <>
@@ -98,6 +168,72 @@ function CommunityPageInner() {
               </button>
             </div>
           </header>
+
+          {/* Dynamic Community Numbers Band */}
+          {showStatsBand && (
+            <section
+              aria-label="Community highlights"
+              className="mt-12 border-b border-black/[0.09] pb-12"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="label-mono text-[#fe3619]">
+                  {communityStats.sourceLabel || "Community Highlights"}
+                </p>
+                <Link
+                  href="/sessions"
+                  className="font-mono text-[11px] uppercase tracking-[0.07em] text-[#111111]/60 underline underline-offset-4 transition-colors hover:text-[#fe3619]"
+                >
+                  Browse Think Sessions →
+                </Link>
+              </div>
+
+              <div className="mt-5 grid gap-px border border-black/[0.09] bg-black/[0.09] md:grid-cols-3">
+                <div className="bg-[#f7f6f4] p-7">
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.09em] text-[#111111]/55">
+                    01 · Members
+                  </span>
+                  <p className="mt-3 text-[clamp(2rem,3.2vw,2.75rem)] font-medium leading-none tracking-[-0.03em] tabular-nums">
+                    {totalMembers}
+                  </p>
+                  <p className="mt-2.5 text-[14px] leading-[1.55] text-[#111111]/72">
+                    {studentsCount > 0 || professionalsCombined > 0
+                      ? `${studentsCount} students · ${professionalsCombined} graduates & practitioners`
+                      : "Students, graduates, and practising architects."}
+                  </p>
+                </div>
+
+                <div className="bg-[#f7f6f4] p-7">
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.09em] text-[#111111]/55">
+                    02 · Countries &amp; Hubs
+                  </span>
+                  <p className="mt-3 text-[clamp(2rem,3.2vw,2.75rem)] font-medium leading-none tracking-[-0.03em] tabular-nums">
+                    {countriesOrRegionsCount > 0 ? countriesOrRegionsCount : "Nigeria"}
+                  </p>
+                  <p className="mt-2.5 text-[14px] leading-[1.55] text-[#111111]/72">
+                    {displayLocations.length > 0
+                      ? displayLocations.slice(0, 4).join(" · ")
+                      : "Chapters and members tuning in across regions."}
+                  </p>
+                </div>
+
+                <div className="bg-[#f7f6f4] p-7">
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.09em] text-[#111111]/55">
+                    03 · Think Sessions
+                  </span>
+                  <p className="mt-3 text-[clamp(2rem,3.2vw,2.75rem)] font-medium leading-none tracking-[-0.03em] tabular-nums">
+                    {sessions.length > 0
+                      ? sessions.length
+                      : wrappedConfig.sessionHighlights.length}
+                  </p>
+                  <p className="mt-2.5 text-[14px] leading-[1.55] text-[#111111]/72">
+                    {uniqueSpeakersCount > 0
+                      ? `Conversations hosted with ${uniqueSpeakersCount} guest speakers`
+                      : "Monthly live sessions with open Q&A"}
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* What you'll find + Who's in it */}
           <section className="mt-14 grid gap-12 border-b border-black/[0.09] pb-14 md:grid-cols-[1.2fr_1fr]">

@@ -29,6 +29,13 @@ const BOOTSTRAPPED_ADMIN_EMAILS = new Set([
   "officialinioluwaoladipupo@gmail.com",
 ]);
 
+export const GOOGLE_SHEETS_SCOPES = [
+  "https://www.googleapis.com/auth/spreadsheets.readonly",
+] as const;
+
+// Cache OAuth access token strictly in memory (never in localStorage/sessionStorage)
+let cachedSheetsAccessToken: string | null = null;
+
 type FirebaseContextValue = {
   user: User | null;
   authReady: boolean;
@@ -36,8 +43,13 @@ type FirebaseContextValue = {
   checkingAdmin: boolean;
   authError: string;
   connectionOffline: boolean;
+  sheetsToken: string | null;
+  connectingSheets: boolean;
+  sheetsAuthError: string;
   signInWithGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
+  connectGoogleSheets: () => Promise<string | null>;
+  clearSheetsToken: () => void;
 };
 
 const FirebaseContext = createContext<FirebaseContextValue>({
@@ -47,8 +59,13 @@ const FirebaseContext = createContext<FirebaseContextValue>({
   checkingAdmin: false,
   authError: "",
   connectionOffline: false,
+  sheetsToken: null,
+  connectingSheets: false,
+  sheetsAuthError: "",
   signInWithGoogle: async () => {},
   signOutUser: async () => {},
+  connectGoogleSheets: async () => null,
+  clearSheetsToken: () => {},
 });
 
 export function FirebaseProvider({ children }: { children: ReactNode }) {
@@ -58,6 +75,9 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   const [checkingAdmin, setCheckingAdmin] = useState(false);
   const [authError, setAuthError] = useState("");
   const [connectionOffline, setConnectionOffline] = useState(false);
+  const [sheetsToken, setSheetsToken] = useState<string | null>(null);
+  const [connectingSheets, setConnectingSheets] = useState(false);
+  const [sheetsAuthError, setSheetsAuthError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -75,6 +95,9 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         setAuthError("");
 
         if (!nextUser) {
+          cachedSheetsAccessToken = null;
+          setSheetsToken(null);
+          setSheetsAuthError("");
           setIsAdmin(false);
           setCheckingAdmin(false);
           setAuthReady(true);
@@ -82,6 +105,8 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         }
 
         if (!nextUser.emailVerified) {
+          cachedSheetsAccessToken = null;
+          setSheetsToken(null);
           setIsAdmin(false);
           setCheckingAdmin(false);
           setAuthReady(true);
@@ -146,8 +171,51 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const connectGoogleSheets = async (): Promise<string | null> => {
+    setSheetsAuthError("");
+    setConnectingSheets(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      for (const scope of GOOGLE_SHEETS_SCOPES) {
+        provider.addScope(scope);
+      }
+      provider.setCustomParameters({ prompt: "consent select_account" });
+      if (auth.currentUser?.email) {
+        provider.setCustomParameters({
+          prompt: "consent",
+          login_hint: auth.currentUser.email,
+        });
+      }
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const accessToken = credential?.accessToken ?? null;
+      if (!accessToken) {
+        throw new Error("Could not obtain read access to Google Sheets. Please try again.");
+      }
+      cachedSheetsAccessToken = accessToken;
+      setSheetsToken(accessToken);
+      return accessToken;
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Could not connect your Google Sheets account.";
+      setSheetsAuthError(msg);
+      return null;
+    } finally {
+      setConnectingSheets(false);
+    }
+  };
+
+  const clearSheetsToken = () => {
+    cachedSheetsAccessToken = null;
+    setSheetsToken(null);
+    setSheetsAuthError("");
+  };
+
   const signOutUser = async () => {
     setAuthError("");
+    setSheetsAuthError("");
+    cachedSheetsAccessToken = null;
+    setSheetsToken(null);
     try {
       await signOut(auth);
     } catch (err) {
@@ -164,8 +232,13 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         checkingAdmin,
         authError,
         connectionOffline,
+        sheetsToken: sheetsToken ?? cachedSheetsAccessToken,
+        connectingSheets,
+        sheetsAuthError,
         signInWithGoogle,
         signOutUser,
+        connectGoogleSheets,
+        clearSheetsToken,
       }}
     >
       {children}
