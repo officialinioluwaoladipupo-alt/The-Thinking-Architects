@@ -105,7 +105,7 @@ const emptySessionForm = (): SessionInput => ({
   published: true,
   summary: "",
   topics: ["What comes after design school"],
-  registrationUrl: TALLY_FORM_URL,
+  registrationUrl: "",
   startAtIso: "",
   resources: [],
 });
@@ -279,7 +279,7 @@ function AdminConsoleInner() {
       published: s.published,
       summary: s.summary,
       topics: s.topics,
-      registrationUrl: s.registrationUrl || TALLY_FORM_URL,
+      registrationUrl: s.registrationUrl === TALLY_FORM_URL ? "" : s.registrationUrl || "",
       startAtIso: s.startAtIso || "",
       resources: s.resources ? s.resources.map((r) => ({ ...r })) : [],
     });
@@ -393,7 +393,7 @@ function AdminConsoleInner() {
       published: false,
       summary: p.outline.slice(0, BLUEPRINT_LIMITS.session.summary.max),
       topics,
-      registrationUrl: TALLY_FORM_URL,
+      registrationUrl: "",
       startAtIso: "",
       resources: p.linkUrl ? [{ label: "Speaker Portfolio / Link", url: p.linkUrl }] : [],
     });
@@ -993,7 +993,7 @@ function AdminConsoleInner() {
 
                       <div>
                         <label className="label-mono block text-[#111111]/65">
-                          Registration URL (HTTPS)
+                          Luma / Registration URL (HTTPS, optional)
                         </label>
                         <input
                           type="url"
@@ -1002,7 +1002,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setSessionForm((f) => ({ ...f, registrationUrl: e.target.value }))
                           }
-                          placeholder="https://tally.so/r/9q8l55"
+                          placeholder="https://lu.ma/your-session"
                           className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
                         />
                       </div>

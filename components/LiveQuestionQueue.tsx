@@ -88,7 +88,7 @@ export default function LiveQuestionQueue({
     const validationErr = validateSessionQuestionInput({
       sessionId,
       authorName,
-      question: questionText,
+      questionText,
     });
     if (validationErr) {
       setErrorMessage(validationErr);
@@ -101,7 +101,7 @@ export default function LiveQuestionQueue({
       const createdId = await submitSessionQuestion({
         sessionId,
         authorName,
-        question: questionText,
+        questionText,
       });
       persistVotedId(createdId);
       setVotedIds((prev) => new Set([...prev, createdId]));
@@ -130,8 +130,8 @@ export default function LiveQuestionQueue({
     }
   };
 
-  const openQuestions = questions.filter((q) => !q.answered);
-  const answeredQuestions = questions.filter((q) => q.answered);
+  const openQuestions = questions.filter((q) => q.status !== "answered");
+  const answeredQuestions = questions.filter((q) => q.status === "answered");
 
   return (
     <section
@@ -201,7 +201,7 @@ export default function LiveQuestionQueue({
                 id={`qa-name-${sessionId}`}
                 type="text"
                 required
-                maxLength={BLUEPRINT_LIMITS.sessionQuestion.authorName.max}
+                maxLength={BLUEPRINT_LIMITS.question.authorName.max}
                 value={authorName}
                 onChange={(e) => setAuthorName(e.target.value)}
                 placeholder="e.g. Tunde A."
@@ -228,7 +228,7 @@ export default function LiveQuestionQueue({
                     isLive ? "text-[#F2EDE8]/50" : "text-[#111111]/45"
                   }`}
                 >
-                  {questionText.length}/{BLUEPRINT_LIMITS.sessionQuestion.question.max}
+                  {questionText.length}/{BLUEPRINT_LIMITS.question.questionText.max}
                 </span>
               </div>
               <div className="mt-1.5 flex flex-col gap-2.5 sm:flex-row">
@@ -236,8 +236,8 @@ export default function LiveQuestionQueue({
                   id={`qa-question-${sessionId}`}
                   type="text"
                   required
-                  minLength={BLUEPRINT_LIMITS.sessionQuestion.question.min}
-                  maxLength={BLUEPRINT_LIMITS.sessionQuestion.question.max}
+                  minLength={BLUEPRINT_LIMITS.question.questionText.min}
+                  maxLength={BLUEPRINT_LIMITS.question.questionText.max}
                   value={questionText}
                   onChange={(e) => setQuestionText(e.target.value)}
                   placeholder="Ask about practice, registration, portfolio, or studio economics..."
@@ -311,7 +311,7 @@ export default function LiveQuestionQueue({
                         isLive ? "text-[#F2EDE8]" : "text-[#111111]"
                       }`}
                     >
-                      {q.question}
+                      {q.questionText}
                     </p>
                     <p
                       className={`mt-2 font-mono text-[11px] uppercase tracking-[0.07em] ${
@@ -366,7 +366,7 @@ export default function LiveQuestionQueue({
                       }`}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-[14px] leading-[1.55]">{q.question}</p>
+                        <p className="text-[14px] leading-[1.55]">{q.questionText}</p>
                         <p
                           className={`mt-1.5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.07em] ${
                             isLive ? "text-[#F2EDE8]/65" : "text-[#111111]/60"

@@ -41,7 +41,11 @@ import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
 import { LiveElapsedClock } from "./LiveElapsedClock";
 import PitchModal from "./PitchModal";
-import { SessionCalendarActions, SessionLocalTimeNote } from "./SessionCalendarActions";
+import {
+  SessionCalendarActions,
+  SessionLocalTimeNote,
+  SubscribeAllSessionsBar,
+} from "./SessionCalendarActions";
 import { SessionRemindButton } from "./SessionRemindButton";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
@@ -190,6 +194,8 @@ function SessionsPageInner() {
               time for your questions.
             </p>
           </div>
+
+          <SubscribeAllSessionsBar />
 
           {loading ? (
             <section

@@ -2345,3 +2345,182 @@ export async function removeSessionQuestion(questionId: string) {
   }
 }
 
+// --- Compatibility Adapters for Wrapped Story Deck (/wrappedConfig/public) ---
+
+export type WrappedSettingsRecord = {
+  enabled: boolean;
+  showHomeBanner: boolean;
+  pageTitle: string;
+  pageIntro: string;
+  countdownTargetIso: string;
+  countdownHeadline: string;
+  countdownSubtext: string;
+  shareCaption: string;
+  closingHeadline: string;
+  closingBody: string;
+  autoplaySeconds: number;
+};
+
+export type WrappedSlideRecord = {
+  id: string;
+  label: string;
+  kind: "cover" | "metric" | "sessions" | "community" | "cta" | "statement";
+  theme: "dark" | "light";
+  eyebrow: string;
+  headline: string;
+  body: string;
+  metricValue: number;
+  metricPrefix: string;
+  metricSuffix: string;
+  secondaryMetricA: number;
+  secondaryLabelA: string;
+  secondaryMetricB: number;
+  secondaryLabelB: string;
+  accentDate: string;
+  ctaLabel: string;
+  items: string[];
+};
+
+function mapWrappedConfigToSettings(cfg: WrappedConfigInput): WrappedSettingsRecord {
+  return {
+    enabled: cfg.enabled,
+    showHomeBanner: cfg.homeBannerEnabled,
+    pageTitle: cfg.pageTitle,
+    pageIntro: cfg.pageSubtitle,
+    countdownTargetIso: cfg.launchDateIso,
+    countdownHeadline: cfg.offlineTitle,
+    countdownSubtext: cfg.offlineMessage,
+    shareCaption: cfg.shareCaption,
+    closingHeadline: cfg.closingStatement,
+    closingBody: cfg.thankYouStatement,
+    autoplaySeconds: 0,
+  };
+}
+
+function emptyWrappedSlide(
+  id: string,
+  label: string,
+  kind: WrappedSlideRecord["kind"],
+  theme: WrappedSlideRecord["theme"],
+): WrappedSlideRecord {
+  return {
+    id,
+    label,
+    kind,
+    theme,
+    eyebrow: "",
+    headline: "",
+    body: "",
+    metricValue: 0,
+    metricPrefix: "",
+    metricSuffix: "",
+    secondaryMetricA: 0,
+    secondaryLabelA: "",
+    secondaryMetricB: 0,
+    secondaryLabelB: "",
+    accentDate: "",
+    ctaLabel: "",
+    items: [],
+  };
+}
+
+function mapWrappedConfigToSlides(cfg: WrappedConfigInput): WrappedSlideRecord[] {
+  const locationParts = [cfg.locationPrimary, cfg.locationSecondary, ...cfg.extraLocations].filter(
+    Boolean,
+  );
+  const slides: WrappedSlideRecord[] = [
+    {
+      ...emptyWrappedSlide("cover", "Cover", "cover", "dark"),
+      eyebrow: cfg.eyebrow,
+      headline: cfg.coverTitle,
+      body: cfg.coverSubtitle,
+    },
+    {
+      ...emptyWrappedSlide("origin", "Origin", "statement", "light"),
+      eyebrow: cfg.startLead,
+      headline: cfg.startStatement,
+    },
+    {
+      ...emptyWrappedSlide("audience", "Registrations", "metric", "dark"),
+      eyebrow: "Event Attendance",
+      metricValue: cfg.audienceCount,
+      metricPrefix: cfg.audiencePrefix,
+      metricSuffix: cfg.audienceSuffix,
+      body: cfg.audienceCaption,
+    },
+    {
+      ...emptyWrappedSlide("returning", "Returning", "metric", "light"),
+      eyebrow: "Repeat Attendees",
+      metricValue: cfg.returningCount,
+      metricSuffix: cfg.returningSuffix,
+      body: cfg.returningCaption,
+    },
+    {
+      ...emptyWrappedSlide("sessions", "Sessions", "sessions", "dark"),
+      headline: cfg.sessionsHeading,
+      items: cfg.sessionHighlights.map((line) => line.replace(" | ", "::")),
+    },
+    {
+      ...emptyWrappedSlide("awareness", "Pathway", "statement", "light"),
+      eyebrow: cfg.awarenessPrefix,
+      headline: `${cfg.awarenessDate} — ${cfg.awarenessProgramTitle}`,
+      body: cfg.awarenessSpeaker,
+      accentDate: cfg.awarenessDate,
+    },
+    {
+      ...emptyWrappedSlide("community", "Community", "community", "dark"),
+      metricValue: cfg.communityTotal,
+      body: cfg.communityCaption,
+      secondaryMetricA: cfg.studentsCount,
+      secondaryLabelA: "students",
+      secondaryMetricB: cfg.professionalsCount,
+      secondaryLabelB: "practising",
+    },
+    {
+      ...emptyWrappedSlide("discovery", "Discovery", "statement", "light"),
+      eyebrow: cfg.discoveryHighlight,
+      headline: `${cfg.discoveryHighlight} ${cfg.discoveryBody}`,
+      body: `${cfg.discoveryPercent}% discovered us through a Think Session.`,
+      accentDate: cfg.discoveryHighlight,
+      secondaryMetricA: cfg.discoveryPercent,
+    },
+    {
+      ...emptyWrappedSlide("locations", "Geography", "statement", "dark"),
+      eyebrow: cfg.locationsLead,
+      headline: locationParts.join(" · "),
+      body: cfg.welcomeStatement,
+      accentDate: cfg.locationPrimary,
+    },
+    {
+      ...emptyWrappedSlide("closing", "Next", "cta", "light"),
+      headline: cfg.closingStatement,
+      body: cfg.thankYouStatement,
+      ctaLabel: cfg.closingCtaLabel,
+    },
+  ];
+  return slides;
+}
+
+export const DEFAULT_WRAPPED_SETTINGS: WrappedSettingsRecord =
+  mapWrappedConfigToSettings(DEFAULT_WRAPPED_CONFIG);
+
+export const DEFAULT_WRAPPED_SLIDES: WrappedSlideRecord[] =
+  mapWrappedConfigToSlides(DEFAULT_WRAPPED_CONFIG);
+
+export function subscribeWrappedSettings(
+  onData: (settings: WrappedSettingsRecord) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return subscribeWrappedConfig((cfg) => {
+    onData(mapWrappedConfigToSettings(cfg));
+  }, onError);
+}
+
+export function subscribePublishedWrappedSlides(
+  onData: (slides: WrappedSlideRecord[]) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return subscribeWrappedConfig((cfg) => {
+    onData(mapWrappedConfigToSlides(cfg));
+  }, onError);
+}

@@ -29,7 +29,10 @@ service cloud.firestore {
     }
 
     function isBootstrappedAdmin() {
-      return isVerifiedUser() && request.auth.token.email == 'officialinioluwaoladipupo@gmail.com';
+      return isVerifiedUser() && (
+        request.auth.token.email == 'oladipupoinioluwa93@gmail.com'
+        || request.auth.token.email == 'officialinioluwaoladipupo@gmail.com'
+      );
     }
 
     function isAdmin() {
@@ -47,10 +50,28 @@ service cloud.firestore {
         && arr[0].size() <= 160;
     }
 
-    function isValidWrappedItems(arr) {
+    function isValidWrappedOptionalList(arr, maxLen, maxStrLen) {
       return arr is list
-        && arr.size() <= 8
-        && (arr.size() == 0 || (arr[0] is string && arr[0].size() >= 1 && arr[0].size() <= 220));
+        && arr.size() <= maxLen
+        && (arr.size() == 0 || (arr[0] is string && arr[0].size() >= 1 && arr[0].size() <= maxStrLen));
+    }
+
+    function isValidCount(n) {
+      return n is int && n >= 0 && n <= 10000000;
+    }
+
+    function isValidResourceItem(item) {
+      return item is map
+        && item.keys().hasAll(['label', 'url'])
+        && item.keys().hasOnly(['label', 'url'])
+        && item.label is string && item.label.size() >= 1 && item.label.size() <= 80
+        && item.url is string && item.url.size() >= 10 && item.url.size() <= 350 && item.url.matches('^https://.+');
+    }
+
+    function isValidResourceList(arr) {
+      return arr is list
+        && arr.size() <= 4
+        && (arr.size() == 0 || isValidResourceItem(arr[0]));
     }
 
     // --- Validation Blueprints (Anti-Update-Gap) ---
@@ -63,7 +84,7 @@ service cloud.firestore {
         && data.keys().hasOnly([
           'number', 'title', 'speaker', 'speakerRole', 'dateLabel', 'timeLabel',
           'format', 'status', 'isNextSession', 'published', 'summary', 'topics',
-          'registrationUrl', 'createdBy', 'createdAt', 'updatedAt'
+          'registrationUrl', 'startAtIso', 'resources', 'createdBy', 'createdAt', 'updatedAt'
         ])
         && data.number is string && data.number.size() >= 2 && data.number.size() <= 40
         && data.title is string && data.title.size() >= 3 && data.title.size() <= 140
@@ -78,6 +99,8 @@ service cloud.firestore {
         && data.summary is string && data.summary.size() >= 10 && data.summary.size() <= 600
         && isValidBoundedStrings(data.topics)
         && data.registrationUrl is string && data.registrationUrl.size() <= 300 && data.registrationUrl.matches('^(https://.*)?$')
+        && (!('startAtIso' in data) || (data.startAtIso is string && data.startAtIso.size() <= 40 && (data.startAtIso == '' || data.startAtIso.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(Z|[-+][0-9]{2}:[0-9]{2})$'))))
+        && (!('resources' in data) || isValidResourceList(data.resources))
         && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
@@ -137,113 +160,6 @@ service cloud.firestore {
         && data.linkedinUrl is string && data.linkedinUrl.size() <= 300 && data.linkedinUrl.matches('^(https://.*)?$')
         && data.youtubeUrl is string && data.youtubeUrl.size() <= 300 && data.youtubeUrl.matches('^(https://.*)?$')
         && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidWrappedSettings(data) {
-      return data.keys().hasAll([
-          'enabled', 'showHomeBanner', 'countdownTargetIso', 'countdownHeadline',
-          'countdownSubtext', 'pageTitle', 'pageIntro', 'closingHeadline',
-          'closingBody', 'shareCaption', 'autoplaySeconds', 'updatedBy', 'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'enabled', 'showHomeBanner', 'countdownTargetIso', 'countdownHeadline',
-          'countdownSubtext', 'pageTitle', 'pageIntro', 'closingHeadline',
-          'closingBody', 'shareCaption', 'autoplaySeconds', 'updatedBy', 'updatedAt'
-        ])
-        && data.enabled is bool
-        && data.showHomeBanner is bool
-        && data.countdownTargetIso is string
-        && data.countdownTargetIso.size() <= 40
-        && data.countdownTargetIso.matches('^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})?)?$')
-        && data.countdownHeadline is string && data.countdownHeadline.size() >= 3 && data.countdownHeadline.size() <= 140
-        && data.countdownSubtext is string && data.countdownSubtext.size() >= 5 && data.countdownSubtext.size() <= 260
-        && data.pageTitle is string && data.pageTitle.size() >= 3 && data.pageTitle.size() <= 100
-        && data.pageIntro is string && data.pageIntro.size() >= 5 && data.pageIntro.size() <= 240
-        && data.closingHeadline is string && data.closingHeadline.size() >= 3 && data.closingHeadline.size() <= 120
-        && data.closingBody is string && data.closingBody.size() >= 5 && data.closingBody.size() <= 240
-        && data.shareCaption is string && data.shareCaption.size() >= 10 && data.shareCaption.size() <= 400
-        && data.autoplaySeconds is number && data.autoplaySeconds >= 0 && data.autoplaySeconds <= 60
-        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidLiveSettings(data) {
-      return data.keys().hasAll([
-          'isLive', 'liveSessionId', 'liveTitle', 'liveRoomUrl', 'liveStartedAtIso',
-          'qaEnabled', 'announcementEnabled', 'announcementText',
-          'announcementLinkLabel', 'announcementLinkHref', 'updatedBy', 'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'isLive', 'liveSessionId', 'liveTitle', 'liveRoomUrl', 'liveStartedAtIso',
-          'qaEnabled', 'announcementEnabled', 'announcementText',
-          'announcementLinkLabel', 'announcementLinkHref', 'updatedBy', 'updatedAt'
-        ])
-        && data.isLive is bool
-        && data.liveSessionId is string && data.liveSessionId.size() <= 128 && data.liveSessionId.matches('^([a-zA-Z0-9_\\-]+)?$')
-        && data.liveTitle is string && data.liveTitle.size() <= 140
-        && data.liveRoomUrl is string && data.liveRoomUrl.size() <= 400 && data.liveRoomUrl.matches('^(https://.*)?$')
-        && data.liveStartedAtIso is string
-        && data.liveStartedAtIso.size() <= 40
-        && data.liveStartedAtIso.matches('^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})?)?$')
-        && data.qaEnabled is bool
-        && data.announcementEnabled is bool
-        && data.announcementText is string && data.announcementText.size() <= 140
-        && data.announcementLinkLabel is string && data.announcementLinkLabel.size() <= 40
-        && data.announcementLinkHref is string && data.announcementLinkHref.size() <= 300 && data.announcementLinkHref.matches('^((https://.*)|(/.*))?$')
-        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidSessionQuestion(data) {
-      return data.keys().hasAll([
-          'sessionId', 'authorName', 'question', 'upvotes', 'answered', 'createdAt', 'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'sessionId', 'authorName', 'question', 'upvotes', 'answered', 'createdAt', 'updatedAt'
-        ])
-        && data.sessionId is string && isValidId(data.sessionId)
-        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 60
-        && data.question is string && data.question.size() >= 5 && data.question.size() <= 280
-        && data.upvotes is number && data.upvotes >= 1 && data.upvotes <= 100000
-        && data.answered is bool
-        && data.createdAt is timestamp
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidWrappedSlide(data) {
-      return data.keys().hasAll([
-          'order', 'label', 'kind', 'theme', 'eyebrow', 'headline', 'body',
-          'accentDate', 'metricPrefix', 'metricValue', 'metricSuffix',
-          'secondaryMetricA', 'secondaryLabelA', 'secondaryMetricB', 'secondaryLabelB',
-          'items', 'ctaLabel', 'published', 'createdBy', 'createdAt', 'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'order', 'label', 'kind', 'theme', 'eyebrow', 'headline', 'body',
-          'accentDate', 'metricPrefix', 'metricValue', 'metricSuffix',
-          'secondaryMetricA', 'secondaryLabelA', 'secondaryMetricB', 'secondaryLabelB',
-          'items', 'ctaLabel', 'published', 'createdBy', 'createdAt', 'updatedAt'
-        ])
-        && data.order is number && data.order >= 0 && data.order <= 1000
-        && data.label is string && data.label.size() >= 1 && data.label.size() <= 40
-        && data.kind is string && data.kind in ['cover', 'statement', 'metric', 'sessions', 'community', 'cta']
-        && data.theme is string && data.theme in ['dark', 'cream']
-        && data.eyebrow is string && data.eyebrow.size() <= 100
-        && data.headline is string && data.headline.size() <= 240
-        && data.body is string && data.body.size() <= 320
-        && data.accentDate is string && data.accentDate.size() <= 40
-        && data.metricPrefix is string && data.metricPrefix.size() <= 8
-        && data.metricValue is number && data.metricValue >= 0 && data.metricValue <= 10000000
-        && data.metricSuffix is string && data.metricSuffix.size() <= 16
-        && data.secondaryMetricA is number && data.secondaryMetricA >= 0 && data.secondaryMetricA <= 10000000
-        && data.secondaryLabelA is string && data.secondaryLabelA.size() <= 60
-        && data.secondaryMetricB is number && data.secondaryMetricB >= 0 && data.secondaryMetricB <= 10000000
-        && data.secondaryLabelB is string && data.secondaryLabelB.size() <= 60
-        && isValidWrappedItems(data.items)
-        && data.ctaLabel is string && data.ctaLabel.size() <= 50
-        && data.published is bool
-        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128
-        && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
 
@@ -334,9 +250,132 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidPitch(data) {
+      return data.keys().hasAll([
+          'pitchType', 'name', 'email', 'roleOrStudio', 'topicTitle',
+          'targetStage', 'outline', 'linkUrl', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'pitchType', 'name', 'email', 'roleOrStudio', 'topicTitle',
+          'targetStage', 'outline', 'linkUrl', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.pitchType is string && data.pitchType in ['speaker', 'topic']
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 254 && data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && data.roleOrStudio is string && data.roleOrStudio.size() <= 120
+        && data.topicTitle is string && data.topicTitle.size() >= 3 && data.topicTitle.size() <= 140
+        && data.targetStage is string && data.targetStage in ['Students', 'Graduates & Early-Career', 'Practising Architects', 'All Stages']
+        && data.outline is string && data.outline.size() >= 10 && data.outline.size() <= 800
+        && data.linkUrl is string && data.linkUrl.size() <= 300 && data.linkUrl.matches('^(https://.*)?$')
+        && data.status is string && data.status in ['new', 'reviewed', 'scheduled', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWrappedKeys(data) {
+      return data.keys().hasAll([
+          'enabled', 'showInFooter', 'showInNav', 'homeBannerEnabled', 'homeCountdownEnabled',
+          'yearLabel', 'eyebrow', 'pageTitle', 'pageSubtitle', 'shareCaption',
+          'offlineTitle', 'offlineMessage', 'homeBannerEyebrow', 'homeBannerTitle',
+          'homeBannerCtaLabel', 'launchDateIso', 'coverTitle', 'coverSubtitle',
+          'startLead', 'startStatement', 'audienceCount', 'audiencePrefix',
+          'audienceSuffix', 'audienceCaption', 'returningCount', 'returningSuffix',
+          'returningCaption', 'sessionsHeading', 'sessionHighlights', 'awarenessDate',
+          'awarenessPrefix', 'awarenessProgramTitle', 'awarenessSpeaker',
+          'communityTotal', 'communityCaption', 'studentsCount', 'professionalsCount',
+          'discoveryHighlight', 'discoveryBody', 'discoveryPercent', 'locationsLead',
+          'locationPrimary', 'locationSecondary', 'extraLocations', 'welcomeStatement',
+          'thankYouStatement', 'closingStatement', 'closingCtaLabel', 'customStats',
+          'updatedBy', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'enabled', 'showInFooter', 'showInNav', 'homeBannerEnabled', 'homeCountdownEnabled',
+          'yearLabel', 'eyebrow', 'pageTitle', 'pageSubtitle', 'shareCaption',
+          'offlineTitle', 'offlineMessage', 'homeBannerEyebrow', 'homeBannerTitle',
+          'homeBannerCtaLabel', 'launchDateIso', 'coverTitle', 'coverSubtitle',
+          'startLead', 'startStatement', 'audienceCount', 'audiencePrefix',
+          'audienceSuffix', 'audienceCaption', 'returningCount', 'returningSuffix',
+          'returningCaption', 'sessionsHeading', 'sessionHighlights', 'awarenessDate',
+          'awarenessPrefix', 'awarenessProgramTitle', 'awarenessSpeaker',
+          'communityTotal', 'communityCaption', 'studentsCount', 'professionalsCount',
+          'discoveryHighlight', 'discoveryBody', 'discoveryPercent', 'locationsLead',
+          'locationPrimary', 'locationSecondary', 'extraLocations', 'welcomeStatement',
+          'thankYouStatement', 'closingStatement', 'closingCtaLabel', 'customStats',
+          'updatedBy', 'updatedAt'
+        ]);
+    }
+
+    function isValidWrappedHeaderAndFlags(data) {
+      return data.enabled is bool
+        && data.showInFooter is bool
+        && data.showInNav is bool
+        && data.homeBannerEnabled is bool
+        && data.homeCountdownEnabled is bool
+        && data.yearLabel is string && data.yearLabel.size() >= 1 && data.yearLabel.size() <= 20
+        && data.eyebrow is string && data.eyebrow.size() >= 1 && data.eyebrow.size() <= 80
+        && data.pageTitle is string && data.pageTitle.size() >= 2 && data.pageTitle.size() <= 120
+        && data.pageSubtitle is string && data.pageSubtitle.size() >= 2 && data.pageSubtitle.size() <= 240
+        && data.shareCaption is string && data.shareCaption.size() >= 10 && data.shareCaption.size() <= 420
+        && data.offlineTitle is string && data.offlineTitle.size() >= 2 && data.offlineTitle.size() <= 120
+        && data.offlineMessage is string && data.offlineMessage.size() >= 2 && data.offlineMessage.size() <= 320
+        && data.homeBannerEyebrow is string && data.homeBannerEyebrow.size() >= 1 && data.homeBannerEyebrow.size() <= 80
+        && data.homeBannerTitle is string && data.homeBannerTitle.size() >= 2 && data.homeBannerTitle.size() <= 140
+        && data.homeBannerCtaLabel is string && data.homeBannerCtaLabel.size() >= 1 && data.homeBannerCtaLabel.size() <= 50
+        && data.launchDateIso is string && data.launchDateIso.size() <= 40
+        && (data.launchDateIso == '' || data.launchDateIso.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(Z|[-+][0-9]{2}:[0-9]{2})$'));
+    }
+
+    function isValidWrappedMetrics(data) {
+      return data.coverTitle is string && data.coverTitle.size() >= 2 && data.coverTitle.size() <= 120
+        && data.coverSubtitle is string && data.coverSubtitle.size() >= 2 && data.coverSubtitle.size() <= 180
+        && data.startLead is string && data.startLead.size() >= 2 && data.startLead.size() <= 140
+        && data.startStatement is string && data.startStatement.size() >= 2 && data.startStatement.size() <= 200
+        && isValidCount(data.audienceCount)
+        && data.audiencePrefix is string && data.audiencePrefix.size() <= 10
+        && data.audienceSuffix is string && data.audienceSuffix.size() <= 10
+        && data.audienceCaption is string && data.audienceCaption.size() >= 2 && data.audienceCaption.size() <= 180
+        && isValidCount(data.returningCount)
+        && data.returningSuffix is string && data.returningSuffix.size() <= 10
+        && data.returningCaption is string && data.returningCaption.size() >= 2 && data.returningCaption.size() <= 180
+        && data.sessionsHeading is string && data.sessionsHeading.size() >= 2 && data.sessionsHeading.size() <= 160
+        && isValidWrappedOptionalList(data.sessionHighlights, 8, 220)
+        && isValidCount(data.communityTotal)
+        && data.communityCaption is string && data.communityCaption.size() >= 2 && data.communityCaption.size() <= 160
+        && isValidCount(data.studentsCount)
+        && isValidCount(data.professionalsCount)
+        && data.discoveryPercent is int && data.discoveryPercent >= 1 && data.discoveryPercent <= 100;
+    }
+
+    function isValidWrappedCopy(data) {
+      return data.awarenessDate is string && data.awarenessDate.size() >= 1 && data.awarenessDate.size() <= 40
+        && data.awarenessPrefix is string && data.awarenessPrefix.size() >= 2 && data.awarenessPrefix.size() <= 180
+        && data.awarenessProgramTitle is string && data.awarenessProgramTitle.size() >= 2 && data.awarenessProgramTitle.size() <= 120
+        && data.awarenessSpeaker is string && data.awarenessSpeaker.size() >= 2 && data.awarenessSpeaker.size() <= 140
+        && data.discoveryHighlight is string && data.discoveryHighlight.size() >= 2 && data.discoveryHighlight.size() <= 80
+        && data.discoveryBody is string && data.discoveryBody.size() >= 2 && data.discoveryBody.size() <= 200
+        && data.locationsLead is string && data.locationsLead.size() >= 2 && data.locationsLead.size() <= 140
+        && data.locationPrimary is string && data.locationPrimary.size() >= 1 && data.locationPrimary.size() <= 60
+        && data.locationSecondary is string && data.locationSecondary.size() <= 60
+        && isValidWrappedOptionalList(data.extraLocations, 10, 60)
+        && data.welcomeStatement is string && data.welcomeStatement.size() >= 2 && data.welcomeStatement.size() <= 260
+        && data.thankYouStatement is string && data.thankYouStatement.size() >= 2 && data.thankYouStatement.size() <= 260
+        && data.closingStatement is string && data.closingStatement.size() >= 2 && data.closingStatement.size() <= 220
+        && data.closingCtaLabel is string && data.closingCtaLabel.size() >= 2 && data.closingCtaLabel.size() <= 60
+        && isValidWrappedOptionalList(data.customStats, 6, 220)
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWrappedConfig(data) {
+      return isValidWrappedKeys(data)
+        && isValidWrappedHeaderAndFlags(data)
+        && isValidWrappedMetrics(data)
+        && isValidWrappedCopy(data);
+    }
+
     // --- Collection: Think Sessions (/sessions/{sessionId}) ---
     match /sessions/{sessionId} {
-      allow get: if isValidId(sessionId) && (existing().published == true || isAdmin());
+      allow get: if isValidId(sessionId) && resource != null && (existing().published == true || isAdmin());
       allow list: if resource.data.published == true || isAdmin();
 
       allow create: if isAdmin()
@@ -356,7 +395,7 @@ service cloud.firestore {
           incoming().diff(existing()).affectedKeys().hasOnly([
             'number', 'title', 'speaker', 'speakerRole', 'dateLabel', 'timeLabel',
             'format', 'status', 'isNextSession', 'published', 'summary', 'topics',
-            'registrationUrl', 'updatedAt'
+            'registrationUrl', 'startAtIso', 'resources', 'updatedAt'
           ])
           ||
           incoming().diff(existing()).affectedKeys().hasOnly([
@@ -367,48 +406,9 @@ service cloud.firestore {
       allow delete: if isAdmin() && isValidId(sessionId);
     }
 
-    // --- Collection: Live Q&A Queue (/sessionQuestions/{questionId}) ---
-    match /sessionQuestions/{questionId} {
-      allow get: if isValidId(questionId);
-      allow list: if resource.data.sessionId is string && resource.data.sessionId.size() >= 1;
-
-      allow create: if isValidId(questionId)
-        && isValidSessionQuestion(incoming())
-        && incoming().upvotes == 1
-        && incoming().answered == false
-        && incoming().createdAt == request.time
-        && incoming().updatedAt == request.time
-        && (
-          incoming().sessionId == 'live-lobby'
-          || exists(/databases/$(database)/documents/sessions/$(incoming().sessionId))
-        );
-
-      allow update: if isValidId(questionId)
-        && isValidSessionQuestion(incoming())
-        && incoming().sessionId == existing().sessionId
-        && incoming().authorName == existing().authorName
-        && incoming().question == existing().question
-        && incoming().createdAt == existing().createdAt
-        && incoming().updatedAt == request.time
-        && (
-          (
-            isAdmin()
-            && incoming().diff(existing()).affectedKeys().hasOnly(['answered', 'updatedAt'])
-          )
-          ||
-          (
-            incoming().answered == existing().answered
-            && incoming().upvotes == existing().upvotes + 1
-            && incoming().diff(existing()).affectedKeys().hasOnly(['upvotes', 'updatedAt'])
-          )
-        );
-
-      allow delete: if isAdmin() && isValidId(questionId);
-    }
-
     // --- Collection: Media & Recordings (/media/{mediaId}) ---
     match /media/{mediaId} {
-      allow get: if isValidId(mediaId) && (existing().published == true || isAdmin());
+      allow get: if isValidId(mediaId) && resource != null && (existing().published == true || isAdmin());
       allow list: if resource.data.published == true || isAdmin();
 
       allow create: if isAdmin()
@@ -473,92 +473,29 @@ service cloud.firestore {
       allow delete: if isAdmin() && isValidId(subscriberId);
     }
 
-    // --- Collection: Public Site, Live & Wrapped Settings (/siteSettings/{settingId}) ---
+    // --- Collection: Public Site Settings (/siteSettings/{settingId}) ---
     match /siteSettings/{settingId} {
-      allow get: if isValidId(settingId) && (settingId == 'public' || settingId == 'wrapped' || settingId == 'live');
+      allow get: if isValidId(settingId) && settingId == 'public';
       allow list: if isAdmin();
 
       allow create: if isAdmin()
         && isValidId(settingId)
+        && settingId == 'public'
+        && isValidSiteSettings(incoming())
         && incoming().updatedBy == request.auth.uid
-        && incoming().updatedAt == request.time
-        && (
-          (settingId == 'public' && isValidSiteSettings(incoming()))
-          ||
-          (settingId == 'wrapped' && isValidWrappedSettings(incoming()))
-          ||
-          (settingId == 'live' && isValidLiveSettings(incoming()))
-        );
-
-      allow update: if isAdmin()
-        && isValidId(settingId)
-        && incoming().updatedBy == request.auth.uid
-        && incoming().updatedAt == request.time
-        && (
-          (
-            settingId == 'public'
-            && isValidSiteSettings(incoming())
-            && incoming().diff(existing()).affectedKeys().hasOnly([
-              'instagramUrl', 'xUrl', 'linkedinUrl', 'youtubeUrl', 'updatedBy', 'updatedAt'
-            ])
-          )
-          ||
-          (
-            settingId == 'wrapped'
-            && isValidWrappedSettings(incoming())
-            && incoming().diff(existing()).affectedKeys().hasOnly([
-              'enabled', 'showHomeBanner', 'countdownTargetIso', 'countdownHeadline',
-              'countdownSubtext', 'pageTitle', 'pageIntro', 'closingHeadline',
-              'closingBody', 'shareCaption', 'autoplaySeconds', 'updatedBy', 'updatedAt'
-            ])
-          )
-          ||
-          (
-            settingId == 'live'
-            && isValidLiveSettings(incoming())
-            && incoming().diff(existing()).affectedKeys().hasOnly([
-              'isLive', 'liveSessionId', 'liveTitle', 'liveRoomUrl', 'liveStartedAtIso',
-              'qaEnabled', 'announcementEnabled', 'announcementText',
-              'announcementLinkLabel', 'announcementLinkHref', 'updatedBy', 'updatedAt'
-            ])
-          )
-        );
-
-      allow delete: if false;
-    }
-
-    // --- Collection: Year Wrapped Slides (/wrappedSlides/{slideId}) ---
-    match /wrappedSlides/{slideId} {
-      allow get: if isValidId(slideId) && (existing().published == true || isAdmin());
-      allow list: if resource.data.published == true || isAdmin();
-
-      allow create: if isAdmin()
-        && isValidId(slideId)
-        && isValidWrappedSlide(incoming())
-        && incoming().createdBy == request.auth.uid
-        && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
 
       allow update: if isAdmin()
-        && isValidId(slideId)
-        && isValidWrappedSlide(incoming())
-        && incoming().createdBy == existing().createdBy
-        && incoming().createdAt == existing().createdAt
+        && isValidId(settingId)
+        && settingId == 'public'
+        && isValidSiteSettings(incoming())
+        && incoming().updatedBy == request.auth.uid
         && incoming().updatedAt == request.time
-        && (
-          incoming().diff(existing()).affectedKeys().hasOnly([
-            'order', 'label', 'kind', 'theme', 'eyebrow', 'headline', 'body',
-            'accentDate', 'metricPrefix', 'metricValue', 'metricSuffix',
-            'secondaryMetricA', 'secondaryLabelA', 'secondaryMetricB', 'secondaryLabelB',
-            'items', 'ctaLabel', 'published', 'updatedAt'
-          ])
-          ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['published', 'updatedAt'])
-          ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['order', 'updatedAt'])
-        );
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'instagramUrl', 'xUrl', 'linkedinUrl', 'youtubeUrl', 'updatedBy', 'updatedAt'
+        ]);
 
-      allow delete: if isAdmin() && isValidId(slideId);
+      allow delete: if false;
     }
 
     // --- Collection: Public Aggregate Community Stats (/communityStats/{statId}) ---
@@ -680,6 +617,59 @@ service cloud.firestore {
         );
 
       allow delete: if isAdmin() && isValidId(questionId);
+    }
+
+    // --- Collection: Speaker & Topic Pitches (/pitches/{pitchId}) ---
+    match /pitches/{pitchId} {
+      allow get, list: if isAdmin();
+
+      allow create: if isValidId(pitchId)
+        && isValidPitch(incoming())
+        && incoming().status == 'new'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(pitchId)
+        && isValidPitch(incoming())
+        && incoming().pitchType == existing().pitchType
+        && incoming().name == existing().name
+        && incoming().email == existing().email
+        && incoming().roleOrStudio == existing().roleOrStudio
+        && incoming().topicTitle == existing().topicTitle
+        && incoming().targetStage == existing().targetStage
+        && incoming().outline == existing().outline
+        && incoming().linkUrl == existing().linkUrl
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+
+      allow delete: if isAdmin() && isValidId(pitchId);
+    }
+
+    // --- Collection: Year Wrapped Config & Yearly Archives (/wrappedConfig/{configId}) ---
+    match /wrappedConfig/{configId} {
+      allow get: if isValidId(configId) && (
+        configId == 'public'
+        || (configId.matches('^year-[0-9]{4}$') && ((resource != null && existing().enabled == true) || isAdmin()))
+      );
+      allow list: if (resource.data.enabled == true) || isAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(configId)
+        && (configId == 'public' || configId.matches('^year-[0-9]{4}$'))
+        && isValidWrappedConfig(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(configId)
+        && (configId == 'public' || configId.matches('^year-[0-9]{4}$'))
+        && isValidWrappedConfig(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time;
+
+      allow delete: if isAdmin() && isValidId(configId) && configId.matches('^year-[0-9]{4}$');
     }
   }
 }

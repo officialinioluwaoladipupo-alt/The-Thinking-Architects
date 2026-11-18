@@ -872,7 +872,7 @@ function WrappedPageInner() {
                 >
                   {/* WebGL 8x8 Bayer Dither Shader + Architectural Drafting Lines + Pointer Spotlight */}
                   <SpotlightStageBackdrop
-                    theme={activeSlide.theme}
+                    theme={activeSlide.theme === "dark" ? "dark" : "cream"}
                     slideIndex={currentIndex}
                   />
 
