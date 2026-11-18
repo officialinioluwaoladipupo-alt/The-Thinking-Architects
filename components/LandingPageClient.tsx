@@ -1,11 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  DEFAULT_WRAPPED_CONFIG,
-  subscribeWrappedConfig,
-  type WrappedConfigRecord,
-} from "../lib/firebaseContent";
+import { useState } from "react";
 import { triggerTallyPopup } from "../lib/tally";
 import ClosingSection from "./ClosingSection";
 import FaqSection from "./FaqSection";
@@ -17,24 +12,10 @@ import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 import StageRailSection from "./StageRailSection";
 import TracksGrid from "./TracksGrid";
-import WrappedHomeBanner from "./WrappedHomeBanner";
+import WrappedSpotlightBanner from "./WrappedSpotlightBanner";
 
 export default function LandingPageClient() {
   const [joinOpen, setJoinOpen] = useState(false);
-  const [wrappedConfig, setWrappedConfig] = useState<WrappedConfigRecord>({
-    ...DEFAULT_WRAPPED_CONFIG,
-    exists: false,
-  });
-
-  useEffect(() => {
-    const unsub = subscribeWrappedConfig(
-      (data) => setWrappedConfig(data),
-      () => {
-        // Keep default fallback silently if Wrapped config listener hits transient error
-      },
-    );
-    return () => unsub();
-  }, []);
 
   const handleOpenJoin = () => {
     triggerTallyPopup(() => setJoinOpen(true));
@@ -45,11 +26,8 @@ export default function LandingPageClient() {
       <SiteHeader onOpenJoin={handleOpenJoin} />
       <main id="top" className="relative flex flex-col">
         <HeroSection onOpenJoin={handleOpenJoin} />
-        <WrappedHomeBanner onOpenJoin={handleOpenJoin} config={wrappedConfig} />
-        <TracksGrid
-          onOpenJoin={handleOpenJoin}
-          hasWrappedBanner={wrappedConfig.homeBannerEnabled}
-        />
+        <TracksGrid onOpenJoin={handleOpenJoin} />
+        <WrappedSpotlightBanner onOpenJoin={handleOpenJoin} />
         <StageRailSection />
         <HowItWorksGrid onOpenJoin={handleOpenJoin} />
         <FaqSection />

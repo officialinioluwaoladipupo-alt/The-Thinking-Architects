@@ -7,8 +7,8 @@ import {
   Calendar,
   Clock,
   ExternalLink,
-  Link2,
   Play,
+  Radio,
   RotateCcw,
   User,
 } from "lucide-react";
@@ -16,21 +16,22 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
+  DEFAULT_LIVE_SETTINGS,
+  subscribeLiveSettings,
   subscribePublishedMedia,
   subscribePublishedSessions,
   type FirestoreMediaRecord,
   type FirestoreSessionRecord,
+  type LiveSettingsRecord,
 } from "../lib/firebaseContent";
 import { getEmbedInfo } from "../lib/mediaEmbed";
 import { CONTACT_EMAIL, TALLY_FORM_URL, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
-import PitchModal from "./PitchModal";
-import { SessionCalendarActions, SessionLocalTimeNote } from "./SessionCalendarActions";
-import { SessionRemindButton } from "./SessionRemindButton";
+import LiveElapsedTimer from "./LiveElapsedTimer";
+import LiveQuestionQueue from "./LiveQuestionQueue";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
-import { TakeawayQuoteButton } from "./TakeawayQuoteButton";
 
 type SessionDetailClientProps = {
   sessionId: string;
@@ -38,9 +39,9 @@ type SessionDetailClientProps = {
 
 function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
   const [joinOpen, setJoinOpen] = useState(false);
-  const [pitchOpen, setPitchOpen] = useState(false);
   const [session, setSession] = useState<FirestoreSessionRecord | null>(null);
   const [matchingMedia, setMatchingMedia] = useState<FirestoreMediaRecord | null>(null);
+  const [liveSettings, setLiveSettings] = useState<LiveSettingsRecord>(DEFAULT_LIVE_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -101,10 +102,21 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
       },
     );
 
+    const unsubLive = subscribeLiveSettings(
+      (settings) => {
+        if (!active) return;
+        setLiveSettings(settings);
+      },
+      () => {
+        // Live status overlay is optional
+      },
+    );
+
     return () => {
       active = false;
       unsubSessions();
       unsubMedia();
+      unsubLive();
     };
   }, [sessionId, retryKey]);
 
@@ -199,6 +211,47 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                 {session.title}
               </h1>
 
+              {liveSettings.isLive &&
+                (liveSettings.liveSessionId === session.id ||
+                  (!liveSettings.liveSessionId && session.isNextSession)) && (
+                  <div className="mt-6 flex flex-col justify-between gap-4 rounded-[12px] border border-white/10 bg-[#1C1C1C] p-5 text-[#F2EDE8] sm:flex-row sm:items-center sm:p-6">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] font-bold uppercase tracking-[0.09em]">
+                        <span className="inline-flex items-center gap-1.5 bg-[#D94F2B] px-2.5 py-1 text-white">
+                          <Radio className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>Session is Live Now</span>
+                        </span>
+                        {liveSettings.liveStartedAtIso && (
+                          <span className="inline-flex items-center gap-1.5 text-[#F2EDE8]/75">
+                            <Clock className="h-3.5 w-3.5 text-[#D94F2B]" aria-hidden="true" />
+                            <span>Elapsed</span>
+                            <LiveElapsedTimer
+                              startedAtIso={liveSettings.liveStartedAtIso}
+                              className="text-[#F2EDE8]"
+                            />
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2.5 text-[15px] text-[#F2EDE8]/80">
+                        {liveSettings.liveTitle.trim() ||
+                          "This Think Session is currently on-air. Submit and upvote questions below."}
+                      </p>
+                    </div>
+
+                    {liveSettings.liveRoomUrl.trim().startsWith("https://") && (
+                      <a
+                        href={liveSettings.liveRoomUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="label-mono inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl bg-[#D94F2B] px-5 py-2.5 text-white transition-opacity hover:opacity-90"
+                      >
+                        <span>Join Live Call</span>
+                        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                      </a>
+                    )}
+                  </div>
+                )}
+
               {/* Metadata Grid: Your speaker + Date and time */}
               <div className="mt-8 grid grid-cols-1 gap-px border border-black/[0.09] bg-black/[0.09] sm:grid-cols-2">
                 <div className="bg-[#efeeec] p-6">
@@ -220,12 +273,11 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                   <p className="mt-2.5 text-[1.15rem] font-medium tracking-[-0.015em]">
                     {session.dateLabel}
                   </p>
-                  <p className="mt-1 inline-flex flex-wrap items-center gap-1.5 font-mono text-[13px] tabular-nums text-[#111111]/70">
+                  <p className="mt-1 inline-flex items-center gap-1.5 font-mono text-[13px] tabular-nums text-[#111111]/70">
                     <Clock className="h-3.5 w-3.5 text-[#111111]/45" aria-hidden="true" />
                     <span>
                       {session.timeLabel} · {session.format}
                     </span>
-                    <SessionLocalTimeNote startAtIso={session.startAtIso} />
                   </p>
                 </div>
               </div>
@@ -242,128 +294,17 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                     {session.topics.map((topic, idx) => (
                       <div
                         key={topic}
-                        className="flex flex-col justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#efeeec] p-5"
+                        className="rounded-xl border border-black/[0.08] bg-[#efeeec] p-5"
                       >
-                        <div>
-                          <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
-                            0{idx + 1}
-                          </span>
-                          <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{topic}</p>
-                        </div>
-                        <TakeawayQuoteButton
-                          payload={{
-                            quote: topic,
-                            label: `${session.number} · Topic 0${idx + 1}`,
-                            sourceTitle: session.title,
-                            speaker: session.speaker,
-                            speakerRole: session.speakerRole,
-                            metaLabel: `${session.number} · ${session.dateLabel}`,
-                            fileSlug: `${session.id}-topic-${idx + 1}`,
-                          }}
-                          className="self-start bg-[#f7f6f4]"
-                        />
+                        <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
+                          0{idx + 1}
+                        </span>
+                        <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{topic}</p>
                       </div>
                     ))}
                   </div>
                 )}
               </section>
-
-              {/* Key Takeaways from Linked Recording/Feature (when published) */}
-              {matchingMedia && matchingMedia.highlights.length > 0 && (
-                <section className="mt-10 border-t border-black/[0.09] pt-8">
-                  <div className="flex flex-wrap items-baseline justify-between gap-3">
-                    <div>
-                      <p className="label-mono text-[#fe3619]">Key Takeaways</p>
-                      <h2 className="mt-2 text-[1.45rem] font-medium tracking-[-0.02em]">
-                        Shareable highlights from this conversation
-                      </h2>
-                    </div>
-                    <span className="font-mono text-[11px] uppercase tracking-[0.07em] text-[#111111]/55">
-                      1080×1350 Story / Post Cards
-                    </span>
-                  </div>
-                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                    {matchingMedia.highlights.map((note, idx) => (
-                      <div
-                        key={note}
-                        className="flex flex-col justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#efeeec] p-5"
-                      >
-                        <div>
-                          <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
-                            Takeaway 0{idx + 1}
-                          </span>
-                          <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{note}</p>
-                        </div>
-                        <TakeawayQuoteButton
-                          payload={{
-                            quote: note,
-                            label: `${session.number} · Key Takeaway 0${idx + 1}`,
-                            sourceTitle: session.title,
-                            speaker: matchingMedia.speaker || session.speaker,
-                            speakerRole: session.speakerRole,
-                            metaLabel: `${matchingMedia.kind} · ${session.dateLabel}`,
-                            fileSlug: `${session.id}-takeaway-${idx + 1}`,
-                          }}
-                          className="self-start bg-[#f7f6f4]"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Companion Links & Resources */}
-              {session.resources.length > 0 && (
-                <section className="mt-10 border-t border-black/[0.09] pt-8">
-                  <div className="flex flex-wrap items-baseline justify-between gap-3">
-                    <div>
-                      <p className="label-mono text-[#fe3619]">Session Companion Links</p>
-                      <h2 className="mt-2 text-[1.45rem] font-medium tracking-[-0.02em]">
-                        Templates, reading &amp; resources
-                      </h2>
-                    </div>
-                    <span className="font-mono text-[11px] uppercase tracking-[0.07em] tabular-nums text-[#111111]/55">
-                      0{session.resources.length} curated link{session.resources.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                  <div className="mt-5 divide-y divide-black/[0.08] rounded-[12px] border border-black/[0.08] bg-[#efeeec]">
-                    {session.resources.map((res, idx) => {
-                      let hostname = "External resource";
-                      try {
-                        hostname = new URL(res.url).hostname.replace(/^www\./, "");
-                      } catch {
-                        // Ignore invalid URL parse
-                      }
-                      return (
-                        <a
-                          key={`${res.url}-${idx}`}
-                          href={res.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-black/[0.03]"
-                        >
-                          <div className="flex items-start gap-3">
-                            <Link2
-                              className="mt-0.5 h-4 w-4 shrink-0 text-[#fe3619]"
-                              aria-hidden="true"
-                            />
-                            <div>
-                              <p className="text-[15px] font-medium text-[#111111]">{res.label}</p>
-                              <p className="mt-0.5 font-mono text-[11px] text-[#111111]/55">
-                                {hostname}
-                              </p>
-                            </div>
-                          </div>
-                          <span className="label-mono inline-flex items-center gap-1.5 text-[11px] text-[#111111]/75">
-                            <span>Open resource</span>
-                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                          </span>
-                        </a>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
 
               {/* Reserve your place (upcoming) OR Watch the recording (after session) */}
               {session.status === "upcoming" && (
@@ -376,7 +317,7 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                     Every Think Session reserves open Q&amp;A time with our speakers. RSVP to get
                     the session link and calendar invite.
                   </p>
-                  <div className="mt-6 flex flex-wrap items-start gap-3">
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
                     {hasCustomRegistration ? (
                       <a
                         href={session.registrationUrl}
@@ -397,13 +338,24 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                         <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                       </button>
                     )}
-
-                    <SessionCalendarActions session={session} />
-
-                    <SessionRemindButton session={session} />
                   </div>
                 </section>
               )}
+
+              {(liveSettings.isLive &&
+                (liveSettings.liveSessionId === session.id ||
+                  (!liveSettings.liveSessionId && session.isNextSession))) ||
+              session.status === "upcoming" ? (
+                <LiveQuestionQueue
+                  sessionId={session.id}
+                  qaEnabled={liveSettings.qaEnabled}
+                  isLive={Boolean(
+                    liveSettings.isLive &&
+                      (liveSettings.liveSessionId === session.id ||
+                        (!liveSettings.liveSessionId && session.isNextSession)),
+                  )}
+                />
+              ) : null}
 
               {showRecordingSection && (
                 <section className="mt-10 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-8">
@@ -485,26 +437,16 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                 </section>
               )}
 
-              <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-black/[0.09] pt-8">
-                <p className="text-[14.5px] text-[#111111]/72">
-                  Have a topic or want to speak at a future Think Session?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setPitchOpen(true)}
-                    className="cursor-pointer font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
-                  >
-                    Pitch a topic or offer to speak
-                  </button>{" "}
-                  or email{" "}
-                  <a
-                    href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Topic`}
-                    className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
-                  >
-                    {CONTACT_EMAIL}
-                  </a>
-                  .
-                </p>
-              </div>
+              <p className="mt-12 text-[14px] text-[#111111]/65">
+                Have a topic or want to speak? Email{" "}
+                <a
+                  href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Topic`}
+                  className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
+                >
+                  {CONTACT_EMAIL}
+                </a>
+                .
+              </p>
             </article>
           )}
         </div>
@@ -512,7 +454,6 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
 
       <SiteFooter />
       <JoinModal open={joinOpen} onClose={() => setJoinOpen(false)} />
-      <PitchModal open={pitchOpen} onClose={() => setPitchOpen(false)} defaultPitchType="speaker" />
     </>
   );
 }

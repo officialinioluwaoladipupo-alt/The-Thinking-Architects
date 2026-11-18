@@ -1,15 +1,14 @@
 "use client";
 
-import { ArrowUpRight, Menu, X } from "lucide-react";
+import { ArrowUpRight, Megaphone, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  DEFAULT_WRAPPED_CONFIG,
-  subscribePublishedSessions,
-  subscribeWrappedConfig,
+  DEFAULT_LIVE_SETTINGS,
+  subscribeLiveSettings,
+  type LiveSettingsRecord,
 } from "../lib/firebaseContent";
-import { SessionReminderRunner } from "./SessionRemindButton";
 
 type SiteHeaderProps = {
   onOpenJoin: () => void;
@@ -26,41 +25,20 @@ const navLinks = [
 
 export default function SiteHeader({ onOpenJoin }: SiteHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [hasUpcomingSession, setHasUpcomingSession] = useState(false);
-  const [wrappedNav, setWrappedNav] = useState({
-    enabled: DEFAULT_WRAPPED_CONFIG.enabled,
-    showInNav: DEFAULT_WRAPPED_CONFIG.showInNav,
-    yearLabel: DEFAULT_WRAPPED_CONFIG.yearLabel,
-  });
+  const [liveSettings, setLiveSettings] = useState<LiveSettingsRecord>(DEFAULT_LIVE_SETTINGS);
+  const [announcementDismissed, setAnnouncementDismissed] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubWrapped = subscribeWrappedConfig(
-      (cfg) => {
-        setWrappedNav({
-          enabled: cfg.enabled,
-          showInNav: cfg.showInNav,
-          yearLabel: cfg.yearLabel || "2026",
-        });
+    const unsub = subscribeLiveSettings(
+      (settings) => {
+        setLiveSettings(settings);
       },
       () => {
-        // Keep defaults on transient listener error
+        // Optional notice bar; ignore errors silently
       },
     );
-
-    const unsubSessions = subscribePublishedSessions(
-      (items) => {
-        setHasUpcomingSession(items.some((item) => item.status === "upcoming"));
-      },
-      () => {
-        // Ignore transient session indicator error in global navbar
-      },
-    );
-
-    return () => {
-      unsubWrapped();
-      unsubSessions();
-    };
+    return () => unsub();
   }, []);
 
   const isActive = (href: string) => {
@@ -68,13 +46,66 @@ export default function SiteHeader({ onOpenJoin }: SiteHeaderProps) {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const showWrappedLink = wrappedNav.enabled && wrappedNav.showInNav;
-  const wrappedHref = "/wrapped";
-  const wrappedLabel = `${wrappedNav.yearLabel} Wrapped`;
+  const showAnnouncement =
+    liveSettings.announcementEnabled &&
+    liveSettings.announcementText.trim().length > 0 &&
+    !announcementDismissed;
+
+  const announcementHref = liveSettings.announcementLinkHref.trim();
+  const announcementLabel = liveSettings.announcementLinkLabel.trim();
+  const hasAnnouncementLink =
+    Boolean(announcementHref && announcementLabel) &&
+    (announcementHref.startsWith("/") || announcementHref.startsWith("https://"));
 
   return (
-    <header className="fixed inset-x-0 top-4 z-40 flex justify-center px-4">
-      <SessionReminderRunner />
+    <header className="fixed inset-x-0 top-3 z-40 flex flex-col items-center gap-2 px-4">
+      {showAnnouncement && (
+        <div
+          role="region"
+          aria-label="Site announcement"
+          className="flex w-full max-w-[1120px] items-center justify-between gap-3 rounded-xl border border-black/15 bg-[#1C1C1C] px-4 py-2 text-[#F2EDE8] shadow-[0_6px_22px_rgba(17,17,17,0.14)]"
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-2.5 text-[12.5px] sm:text-[13px]">
+            <Megaphone
+              className="h-3.5 w-3.5 shrink-0 text-[#D94F2B]"
+              aria-hidden="true"
+            />
+            <p className="truncate font-normal text-[#F2EDE8]/90">
+              {liveSettings.announcementText}
+            </p>
+            {hasAnnouncementLink &&
+              (announcementHref.startsWith("/") ? (
+                <Link
+                  href={announcementHref}
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-mono text-[11px] font-bold uppercase tracking-[0.07em] text-[#D94F2B] underline-offset-4 hover:underline"
+                >
+                  <span>{announcementLabel}</span>
+                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                </Link>
+              ) : (
+                <a
+                  href={announcementHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-mono text-[11px] font-bold uppercase tracking-[0.07em] text-[#D94F2B] underline-offset-4 hover:underline"
+                >
+                  <span>{announcementLabel}</span>
+                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                </a>
+              ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setAnnouncementDismissed(true)}
+            aria-label="Dismiss notice"
+            className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-[#F2EDE8]/65 transition-colors hover:bg-white/10 hover:text-[#F2EDE8]"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
       <nav
         aria-label="Primary navigation"
         className="w-full max-w-[1120px] overflow-hidden rounded-2xl border border-black/[0.06] bg-[#EAEAEA]/85 shadow-[0_8px_30px_rgba(17,17,17,0.06)] backdrop-blur-xl"
@@ -102,47 +133,21 @@ export default function SiteHeader({ onOpenJoin }: SiteHeaderProps) {
           <div className="hidden items-center gap-5 lg:flex xl:gap-6">
             {navLinks.map((link) => {
               const active = isActive(link.href);
-              const showLiveDot = link.href === "/sessions" && hasUpcomingSession;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   aria-current={active ? "page" : undefined}
-                  title={showLiveDot ? "Upcoming Think Session scheduled" : undefined}
-                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[13px] font-medium underline-offset-4 transition-colors duration-150 ${
+                  className={`shrink-0 whitespace-nowrap text-[13px] font-medium underline-offset-4 transition-colors duration-150 ${
                     active
                       ? "text-[#111111] underline decoration-[#fe3619] decoration-2"
                       : "text-[#111111]/72 hover:text-[#111111] hover:underline"
                   }`}
                 >
-                  <span>{link.label}</span>
-                  {showLiveDot && (
-                    <span className="relative flex h-2 w-2 items-center justify-center">
-                      <span
-                        className="h-1.5 w-1.5 rounded-full bg-[#fe3619]"
-                        aria-hidden="true"
-                      />
-                      <span className="sr-only">(Upcoming live session)</span>
-                    </span>
-                  )}
+                  {link.label}
                 </Link>
               );
             })}
-
-            {showWrappedLink && (
-              <Link
-                href={wrappedHref}
-                aria-current={isActive(wrappedHref) ? "page" : undefined}
-                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[13px] font-medium underline-offset-4 transition-colors duration-150 ${
-                  isActive(wrappedHref)
-                    ? "text-[#111111] underline decoration-[#fe3619] decoration-2"
-                    : "text-[#111111]/85 hover:text-[#111111] hover:underline"
-                }`}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-[#fe3619]" aria-hidden="true" />
-                <span>{wrappedLabel}</span>
-              </Link>
-            )}
           </div>
 
           {/* Zone 3: Single Primary Action + Mobile Menu Trigger */}
@@ -179,7 +184,6 @@ export default function SiteHeader({ onOpenJoin }: SiteHeaderProps) {
             <div className="flex flex-col divide-y divide-black/[0.05]">
               {navLinks.map((link) => {
                 const active = isActive(link.href);
-                const showLiveDot = link.href === "/sessions" && hasUpcomingSession;
                 return (
                   <Link
                     key={link.href}
@@ -190,36 +194,11 @@ export default function SiteHeader({ onOpenJoin }: SiteHeaderProps) {
                       active ? "text-[#fe3619]" : "text-[#111111]"
                     }`}
                   >
-                    <span className="inline-flex items-center gap-2">
-                      <span>{link.label}</span>
-                      {showLiveDot && (
-                        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-[#fe3619]">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#fe3619]" aria-hidden="true" />
-                          <span>Next Live</span>
-                        </span>
-                      )}
-                    </span>
+                    <span>{link.label}</span>
                     <ArrowUpRight className="h-3.5 w-3.5 text-[#111111]/45" aria-hidden="true" />
                   </Link>
                 );
               })}
-
-              {showWrappedLink && (
-                <Link
-                  href={wrappedHref}
-                  aria-current={isActive(wrappedHref) ? "page" : undefined}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex min-h-[44px] items-center justify-between px-3 text-[14px] font-medium transition-colors hover:bg-black/[0.03] ${
-                    isActive(wrappedHref) ? "text-[#fe3619]" : "text-[#111111]"
-                  }`}
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#fe3619]" aria-hidden="true" />
-                    <span>{wrappedLabel}</span>
-                  </span>
-                  <ArrowUpRight className="h-3.5 w-3.5 text-[#111111]/45" aria-hidden="true" />
-                </Link>
-              )}
             </div>
           </div>
         )}

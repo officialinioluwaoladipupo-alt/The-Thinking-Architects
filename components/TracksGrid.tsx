@@ -7,6 +7,8 @@ import {
   Calendar,
   Clock,
   ExternalLink,
+  MessageSquare,
+  Radio,
   RotateCcw,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -15,18 +17,20 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
+  DEFAULT_LIVE_SETTINGS,
+  subscribeLiveSettings,
   subscribePublishedSessions,
   type FirestoreSessionRecord,
+  type LiveSettingsRecord,
 } from "../lib/firebaseContent";
 import { TALLY_FORM_URL } from "../lib/tally";
 import studioImg from "../src/assets/images/hero_architecture_studio_1794913643987.jpg";
 import draftingImg from "../src/assets/images/track_licensure_path_1794913644519.jpg";
 import critiqueImg from "../src/assets/images/track_live_sessions_1794913644707.jpg";
-import { SessionCalendarActions, SessionLocalTimeNote } from "./SessionCalendarActions";
+import LiveElapsedTimer from "./LiveElapsedTimer";
 
 type TracksGridProps = {
   onOpenJoin: () => void;
-  hasWrappedBanner?: boolean;
 };
 
 type PillarItem = {
@@ -75,8 +79,10 @@ const pillars: PillarItem[] = [
   },
 ];
 
-export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: TracksGridProps) {
+export default function TracksGrid({ onOpenJoin }: TracksGridProps) {
+  const [sessions, setSessions] = useState<FirestoreSessionRecord[]>([]);
   const [nextSession, setNextSession] = useState<FirestoreSessionRecord | null>(null);
+  const [liveSettings, setLiveSettings] = useState<LiveSettingsRecord>(DEFAULT_LIVE_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -89,6 +95,7 @@ export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: Tra
     const unsubscribe = subscribePublishedSessions(
       (items) => {
         if (!active) return;
+        setSessions(items);
         const featured =
           items.find((item) => item.isNextSession) ??
           items.find((item) => item.status === "upcoming") ??
@@ -105,20 +112,39 @@ export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: Tra
       },
     );
 
+    const unsubLive = subscribeLiveSettings(
+      (settings) => {
+        if (!active) return;
+        setLiveSettings(settings);
+      },
+      () => {
+        // Optional live overlay; do not break TracksGrid
+      },
+    );
+
     return () => {
       active = false;
       unsubscribe();
+      unsubLive();
     };
   }, [retryKey]);
+
+  const activeLiveSession = liveSettings.liveSessionId
+    ? sessions.find((s) => s.id === liveSettings.liveSessionId) ?? nextSession
+    : nextSession;
+
+  const liveRoomHref = liveSettings.liveSessionId
+    ? `/sessions/${encodeURIComponent(liveSettings.liveSessionId)}`
+    : activeLiveSession
+      ? `/sessions/${encodeURIComponent(activeLiveSession.id)}`
+      : "/sessions#live-qa";
+
+  const hasLiveRoomUrl = liveSettings.liveRoomUrl.trim().startsWith("https://");
 
   return (
     <section
       id="what-we-do"
-      className={`relative bg-[#f7f6f4] px-6 pb-16 ${
-        hasWrappedBanner
-          ? "mt-0 pt-10 sm:pt-14"
-          : "-mt-[12vh] pt-[96px] sm:-mt-[20vh] sm:pt-[140px]"
-      }`}
+      className="relative -mt-[12vh] bg-[#f7f6f4] px-6 pt-[96px] pb-16 sm:-mt-[20vh] sm:pt-[140px]"
     >
       <div className="mx-auto max-w-[1440px]">
         <p className="label-mono text-center text-[#fe3619]">Media, Events &amp; Community</p>
@@ -198,12 +224,81 @@ export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: Tra
           ))}
         </ul>
 
-        {/* Dynamic Next Session block pulled live from Firestore */}
+        {/* Dynamic Live Room Companion OR Next Session Spotlight */}
         <div
           id="next-session"
-          className="mx-auto mt-14 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-9"
+          className={`mx-auto mt-14 rounded-[12px] border p-6 transition-colors sm:p-9 ${
+            liveSettings.isLive
+              ? "border-white/10 bg-[#1C1C1C] text-[#F2EDE8]"
+              : "border-black/[0.08] bg-[#efeeec] text-[#111111]"
+          }`}
         >
-          {loading ? (
+          {liveSettings.isLive ? (
+            <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+              <div className="max-w-[66ch]">
+                <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] font-bold uppercase tracking-[0.09em]">
+                  <span className="inline-flex items-center gap-1.5 bg-[#D94F2B] px-2.5 py-1 text-white">
+                    <Radio className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Happening Live Now</span>
+                  </span>
+                  {liveSettings.liveStartedAtIso && (
+                    <span className="inline-flex items-center gap-1.5 text-[#F2EDE8]/75">
+                      <Clock className="h-3.5 w-3.5 text-[#D94F2B]" aria-hidden="true" />
+                      <span>Elapsed</span>
+                      <LiveElapsedTimer
+                        startedAtIso={liveSettings.liveStartedAtIso}
+                        className="text-[#F2EDE8]"
+                      />
+                    </span>
+                  )}
+                  {activeLiveSession && (
+                    <span className="text-[#F2EDE8]/65">{activeLiveSession.number}</span>
+                  )}
+                </div>
+
+                <h3 className="mt-4 text-[1.55rem] font-medium leading-[1.15] tracking-[-0.025em] text-[#F2EDE8] sm:text-[2.1rem]">
+                  {liveSettings.liveTitle.trim() ||
+                    activeLiveSession?.title ||
+                    "Think Session is on-air now."}
+                </h3>
+
+                {activeLiveSession && (
+                  <p className="mt-2 font-mono text-[12px] text-[#F2EDE8]/70">
+                    {activeLiveSession.speaker} — {activeLiveSession.speakerRole}
+                  </p>
+                )}
+
+                <p className="mt-3 max-w-[60ch] text-[15px] leading-[1.6] text-[#F2EDE8]/75">
+                  {liveSettings.qaEnabled
+                    ? "Enter the session room to submit and upvote live audience questions for our speaker."
+                    : "Enter the session room for full speaker notes and live broadcast details."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  href={liveRoomHref}
+                  className="label-mono inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-[#D94F2B] px-6 py-3 text-white transition-opacity hover:opacity-90"
+                >
+                  <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                  <span>Enter Session Room</span>
+                  <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </Link>
+
+                {hasLiveRoomUrl && (
+                  <a
+                    href={liveSettings.liveRoomUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="label-mono inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-5 py-3 text-[#F2EDE8] transition-colors hover:bg-white/[0.12]"
+                  >
+                    <span>Join Live Call</span>
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                )}
+              </div>
+            </div>
+          ) : loading ? (
             <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr]" aria-busy="true">
               <div className="space-y-4">
                 <div className="h-4 w-48 animate-pulse rounded bg-black/[0.08]" />
@@ -294,10 +389,9 @@ export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: Tra
                     <span>{nextSession.dateLabel}</span>
                   </span>
                   <span aria-hidden="true">·</span>
-                  <span className="inline-flex flex-wrap items-center gap-1.5 tabular-nums">
+                  <span className="inline-flex items-center gap-1.5 tabular-nums">
                     <Clock className="h-3.5 w-3.5 text-[#111111]/50" aria-hidden="true" />
                     <span>{nextSession.timeLabel}</span>
-                    <SessionLocalTimeNote startAtIso={nextSession.startAtIso} />
                   </span>
                 </div>
 
@@ -363,14 +457,10 @@ export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: Tra
 
                   <Link
                     href="/sessions"
-                    className="label-mono inline-flex min-h-[44px] items-center rounded-xl border border-black/10 bg-[#f7f6f4] px-5 py-2.5 text-[#111111] transition-colors hover:bg-[#e5e3e0]"
+                    className="label-mono inline-flex min-h-[46px] items-center rounded-xl border border-black/10 bg-[#f7f6f4] px-5 py-3 text-[#111111] transition-colors hover:bg-[#e5e3e0]"
                   >
                     <span>View all sessions</span>
                   </Link>
-
-                  {nextSession.status === "upcoming" && (
-                    <SessionCalendarActions session={nextSession} compact />
-                  )}
                 </div>
               </div>
             </div>

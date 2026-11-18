@@ -76,16 +76,6 @@
           "pattern": "^(https://.*)?$",
           "description": "Optional external registration or Tally URL."
         },
-        "startAtIso": {
-          "type": "string",
-          "maxLength": 40,
-          "pattern": "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?(Z|[+-]\\d{2}:\\d{2}))?$",
-          "description": "Optional ISO-8601 start timestamp used for calendar invites and local timezone conversion."
-        },
-        "resources": {
-          "type": "array",
-          "description": "Up to 4 curated companion resource links ({ label, url }) attached to the session."
-        },
         "createdBy": {
           "type": "string",
           "minLength": 1,
@@ -339,162 +329,362 @@
         "updatedAt"
       ]
     },
-    "WrappedConfig": {
-      "title": "WrappedConfig",
-      "description": "Admin-managed configuration, visibility toggles, Home countdown settings, and editable slide copy/metrics for TTA Year Wrapped.",
+    "WrappedSettings": {
+      "title": "WrappedSettings",
+      "description": "Global control settings for TTA Year Wrapped including live on/off toggle, Home page banner/countdown toggle, target launch timestamp, header/closing copy, and share caption.",
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean", "description": "Master toggle turning the /wrapped page live or offline." },
-        "showInFooter": { "type": "boolean", "description": "Controls whether the Wrapped link is shown in the site footer." },
-        "showInNav": { "type": "boolean", "description": "Controls whether the Wrapped spotlight link is shown in the top navigation bar." },
-        "homeBannerEnabled": { "type": "boolean", "description": "Shows or hides the Wrapped teaser banner on the Home page." },
-        "homeCountdownEnabled": { "type": "boolean", "description": "Shows or hides the live countdown timer on the Home banner and offline holding screen." },
-        "yearLabel": { "type": "string", "minLength": 1, "maxLength": 20, "description": "Short year label such as 2026." },
-        "eyebrow": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Header eyebrow label." },
-        "pageTitle": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Main Wrapped page title." },
-        "pageSubtitle": { "type": "string", "minLength": 2, "maxLength": 240, "description": "Header subtitle." },
-        "shareCaption": { "type": "string", "minLength": 10, "maxLength": 420, "description": "Pre-filled social share caption." },
-        "offlineTitle": { "type": "string", "minLength": 2, "maxLength": 120, "description": "Headline displayed when Wrapped is turned off." },
-        "offlineMessage": { "type": "string", "minLength": 2, "maxLength": 320, "description": "Holding message displayed when Wrapped is turned off." },
-        "homeBannerEyebrow": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Eyebrow on Home Wrapped banner." },
-        "homeBannerTitle": { "type": "string", "minLength": 2, "maxLength": 140, "description": "Headline on Home Wrapped banner." },
-        "homeBannerCtaLabel": { "type": "string", "minLength": 1, "maxLength": 50, "description": "CTA button label on Home Wrapped banner." },
-        "launchDateIso": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Master switch turning the interactive /wrapped deck on or switching to countdown mode."
+        },
+        "showHomeBanner": {
+          "type": "boolean",
+          "description": "Controls whether the Home page displays the live Wrapped spotlight or countdown banner."
+        },
+        "countdownTargetIso": {
           "type": "string",
           "maxLength": 40,
-          "pattern": "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?(Z|[+-]\\d{2}:\\d{2})?)?$",
-          "description": "Optional ISO-8601 target timestamp for the Wrapped countdown."
+          "pattern": "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?)?$",
+          "description": "ISO-8601 target launch date/time used when Wrapped is in countdown mode."
         },
-        "coverTitle": { "type": "string", "minLength": 2, "maxLength": 120 },
-        "coverSubtitle": { "type": "string", "minLength": 2, "maxLength": 180 },
-        "startLead": { "type": "string", "minLength": 2, "maxLength": 140 },
-        "startStatement": { "type": "string", "minLength": 2, "maxLength": 200 },
-        "audienceCount": { "type": "integer", "description": "Total event registrations count." },
-        "audiencePrefix": { "type": "string", "maxLength": 10 },
-        "audienceSuffix": { "type": "string", "maxLength": 10 },
-        "audienceCaption": { "type": "string", "minLength": 2, "maxLength": 180 },
-        "returningCount": { "type": "integer", "description": "Repeat attendees count." },
-        "returningSuffix": { "type": "string", "maxLength": 10 },
-        "returningCaption": { "type": "string", "minLength": 2, "maxLength": 180 },
-        "sessionsHeading": { "type": "string", "minLength": 2, "maxLength": 160 },
-        "sessionHighlights": { "type": "array", "description": "Up to 8 session highlights formatted 'Date | Title'." },
-        "awarenessDate": { "type": "string", "minLength": 1, "maxLength": 40 },
-        "awarenessPrefix": { "type": "string", "minLength": 2, "maxLength": 180 },
-        "awarenessProgramTitle": { "type": "string", "minLength": 2, "maxLength": 120 },
-        "awarenessSpeaker": { "type": "string", "minLength": 2, "maxLength": 140 },
-        "communityTotal": { "type": "integer", "description": "Total community members count." },
-        "communityCaption": { "type": "string", "minLength": 2, "maxLength": 160 },
-        "studentsCount": { "type": "integer", "description": "Student members count." },
-        "professionalsCount": { "type": "integer", "description": "Practising professional members count." },
-        "discoveryHighlight": { "type": "string", "minLength": 2, "maxLength": 80 },
-        "discoveryBody": { "type": "string", "minLength": 2, "maxLength": 200 },
-        "discoveryPercent": { "type": "integer", "description": "Discovery progress bar percentage (1-100)." },
-        "locationsLead": { "type": "string", "minLength": 2, "maxLength": 140 },
-        "locationPrimary": { "type": "string", "minLength": 1, "maxLength": 60 },
-        "locationSecondary": { "type": "string", "maxLength": 60 },
-        "extraLocations": { "type": "array", "description": "Up to 10 additional cities or chapters." },
-        "welcomeStatement": { "type": "string", "minLength": 2, "maxLength": 260 },
-        "thankYouStatement": { "type": "string", "minLength": 2, "maxLength": 260 },
-        "closingStatement": { "type": "string", "minLength": 2, "maxLength": 220 },
-        "closingCtaLabel": { "type": "string", "minLength": 2, "maxLength": 60 },
-        "customStats": { "type": "array", "description": "Up to 6 additional milestone cards formatted 'Value | Label | Detail'." },
-        "updatedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": [
-        "enabled", "showInFooter", "showInNav", "homeBannerEnabled", "homeCountdownEnabled",
-        "yearLabel", "eyebrow", "pageTitle", "pageSubtitle", "shareCaption",
-        "offlineTitle", "offlineMessage", "homeBannerEyebrow", "homeBannerTitle",
-        "homeBannerCtaLabel", "launchDateIso", "coverTitle", "coverSubtitle",
-        "startLead", "startStatement", "audienceCount", "audiencePrefix",
-        "audienceSuffix", "audienceCaption", "returningCount", "returningSuffix",
-        "returningCaption", "sessionsHeading", "sessionHighlights", "awarenessDate",
-        "awarenessPrefix", "awarenessProgramTitle", "awarenessSpeaker",
-        "communityTotal", "communityCaption", "studentsCount", "professionalsCount",
-        "discoveryHighlight", "discoveryBody", "discoveryPercent", "locationsLead",
-        "locationPrimary", "locationSecondary", "extraLocations", "welcomeStatement",
-        "thankYouStatement", "closingStatement", "closingCtaLabel", "customStats",
-        "updatedBy", "updatedAt"
-      ]
-    },
-    "TopicPitch": {
-      "title": "TopicPitch",
-      "description": "Community speaker offer or session topic suggestion submitted from /contact or /sessions for admin review.",
-      "type": "object",
-      "properties": {
-        "pitchType": {
-          "type": "string",
-          "enum": ["speaker", "topic"],
-          "description": "Whether the submitter is offering to speak or suggesting a topic."
-        },
-        "name": {
-          "type": "string",
-          "minLength": 2,
-          "maxLength": 100,
-          "description": "Full name of the submitter."
-        },
-        "email": {
-          "type": "string",
-          "minLength": 5,
-          "maxLength": 254,
-          "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
-          "description": "Contact email address of the submitter."
-        },
-        "roleOrStudio": {
-          "type": "string",
-          "minLength": 0,
-          "maxLength": 120,
-          "description": "Optional role, studio, school, or affiliation."
-        },
-        "topicTitle": {
+        "countdownHeadline": {
           "type": "string",
           "minLength": 3,
           "maxLength": 140,
-          "description": "Proposed Think Session title or topic headline."
+          "description": "Headline displayed during countdown mode."
         },
-        "targetStage": {
+        "countdownSubtext": {
           "type": "string",
-          "enum": ["Students", "Graduates & Early-Career", "Practising Architects", "All Stages"],
-          "description": "Primary architectural career stage this conversation serves."
+          "minLength": 5,
+          "maxLength": 260,
+          "description": "Supporting description shown during countdown mode."
         },
-        "outline": {
+        "pageTitle": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 100,
+          "description": "Main title for the /wrapped page header."
+        },
+        "pageIntro": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 240,
+          "description": "Introductory sentence on /wrapped."
+        },
+        "closingHeadline": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120,
+          "description": "Headline in the closing CTA block below /wrapped."
+        },
+        "closingBody": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 240,
+          "description": "Body copy in the closing CTA block below /wrapped."
+        },
+        "shareCaption": {
           "type": "string",
           "minLength": 10,
-          "maxLength": 800,
-          "description": "Short pitch describing what would be covered and why it helps."
+          "maxLength": 400,
+          "description": "Pre-formatted social sharing caption (supports [link] token)."
         },
-        "linkUrl": {
-          "type": "string",
-          "maxLength": 300,
-          "pattern": "^(https://.*)?$",
-          "description": "Optional HTTPS portfolio, LinkedIn, or talk link."
+        "autoplaySeconds": {
+          "type": "number",
+          "description": "Auto-advance interval in seconds (0 disables automatic advance)."
         },
-        "status": {
+        "updatedBy": {
           "type": "string",
-          "enum": ["new", "reviewed", "scheduled", "archived"],
-          "description": "Triage status managed by admins."
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Server timestamp when the pitch was submitted."
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the admin who last updated Wrapped settings."
         },
         "updatedAt": {
           "type": "string",
           "format": "date-time",
-          "description": "Server timestamp when the pitch status was last updated."
+          "description": "Server last-updated timestamp."
         }
       },
       "required": [
-        "pitchType",
-        "name",
-        "email",
-        "roleOrStudio",
-        "topicTitle",
-        "targetStage",
-        "outline",
-        "linkUrl",
-        "status",
+        "enabled",
+        "showHomeBanner",
+        "countdownTargetIso",
+        "countdownHeadline",
+        "countdownSubtext",
+        "pageTitle",
+        "pageIntro",
+        "closingHeadline",
+        "closingBody",
+        "shareCaption",
+        "autoplaySeconds",
+        "updatedBy",
+        "updatedAt"
+      ]
+    },
+    "WrappedSlide": {
+      "title": "WrappedSlide",
+      "description": "Individual slide card in the interactive Year Wrapped presentation editable from /admin.",
+      "type": "object",
+      "properties": {
+        "order": {
+          "type": "number",
+          "description": "Display sequence index (0-based or 1-based)."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Short slide tab label (e.g. Cover, Audience, Think Sessions)."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["cover", "statement", "metric", "sessions", "community", "cta"],
+          "description": "Visual layout archetype for the slide."
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["dark", "cream"],
+          "description": "Surface theme: charcoal #1C1C1C (dark) or #F2EDE8 (cream)."
+        },
+        "eyebrow": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Optional lead-in line."
+        },
+        "headline": {
+          "type": "string",
+          "maxLength": 240,
+          "description": "Primary statement or cover headline."
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 320,
+          "description": "Supporting sentence or stat explanation."
+        },
+        "accentDate": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Optional highlighted date token rendered in burnt orange."
+        },
+        "metricPrefix": {
+          "type": "string",
+          "maxLength": 8,
+          "description": "Optional prefix before rolling number (e.g. ~)."
+        },
+        "metricValue": {
+          "type": "number",
+          "description": "Primary animated RollingCounter number."
+        },
+        "metricSuffix": {
+          "type": "string",
+          "maxLength": 16,
+          "description": "Optional suffix after rolling number (e.g. +)."
+        },
+        "secondaryMetricA": {
+          "type": "number",
+          "description": "First secondary count (e.g. 40 students)."
+        },
+        "secondaryLabelA": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "First secondary count label."
+        },
+        "secondaryMetricB": {
+          "type": "number",
+          "description": "Second secondary count (e.g. 26 professionals)."
+        },
+        "secondaryLabelB": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "Second secondary count label."
+        },
+        "items": {
+          "type": "array",
+          "description": "Up to 8 session/milestone lines (Date :: Title format supported)."
+        },
+        "ctaLabel": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Optional CTA button label for CTA slides."
+        },
+        "published": {
+          "type": "boolean",
+          "description": "Whether the slide appears in the live Wrapped deck."
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the admin who created this slide."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": [
+        "order",
+        "label",
+        "kind",
+        "theme",
+        "eyebrow",
+        "headline",
+        "body",
+        "accentDate",
+        "metricPrefix",
+        "metricValue",
+        "metricSuffix",
+        "secondaryMetricA",
+        "secondaryLabelA",
+        "secondaryMetricB",
+        "secondaryLabelB",
+        "items",
+        "ctaLabel",
+        "published",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LiveSettings": {
+      "title": "LiveSettings",
+      "description": "Site-wide live session companion state and announcement bar configuration stored at /siteSettings/live.",
+      "type": "object",
+      "properties": {
+        "isLive": {
+          "type": "boolean",
+          "description": "Master 1-click toggle activating Happening Live Now mode across Home and Sessions."
+        },
+        "liveSessionId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^([a-zA-Z0-9_-]+)?$",
+          "description": "ID of the active Think Session when live or running Q&A."
+        },
+        "liveTitle": {
+          "type": "string",
+          "maxLength": 140,
+          "description": "Display headline when a Think Session is live."
+        },
+        "liveRoomUrl": {
+          "type": "string",
+          "maxLength": 400,
+          "pattern": "^(https://.*)?$",
+          "description": "Optional external HTTPS call or stream link for live attendees."
+        },
+        "liveStartedAtIso": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})?)?$",
+          "description": "ISO-8601 timestamp recorded when live mode turns on to drive elapsed timer."
+        },
+        "qaEnabled": {
+          "type": "boolean",
+          "description": "Controls whether attendees can submit and upvote live session questions."
+        },
+        "announcementEnabled": {
+          "type": "boolean",
+          "description": "Controls visibility of the single-line announcement bar above the header."
+        },
+        "announcementText": {
+          "type": "string",
+          "maxLength": 140,
+          "description": "Short single-line notice text shown above the site header."
+        },
+        "announcementLinkLabel": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Optional concise link label inside the announcement bar."
+        },
+        "announcementLinkHref": {
+          "type": "string",
+          "maxLength": 300,
+          "pattern": "^((https://.*)|(/.*))?$",
+          "description": "Optional relative path (/...) or HTTPS URL for the announcement bar."
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the admin who last updated live/announcement settings."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": [
+        "isLive",
+        "liveSessionId",
+        "liveTitle",
+        "liveRoomUrl",
+        "liveStartedAtIso",
+        "qaEnabled",
+        "announcementEnabled",
+        "announcementText",
+        "announcementLinkLabel",
+        "announcementLinkHref",
+        "updatedBy",
+        "updatedAt"
+      ]
+    },
+    "SessionQuestion": {
+      "title": "SessionQuestion",
+      "description": "Attendee question submitted during a Think Session with real-time upvoting and admin answer moderation.",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "description": "Target Think Session document ID."
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Display name or first name of the attendee asking the question."
+        },
+        "question": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 280,
+          "description": "Concise question for the host and guest speaker."
+        },
+        "upvotes": {
+          "type": "number",
+          "description": "Community upvote tally (starts at 1 on creation)."
+        },
+        "answered": {
+          "type": "boolean",
+          "description": "Whether an admin marked this question as answered on-air."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": [
+        "sessionId",
+        "authorName",
+        "question",
+        "upvotes",
+        "answered",
         "createdAt",
         "updatedAt"
       ]
@@ -517,17 +707,17 @@
       "schema": { "$ref": "#/entities/Subscriber" },
       "description": "Community email signups and intake submissions; public create-only with strict validation, read/delete strictly isolated to admins."
     },
-    "/pitches/{pitchId}": {
-      "schema": { "$ref": "#/entities/TopicPitch" },
-      "description": "Speaker offers and topic pitches; public create-only with status forced to 'new', admin-only reads, status updates, and deletes."
-    },
     "/siteSettings/{settingId}": {
       "schema": { "$ref": "#/entities/SiteSettings" },
-      "description": "Public site channel links stored at /siteSettings/public; public get, admin-only writes."
+      "description": "Public site configuration stored at /siteSettings/public, /siteSettings/wrapped, and /siteSettings/live; public get, admin-only writes."
     },
-    "/wrappedConfig/{configId}": {
-      "schema": { "$ref": "#/entities/WrappedConfig" },
-      "description": "Publicly readable Wrapped configuration stored at /wrappedConfig/public and yearly archives at /wrappedConfig/year-YYYY; admin-only writes."
+    "/wrappedSlides/{slideId}": {
+      "schema": { "$ref": "#/entities/WrappedSlide" },
+      "description": "Collection of Year Wrapped presentation slides; public visitors may read published slides, admins control full CRUD."
+    },
+    "/sessionQuestions/{questionId}": {
+      "schema": { "$ref": "#/entities/SessionQuestion" },
+      "description": "Public Live Q&A questions tied to Think Sessions; visitors may submit and upvote questions, admins moderate answers and delete."
     }
   }
 }
