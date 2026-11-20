@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Eye, EyeOff, FileSpreadsheet, RefreshCw, Unlink } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useState, type FormEvent } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
@@ -22,6 +23,7 @@ import {
   type SpreadsheetTabInfo,
 } from "../lib/googleSheets";
 import { useFirebase } from "./FirebaseProvider";
+import { EDITORIAL_EASE } from "./MotionPrimitives";
 
 type AdminGoogleSheetsSyncCardProps = {
   communityStats: CommunityStatsRecord;
@@ -36,6 +38,7 @@ export default function AdminGoogleSheetsSyncCard({
   wrappedForm,
   onSaved,
 }: AdminGoogleSheetsSyncCardProps) {
+  const prefersReduced = useReducedMotion();
   const {
     sheetsToken,
     connectingSheets,
@@ -337,7 +340,7 @@ export default function AdminGoogleSheetsSyncCard({
   };
 
   return (
-    <div className="mb-8 rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8">
+    <div className="mb-8 rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8">
       <div className="flex flex-col gap-4 border-b border-black/[0.08] pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-[#fe3619]">
@@ -412,7 +415,7 @@ export default function AdminGoogleSheetsSyncCard({
               value={sheetInput}
               onChange={(e) => setSheetInput(e.target.value)}
               placeholder="https://docs.google.com/spreadsheets/d/1ABC.../edit"
-              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
             />
           </div>
 
@@ -440,130 +443,161 @@ export default function AdminGoogleSheetsSyncCard({
           </div>
         </div>
 
-        {(tabs.length > 0 || selectedTab) && (
-          <div className="grid gap-3 rounded-xl border border-black/[0.08] bg-[#f7f6f4] p-4 md:grid-cols-[1.2fr_auto] md:items-end">
-            <div>
-              <label htmlFor="gs-tab-select" className="label-mono block text-[#111111]/65">
-                Sheet Tab {spreadsheetTitle ? `— ${spreadsheetTitle}` : ""}
-              </label>
-              {tabs.length > 0 ? (
+        <AnimatePresence>
+          {(tabs.length > 0 || selectedTab) && (
+            <motion.div
+              key="gs-tab-picker"
+              initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReduced ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.24, ease: EDITORIAL_EASE }}
+              className="grid gap-3 rounded-xl border border-black/[0.08] bg-[#f7f6f4] p-4 md:grid-cols-[1.2fr_auto] md:items-end"
+            >
+              <div>
+                <label htmlFor="gs-tab-select" className="label-mono block text-[#111111]/65">
+                  Sheet Tab {spreadsheetTitle ? `— ${spreadsheetTitle}` : ""}
+                </label>
+                {tabs.length > 0 ? (
+                  <select
+                    id="gs-tab-select"
+                    value={selectedTab}
+                    onChange={(e) => setSelectedTab(e.target.value)}
+                    className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-white px-3.5 text-base sm:text-[14px]"
+                  >
+                    {tabs.map((tab) => (
+                      <option key={tab.sheetId} value={tab.title}>
+                        {tab.title}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id="gs-tab-select"
+                    type="text"
+                    value={selectedTab}
+                    onChange={(e) => setSelectedTab(e.target.value)}
+                    placeholder="Select or type tab name"
+                    className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-white px-3.5 text-base sm:text-[14px]"
+                  />
+                )}
+              </div>
+
+              <motion.button
+                type="button"
+                disabled={readingRows || !selectedTab}
+                onClick={() => void handleReadRows()}
+                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+                className="label-mono inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#fe3619] px-5 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${readingRows ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+                <span>{readingRows ? "Reading Rows..." : "Read & Count Members"}</span>
+              </motion.button>
+            </motion.div>
+          )}
+
+          {headers.length > 0 && (
+            <motion.div
+              key="gs-column-map"
+              initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReduced ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.24, ease: EDITORIAL_EASE }}
+              className="grid gap-3 rounded-xl border border-black/[0.08] bg-[#f7f6f4] p-4 sm:grid-cols-3"
+            >
+              <div>
+                <label htmlFor="gs-col-email" className="label-mono block text-[#111111]/65">
+                  Email Column (Deduplicate)
+                </label>
                 <select
-                  id="gs-tab-select"
-                  value={selectedTab}
-                  onChange={(e) => setSelectedTab(e.target.value)}
-                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-white px-3.5 text-[14px]"
+                  id="gs-col-email"
+                  value={mapping.emailColumn}
+                  onChange={(e) => handleMappingChange("emailColumn", e.target.value)}
+                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-base sm:h-10 sm:text-[13.5px]"
                 >
-                  {tabs.map((tab) => (
-                    <option key={tab.sheetId} value={tab.title}>
-                      {tab.title}
+                  <option value="">None (count every row)</option>
+                  {headers.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
                     </option>
                   ))}
                 </select>
-              ) : (
-                <input
-                  id="gs-tab-select"
-                  type="text"
-                  value={selectedTab}
-                  onChange={(e) => setSelectedTab(e.target.value)}
-                  placeholder="Select or type tab name"
-                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-white px-3.5 text-[14px]"
-                />
-              )}
-            </div>
+              </div>
 
-            <button
-              type="button"
-              disabled={readingRows || !selectedTab}
-              onClick={() => void handleReadRows()}
-              className="label-mono inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#fe3619] px-5 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              <div>
+                <label htmlFor="gs-col-stage" className="label-mono block text-[#111111]/65">
+                  Stage / Journey Column
+                </label>
+                <select
+                  id="gs-col-stage"
+                  value={mapping.stageColumn}
+                  onChange={(e) => handleMappingChange("stageColumn", e.target.value)}
+                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-base sm:h-10 sm:text-[13.5px]"
+                >
+                  <option value="">Not mapped</option>
+                  {headers.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="gs-col-loc" className="label-mono block text-[#111111]/65">
+                  Country / Location Column
+                </label>
+                <select
+                  id="gs-col-loc"
+                  value={mapping.locationColumn}
+                  onChange={(e) => handleMappingChange("locationColumn", e.target.value)}
+                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-base sm:h-10 sm:text-[13.5px]"
+                >
+                  <option value="">Not mapped</option>
+                  {headers.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </motion.div>
+          )}
+
+          {sheetPreviewNote && (
+            <motion.div
+              key="gs-preview-note"
+              initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReduced ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.22, ease: EDITORIAL_EASE }}
+              className="flex items-center gap-2 rounded-lg border border-black/10 bg-[#f7f6f4] px-4 py-2.5 text-[13px] font-medium text-[#111111]"
             >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${readingRows ? "animate-spin" : ""}`}
-                aria-hidden="true"
-              />
-              <span>{readingRows ? "Reading Rows..." : "Read & Count Members"}</span>
-            </button>
-          </div>
-        )}
+              <Check className="h-4 w-4 shrink-0 text-[#fe3619]" aria-hidden="true" />
+              <span>{sheetPreviewNote}</span>
+            </motion.div>
+          )}
 
-        {headers.length > 0 && (
-          <div className="grid gap-3 rounded-xl border border-black/[0.08] bg-[#f7f6f4] p-4 sm:grid-cols-3">
-            <div>
-              <label htmlFor="gs-col-email" className="label-mono block text-[#111111]/65">
-                Email Column (Deduplicate)
-              </label>
-              <select
-                id="gs-col-email"
-                value={mapping.emailColumn}
-                onChange={(e) => handleMappingChange("emailColumn", e.target.value)}
-                className="mt-1.5 h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-[13.5px]"
-              >
-                <option value="">None (count every row)</option>
-                {headers.map((h) => (
-                  <option key={h} value={h}>
-                    {h}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="gs-col-stage" className="label-mono block text-[#111111]/65">
-                Stage / Journey Column
-              </label>
-              <select
-                id="gs-col-stage"
-                value={mapping.stageColumn}
-                onChange={(e) => handleMappingChange("stageColumn", e.target.value)}
-                className="mt-1.5 h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-[13.5px]"
-              >
-                <option value="">Not mapped</option>
-                {headers.map((h) => (
-                  <option key={h} value={h}>
-                    {h}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="gs-col-loc" className="label-mono block text-[#111111]/65">
-                Country / Location Column
-              </label>
-              <select
-                id="gs-col-loc"
-                value={mapping.locationColumn}
-                onChange={(e) => handleMappingChange("locationColumn", e.target.value)}
-                className="mt-1.5 h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-[13.5px]"
-              >
-                <option value="">Not mapped</option>
-                {headers.map((h) => (
-                  <option key={h} value={h}>
-                    {h}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {sheetPreviewNote && (
-          <div className="flex items-center gap-2 rounded-lg border border-black/10 bg-[#f7f6f4] px-4 py-2.5 text-[13px] font-medium text-[#111111]">
-            <Check className="h-4 w-4 shrink-0 text-[#fe3619]" aria-hidden="true" />
-            <span>{sheetPreviewNote}</span>
-          </div>
-        )}
-
-        {(error || sheetsAuthError) && (
-          <p role="alert" className="text-[13px] font-medium text-[#fe3619]">
-            {error || sheetsAuthError}
-          </p>
-        )}
+          {(error || sheetsAuthError) && (
+            <motion.p
+              key="gs-error"
+              initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReduced ? undefined : { opacity: 0 }}
+              role="alert"
+              className="text-[13px] font-medium text-[#fe3619]"
+            >
+              {error || sheetsAuthError}
+            </motion.p>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Live / Editable Aggregate Preview Form */}
       <form onSubmit={handleSaveLiveNumbers} className="mt-6 border-t border-black/[0.08] pt-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
           <div>
             <label className="label-mono block text-[#111111]/65">Total Members</label>
             <input
@@ -577,7 +611,7 @@ export default function AdminGoogleSheetsSyncCard({
                   communityTotal: Math.max(0, Number(e.target.value) || 0),
                 }))
               }
-              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[15px] font-medium tabular-nums"
+              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base font-medium tabular-nums sm:text-[15px]"
             />
           </div>
 
@@ -594,7 +628,7 @@ export default function AdminGoogleSheetsSyncCard({
                   studentsCount: Math.max(0, Number(e.target.value) || 0),
                 }))
               }
-              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[15px] font-medium tabular-nums"
+              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base font-medium tabular-nums sm:text-[15px]"
             />
           </div>
 
@@ -611,7 +645,7 @@ export default function AdminGoogleSheetsSyncCard({
                   graduatesCount: Math.max(0, Number(e.target.value) || 0),
                 }))
               }
-              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[15px] font-medium tabular-nums"
+              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base font-medium tabular-nums sm:text-[15px]"
             />
           </div>
 
@@ -628,11 +662,11 @@ export default function AdminGoogleSheetsSyncCard({
                   professionalsCount: Math.max(0, Number(e.target.value) || 0),
                 }))
               }
-              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[15px] font-medium tabular-nums"
+              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base font-medium tabular-nums sm:text-[15px]"
             />
           </div>
 
-          <div>
+          <div className="col-span-2 sm:col-span-1">
             <label className="label-mono block text-[#111111]/65">Countries</label>
             <input
               type="number"
@@ -645,7 +679,7 @@ export default function AdminGoogleSheetsSyncCard({
                   countriesCount: Math.max(0, Number(e.target.value) || 0),
                 }))
               }
-              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[15px] font-medium tabular-nums"
+              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base font-medium tabular-nums sm:text-[15px]"
             />
           </div>
         </div>
@@ -669,7 +703,7 @@ export default function AdminGoogleSheetsSyncCard({
                 }))
               }
               placeholder="Nigeria, United Kingdom, Canada"
-              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
             />
           </div>
 
@@ -681,7 +715,7 @@ export default function AdminGoogleSheetsSyncCard({
               value={statsDraft.sourceLabel}
               onChange={(e) => setStatsDraft((s) => ({ ...s, sourceLabel: e.target.value }))}
               placeholder="Community Directory"
-              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+              className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
             />
           </div>
         </div>

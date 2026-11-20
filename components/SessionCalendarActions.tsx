@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarPlus, Check, Copy, Download, Rss } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { FirestoreSessionRecord } from "../lib/firebaseContent";
 import {
@@ -9,6 +10,7 @@ import {
   parseSessionStartMs,
   useLocalSessionTime,
 } from "../lib/sessionCalendar";
+import { SpotlightSurface } from "./MotionPrimitives";
 
 export function SessionLocalTimeNote({
   startAtIso,
@@ -34,6 +36,7 @@ export function SessionCalendarActions({
   session: FirestoreSessionRecord;
   compact?: boolean;
 }) {
+  const prefersReduced = useReducedMotion();
   const [icsSaved, setIcsSaved] = useState(false);
 
   if (parseSessionStartMs(session.startAtIso) === null) return null;
@@ -50,32 +53,60 @@ export function SessionCalendarActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <a
+      <motion.a
         href={gCalUrl}
         target="_blank"
         rel="noopener noreferrer"
+        whileTap={prefersReduced ? undefined : { scale: 0.97 }}
         className={`label-mono inline-flex items-center gap-1.5 rounded-xl border border-black/12 bg-[#f7f6f4] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white whitespace-nowrap ${
           compact ? "min-h-[44px] px-4 py-2.5 text-[11px]" : "min-h-[48px] px-5 py-3 text-[11px]"
         }`}
       >
         <CalendarPlus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <span>Google Calendar</span>
-      </a>
-      <button
+      </motion.a>
+      <motion.button
         type="button"
         onClick={handleDownloadIcs}
-        className={`label-mono inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-black/12 bg-[#f7f6f4] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white whitespace-nowrap ${
+        whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+        className={`label-mono inline-flex cursor-pointer items-center gap-1.5 overflow-hidden rounded-xl border border-black/12 bg-[#f7f6f4] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white whitespace-nowrap ${
           compact ? "min-h-[44px] px-4 py-2.5 text-[11px]" : "min-h-[48px] px-5 py-3 text-[11px]"
         }`}
       >
-        <Download className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span>{icsSaved ? "Saved .ics" : "Download .ics"}</span>
-      </button>
+        <AnimatePresence mode="wait" initial={false}>
+          {icsSaved ? (
+            <motion.span
+              key="ics-saved"
+              initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+              transition={{ duration: 0.16 }}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Check className="h-3.5 w-3.5 shrink-0 text-[#fe3619]" aria-hidden="true" />
+              <span>Saved .ics</span>
+            </motion.span>
+          ) : (
+            <motion.span
+              key="ics-idle"
+              initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+              transition={{ duration: 0.16 }}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Download className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>Download .ics</span>
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.button>
     </div>
   );
 }
 
 export function SubscribeAllSessionsBar() {
+  const prefersReduced = useReducedMotion();
   const [feedUrl, setFeedUrl] = useState("/api/sessions/calendar.ics");
   const [copied, setCopied] = useState(false);
 
@@ -103,14 +134,17 @@ export function SubscribeAllSessionsBar() {
   };
 
   return (
-    <div className="mt-6 flex flex-col justify-between gap-4 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-4 sm:flex-row sm:items-center sm:p-5">
-      <div className="flex items-start gap-3">
+    <SpotlightSurface
+      spotlightColor="rgba(254, 54, 25, 0.05)"
+      className="mt-6 flex flex-col justify-between gap-4 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-4 sm:flex-row sm:items-center sm:p-5"
+    >
+      <div className="flex min-w-0 items-start gap-3">
         <Rss className="mt-0.5 h-4 w-4 shrink-0 text-[#fe3619]" aria-hidden="true" />
-        <div>
+        <div className="min-w-0">
           <p className="text-[14px] font-medium text-[#111111]">
             Subscribe to all Think Sessions
           </p>
-          <p className="mt-0.5 text-[13px] text-[#111111]/65">
+          <p className="mt-0.5 break-words text-[13px] text-[#111111]/65">
             Add our live .ics feed once to receive every newly scheduled session automatically.
           </p>
         </div>
@@ -118,38 +152,62 @@ export function SubscribeAllSessionsBar() {
 
       <div className="flex flex-wrap items-center gap-2">
         {googleSubscribeUrl && (
-          <a
+          <motion.a
             href={googleSubscribeUrl}
             target="_blank"
             rel="noopener noreferrer"
+            whileTap={prefersReduced ? undefined : { scale: 0.97 }}
             className="label-mono inline-flex min-h-[42px] items-center gap-1.5 rounded-lg bg-[#111111] px-4 py-2 text-[11px] text-white transition-opacity hover:opacity-85 whitespace-nowrap"
           >
             <CalendarPlus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>Google Calendar</span>
-          </a>
+          </motion.a>
         )}
         {webcalUrl && (
-          <a
+          <motion.a
             href={webcalUrl}
+            whileTap={prefersReduced ? undefined : { scale: 0.97 }}
             className="label-mono inline-flex min-h-[42px] items-center gap-1.5 rounded-lg border border-black/12 bg-[#f7f6f4] px-4 py-2 text-[11px] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white whitespace-nowrap"
           >
             <CalendarPlus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>Apple / Outlook</span>
-          </a>
+          </motion.a>
         )}
-        <button
+        <motion.button
           type="button"
           onClick={handleCopyFeed}
-          className="label-mono inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg border border-black/12 bg-[#f7f6f4] px-4 py-2 text-[11px] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white whitespace-nowrap"
+          whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+          className="label-mono inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg border border-black/12 bg-[#f7f6f4] px-4 py-2 text-[11px] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white whitespace-nowrap"
         >
-          {copied ? (
-            <Check className="h-3.5 w-3.5 shrink-0 text-[#fe3619]" aria-hidden="true" />
-          ) : (
-            <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          )}
-          <span>{copied ? "Feed URL copied" : "Copy .ics link"}</span>
-        </button>
+          <AnimatePresence mode="wait" initial={false}>
+            {copied ? (
+              <motion.span
+                key="feed-copied"
+                initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+                transition={{ duration: 0.16 }}
+                className="inline-flex items-center gap-1.5"
+              >
+                <Check className="h-3.5 w-3.5 shrink-0 text-[#fe3619]" aria-hidden="true" />
+                <span>Feed URL copied</span>
+              </motion.span>
+            ) : (
+              <motion.span
+                key="feed-copy"
+                initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+                transition={{ duration: 0.16 }}
+                className="inline-flex items-center gap-1.5"
+              >
+                <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span>Copy .ics link</span>
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.button>
       </div>
-    </div>
+    </SpotlightSurface>
   );
 }

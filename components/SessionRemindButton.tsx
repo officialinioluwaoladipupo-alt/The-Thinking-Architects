@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, BellOff, BellRing } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { FirestoreSessionRecord } from "../lib/firebaseContent";
 import {
@@ -25,6 +26,7 @@ export function SessionRemindButton({
   session: FirestoreSessionRecord;
   compact?: boolean;
 }) {
+  const prefersReduced = useReducedMotion();
   const { supported, permission, reminder, isFuture } = useSessionReminderState(session);
   const [busy, setBusy] = useState(false);
   const [statusNote, setStatusNote] = useState<{ tone: "info" | "error"; text: string } | null>(
@@ -71,10 +73,11 @@ export function SessionRemindButton({
 
   return (
     <div className="inline-flex flex-col items-start gap-1.5">
-      <button
+      <motion.button
         type="button"
         disabled={busy}
         onClick={handleToggle}
+        whileTap={prefersReduced ? undefined : { scale: 0.97 }}
         aria-pressed={isActive}
         title={
           isActive
@@ -93,34 +96,64 @@ export function SessionRemindButton({
               : "border-black/12 bg-[#f7f6f4] text-[#111111] hover:bg-[#111111] hover:text-white"
         }`}
       >
-        {isActive ? (
-          <>
-            <BellRing className="h-3.5 w-3.5 shrink-0 text-[#fe3619]" aria-hidden="true" />
-            <span>{reminder?.notified ? "Reminder Sent" : "Reminder Set"}</span>
-          </>
-        ) : isDenied ? (
-          <>
-            <BellOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span>Notifications Blocked</span>
-          </>
-        ) : (
-          <>
-            <Bell className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span>{busy ? "Requesting..." : "Remind Me"}</span>
-          </>
-        )}
-      </button>
+        <AnimatePresence mode="wait" initial={false}>
+          {isActive ? (
+            <motion.span
+              key="remind-on"
+              initial={prefersReduced ? false : { opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReduced ? undefined : { opacity: 0, y: -3 }}
+              transition={{ duration: 0.16 }}
+              className="inline-flex items-center gap-1.5"
+            >
+              <BellRing className="h-3.5 w-3.5 shrink-0 text-[#fe3619]" aria-hidden="true" />
+              <span>{reminder?.notified ? "Reminder Sent" : "Reminder Set"}</span>
+            </motion.span>
+          ) : isDenied ? (
+            <motion.span
+              key="remind-denied"
+              initial={prefersReduced ? false : { opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReduced ? undefined : { opacity: 0, y: -3 }}
+              transition={{ duration: 0.16 }}
+              className="inline-flex items-center gap-1.5"
+            >
+              <BellOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>Notifications Blocked</span>
+            </motion.span>
+          ) : (
+            <motion.span
+              key="remind-idle"
+              initial={prefersReduced ? false : { opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReduced ? undefined : { opacity: 0, y: -3 }}
+              transition={{ duration: 0.16 }}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Bell className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>{busy ? "Requesting..." : "Remind Me"}</span>
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.button>
 
-      {statusNote && (
-        <p
-          role={statusNote.tone === "error" ? "alert" : "status"}
-          className={`max-w-[42ch] text-[12px] leading-snug ${
-            statusNote.tone === "error" ? "font-medium text-[#fe3619]" : "text-[#111111]/65"
-          }`}
-        >
-          {statusNote.text}
-        </p>
-      )}
+      <AnimatePresence>
+        {statusNote && (
+          <motion.p
+            key="status-note"
+            initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={prefersReduced ? undefined : { opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            role={statusNote.tone === "error" ? "alert" : "status"}
+            className={`max-w-[42ch] text-[12px] leading-snug ${
+              statusNote.tone === "error" ? "font-medium text-[#fe3619]" : "text-[#111111]/65"
+            }`}
+          >
+            {statusNote.text}
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

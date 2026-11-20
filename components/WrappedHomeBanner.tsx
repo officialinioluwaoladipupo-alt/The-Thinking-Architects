@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUpRight, Sparkles } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -9,7 +10,9 @@ import {
   type WrappedConfigRecord,
 } from "../lib/firebaseContent";
 import { useFirebase } from "./FirebaseProvider";
+import { EDITORIAL_EASE } from "./MotionPrimitives";
 import { WrappedCountdownClock } from "./WrappedCountdownClock";
+import { MagneticAction } from "./WrappedPrimitives";
 
 export function WrappedBannerCard({
   config,
@@ -28,13 +31,26 @@ export function WrappedBannerCard({
   onOpenJoin?: () => void;
   isAdminPreview?: boolean;
 }) {
+  const prefersReduced = useReducedMotion();
   const showCountdown = Boolean(config.homeCountdownEnabled && config.launchDateIso.trim());
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-black/[0.12] bg-[#1C1C1C] px-6 py-6 text-[#F2EDE8] shadow-[0_14px_40px_rgba(17,17,17,0.08)] sm:px-8 sm:py-7">
-      <div
+    <motion.div
+      initial={prefersReduced ? false : { opacity: 0, y: 18, scale: 0.99 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.5, ease: EDITORIAL_EASE }}
+      className="relative overflow-hidden rounded-2xl border border-black/[0.12] bg-[#1C1C1C] px-5 py-5 text-[#F2EDE8] shadow-[0_14px_40px_rgba(17,17,17,0.08)] sm:px-8 sm:py-7"
+    >
+      <motion.div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-24 right-0 h-56 w-56 rounded-full bg-[#fe3619]/15 blur-3xl"
+        animate={
+          prefersReduced
+            ? undefined
+            : { scale: [1, 1.15, 1], opacity: [0.65, 1, 0.65] }
+        }
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        className="pointer-events-none absolute -top-24 right-0 h-56 w-56 rounded-full bg-[#fe3619]/15 blur-3xl will-change-transform"
       />
       <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-[56ch]">
@@ -60,32 +76,37 @@ export function WrappedBannerCard({
           )}
 
           {config.enabled || isAdminPreview ? (
-            <Link
-              href="/wrapped"
-              className="label-mono group inline-flex min-h-[46px] shrink-0 items-center gap-2 rounded-xl bg-[#fe3619] px-6 py-3 text-white transition-opacity hover:opacity-90"
-            >
-              <span>{config.homeBannerCtaLabel}</span>
-              <ArrowUpRight
-                className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                aria-hidden="true"
-              />
-            </Link>
+            <MagneticAction strength={0.14}>
+              <Link
+                href="/wrapped"
+                className="label-mono group inline-flex min-h-[46px] shrink-0 items-center gap-2 rounded-xl bg-[#fe3619] px-6 py-3 text-white transition-opacity hover:opacity-90"
+              >
+                <span>{config.homeBannerCtaLabel}</span>
+                <ArrowUpRight
+                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  aria-hidden="true"
+                />
+              </Link>
+            </MagneticAction>
           ) : (
-            <button
-              type="button"
-              onClick={onOpenJoin}
-              className="label-mono group inline-flex min-h-[46px] shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[#fe3619] px-6 py-3 text-white transition-opacity hover:opacity-90"
-            >
-              <span>{config.homeBannerCtaLabel || "Notify Me"}</span>
-              <ArrowUpRight
-                className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                aria-hidden="true"
-              />
-            </button>
+            <MagneticAction strength={0.14}>
+              <motion.button
+                type="button"
+                onClick={onOpenJoin}
+                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+                className="label-mono group inline-flex min-h-[46px] shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[#fe3619] px-6 py-3 text-white transition-opacity hover:opacity-90"
+              >
+                <span>{config.homeBannerCtaLabel || "Notify Me"}</span>
+                <ArrowUpRight
+                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  aria-hidden="true"
+                />
+              </motion.button>
+            </MagneticAction>
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -122,7 +143,7 @@ export default function WrappedHomeBanner({
   return (
     <section
       aria-label="TTA Year Wrapped highlight"
-      className="relative z-10 -mt-[8vh] mb-2 px-6 sm:-mt-[13vh] sm:mb-4 sm:px-10"
+      className="relative z-10 -mt-[4vh] mb-2 px-4 sm:-mt-[13vh] sm:mb-4 sm:px-10"
     >
       <div className="mx-auto max-w-[1120px]">
         <WrappedBannerCard

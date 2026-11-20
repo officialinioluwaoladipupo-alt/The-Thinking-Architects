@@ -1,6 +1,14 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import {
+  EDITORIAL_EASE,
+  EditorialReveal,
+  SplitHeadlineReveal,
+  SpotlightSurface,
+} from "./MotionPrimitives";
+import { MagneticAction } from "./WrappedPrimitives";
 
 type HowItWorksGridProps = {
   onOpenJoin: () => void;
@@ -26,57 +34,73 @@ const steps = [
 ];
 
 export default function HowItWorksGrid({ onOpenJoin }: HowItWorksGridProps) {
+  const prefersReduced = useReducedMotion();
+
   return (
     <section
       id="how-it-works"
-      className="flex flex-col items-center gap-12 bg-[#f7f6f4] pt-[100px] pb-12 sm:pt-[130px]"
+      className="flex flex-col items-center gap-10 bg-[#f7f6f4] pt-[76px] pb-12 sm:gap-12 sm:pt-[130px]"
     >
-      <div className="w-full max-w-[1040px] px-6">
-        <p className="label-mono text-[#fe3619]">A Simple First Step</p>
+      <div className="w-full max-w-[1040px] px-4 sm:px-6">
+        <EditorialReveal>
+          <p className="label-mono text-[#fe3619]">A Simple First Step</p>
+        </EditorialReveal>
         <h2
           className="mt-3 text-[clamp(1.75rem,3.45vw,3.75rem)] font-medium leading-[1.08] tracking-[-0.025em] text-[#111111]"
           style={{ textWrap: "balance" }}
         >
-          How it works
+          <SplitHeadlineReveal text="How it works" trigger="inView" />
         </h2>
       </div>
 
       {/* 1px hairline matrix matching theacademysf.com Section 5 */}
       <div className="flex w-full flex-col gap-10">
         <div className="grid w-full grid-cols-1 gap-px border-y border-black/[0.09] bg-black/[0.09] md:grid-cols-3">
-          {steps.map((step) => (
-            <div
+          {steps.map((step, idx) => (
+            <SpotlightSurface
               key={step.number}
-              className="flex flex-col justify-between bg-[#f7f6f4] p-7 transition-colors duration-200 hover:bg-[#efeeec]/60 sm:p-10"
+              spotlightColor="rgba(254, 54, 25, 0.065)"
+              className="bg-[#f7f6f4] transition-colors duration-200 hover:bg-[#efeeec]/70"
             >
-              <span className="font-mono text-[12px] font-bold tabular-nums text-[#fe3619]">
-                {step.number}
-              </span>
-              <div className="mt-8">
-                <h3 className="text-[1.45rem] font-medium tracking-[-0.025em] text-[#111111]">
-                  {step.title}
-                </h3>
-                <p className="mt-2.5 max-w-[36ch] text-[15px] leading-[1.55] text-[#111111]/70">
-                  {step.detail}
-                </p>
-              </div>
-            </div>
+              <motion.div
+                initial={prefersReduced ? false : { opacity: 0, y: 14 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.45, delay: idx * 0.08, ease: EDITORIAL_EASE }}
+                className="flex h-full flex-col justify-between p-6 sm:p-10"
+              >
+                <span className="font-mono text-[12px] font-bold tabular-nums text-[#fe3619]">
+                  {step.number}
+                </span>
+                <div className="mt-8">
+                  <h3 className="text-[1.45rem] font-medium tracking-[-0.025em] text-[#111111]">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2.5 max-w-[36ch] text-[15px] leading-[1.55] text-[#111111]/70">
+                    {step.detail}
+                  </p>
+                </div>
+              </motion.div>
+            </SpotlightSurface>
           ))}
         </div>
 
-        <div className="flex justify-center px-6 pt-2">
-          <button
-            type="button"
-            onClick={onOpenJoin}
-            className="label-mono group inline-flex min-h-[50px] cursor-pointer items-center gap-2 rounded-xl bg-[#fe3619] px-9 py-3.5 text-[12px] text-white transition-opacity duration-200 hover:opacity-90"
-          >
-            <span className="whitespace-nowrap">Join the community</span>
-            <ArrowUpRight
-              className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-              aria-hidden="true"
-            />
-          </button>
-        </div>
+        <EditorialReveal className="flex justify-center px-4 pt-2 sm:px-6">
+          <MagneticAction strength={0.14} className="w-full max-w-[320px] sm:w-auto sm:max-w-none">
+            <motion.button
+              type="button"
+              onClick={onOpenJoin}
+              whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+              className="label-mono group inline-flex min-h-[50px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#fe3619] px-7 py-3.5 text-[12px] text-white transition-opacity duration-200 hover:opacity-90 sm:w-auto sm:px-9"
+            >
+              <span className="whitespace-nowrap">Join the community</span>
+              <ArrowUpRight
+                className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                aria-hidden="true"
+              />
+            </motion.button>
+          </MagneticAction>
+        </EditorialReveal>
       </div>
     </section>
   );

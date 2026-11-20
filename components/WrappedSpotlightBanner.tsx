@@ -93,14 +93,14 @@ export default function WrappedSpotlightBanner({ onOpenJoin }: { onOpenJoin: () 
   return (
     <section
       aria-label="TTA Year Wrapped spotlight"
-      className="bg-[#f7f6f4] px-6 pb-16"
+      className="bg-[#f7f6f4] px-4 pb-16 sm:px-6"
     >
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className="relative mx-auto max-w-[1440px] overflow-hidden rounded-[12px] border border-black/[0.12] bg-[#1C1C1C] p-7 text-[#F2EDE8] sm:p-11"
+        className="relative mx-auto max-w-[1440px] overflow-hidden rounded-[12px] border border-black/[0.12] bg-[#1C1C1C] p-5 text-[#F2EDE8] sm:p-11"
       >
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
           <DitherBackground
@@ -140,27 +140,27 @@ export default function WrappedSpotlightBanner({ onOpenJoin }: { onOpenJoin: () 
           {settings.enabled ? (
             <div className="flex flex-col gap-5 lg:items-end">
               <div className="grid grid-cols-3 gap-px border border-[#F2EDE8]/14 bg-[#F2EDE8]/14">
-                <div className="bg-[#1C1C1C]/90 px-4 py-3 sm:px-5">
-                  <p className="font-mono text-[1.25rem] font-bold tabular-nums text-[#D94F2B] sm:text-[1.45rem]">
+                <div className="bg-[#1C1C1C]/90 px-2.5 py-2.5 sm:px-5 sm:py-3">
+                  <p className="font-mono text-[1.1rem] font-bold tabular-nums text-[#D94F2B] sm:text-[1.45rem]">
                     ~300
                   </p>
-                  <p className="mt-0.5 font-mono text-[10px] tracking-[0.06em] text-[#F2EDE8]/65 uppercase">
+                  <p className="mt-0.5 font-mono text-[9px] tracking-[0.04em] text-[#F2EDE8]/65 uppercase sm:text-[10px] sm:tracking-[0.06em]">
                     Registered
                   </p>
                 </div>
-                <div className="bg-[#1C1C1C]/90 px-4 py-3 sm:px-5">
-                  <p className="font-mono text-[1.25rem] font-bold tabular-nums text-[#D94F2B] sm:text-[1.45rem]">
+                <div className="bg-[#1C1C1C]/90 px-2.5 py-2.5 sm:px-5 sm:py-3">
+                  <p className="font-mono text-[1.1rem] font-bold tabular-nums text-[#D94F2B] sm:text-[1.45rem]">
                     76
                   </p>
-                  <p className="mt-0.5 font-mono text-[10px] tracking-[0.06em] text-[#F2EDE8]/65 uppercase">
+                  <p className="mt-0.5 font-mono text-[9px] tracking-[0.04em] text-[#F2EDE8]/65 uppercase sm:text-[10px] sm:tracking-[0.06em]">
                     Members
                   </p>
                 </div>
-                <div className="bg-[#1C1C1C]/90 px-4 py-3 sm:px-5">
-                  <p className="font-mono text-[1.25rem] font-bold tabular-nums text-[#D94F2B] sm:text-[1.45rem]">
+                <div className="bg-[#1C1C1C]/90 px-2.5 py-2.5 sm:px-5 sm:py-3">
+                  <p className="font-mono text-[1.1rem] font-bold tabular-nums text-[#D94F2B] sm:text-[1.45rem]">
                     50+
                   </p>
-                  <p className="mt-0.5 font-mono text-[10px] tracking-[0.06em] text-[#F2EDE8]/65 uppercase">
+                  <p className="mt-0.5 font-mono text-[9px] tracking-[0.04em] text-[#F2EDE8]/65 uppercase sm:text-[10px] sm:tracking-[0.06em]">
                     Returned
                   </p>
                 </div>
@@ -203,11 +203,11 @@ export default function WrappedSpotlightBanner({ onOpenJoin }: { onOpenJoin: () 
                     { value: countdown.minutes, label: "Min" },
                     { value: countdown.seconds, label: "Sec" },
                   ].map((unit) => (
-                    <div key={unit.label} className="bg-[#1C1C1C]/90 px-3.5 py-3 text-center sm:px-5">
-                      <p className="font-mono text-[1.45rem] font-bold tabular-nums text-[#D94F2B] sm:text-[1.75rem]">
+                    <div key={unit.label} className="bg-[#1C1C1C]/90 px-2.5 py-2.5 text-center sm:px-5 sm:py-3">
+                      <p className="font-mono text-[1.2rem] font-bold tabular-nums text-[#D94F2B] sm:text-[1.75rem]">
                         {unit.value}
                       </p>
-                      <p className="mt-0.5 font-mono text-[10px] tracking-[0.07em] text-[#F2EDE8]/65 uppercase">
+                      <p className="mt-0.5 font-mono text-[9px] tracking-[0.05em] text-[#F2EDE8]/65 uppercase sm:text-[10px] sm:tracking-[0.07em]">
                         {unit.label}
                       </p>
                     </div>

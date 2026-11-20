@@ -10,6 +10,7 @@ import {
   Radio,
   Trash2,
 } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useState, type FormEvent } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
@@ -24,6 +25,7 @@ import {
   type SessionQuestionRecord,
 } from "../lib/firebaseContent";
 import { useFirebase } from "./FirebaseProvider";
+import { EDITORIAL_EASE, EditorialReveal } from "./MotionPrimitives";
 
 const STAGE_OPTIONS = [
   "",
@@ -49,6 +51,7 @@ export function SessionLiveQaQueue({
   isLiveNow,
   qaOpen,
 }: SessionLiveQaQueueProps) {
+  const prefersReduced = useReducedMotion();
   const { isAdmin, user } = useFirebase();
   const [questions, setQuestions] = useState<SessionQuestionRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,11 +193,12 @@ export function SessionLiveQaQueue({
   };
 
   return (
-    <section
-      id="live-qa"
-      aria-label="Live Session Q and A Queue"
-      className="mt-10 rounded-[12px] border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8"
-    >
+    <EditorialReveal>
+      <section
+        id="live-qa"
+        aria-label="Live Session Q and A Queue"
+        className="mt-10 rounded-[12px] border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8"
+      >
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-black/[0.08] pb-5">
         <div>
           <div className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#fe3619]">
@@ -260,7 +264,7 @@ export function SessionLiveQaQueue({
                 value={authorName}
                 onChange={(e) => setAuthorName(e.target.value)}
                 placeholder="e.g. Tunde A."
-                className="mt-1 h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-[14px] text-[#111111] placeholder:text-[#111111]/40 focus:border-[#fe3619] focus:outline-none"
+                className="mt-1 h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-base text-[#111111] placeholder:text-[#111111]/40 focus:border-[#fe3619] focus:outline-none sm:h-10 sm:text-[14px]"
               />
             </div>
 
@@ -275,7 +279,7 @@ export function SessionLiveQaQueue({
                 id="qa-author-stage"
                 value={authorStage}
                 onChange={(e) => setAuthorStage(e.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-[14px] text-[#111111] focus:border-[#fe3619] focus:outline-none"
+                className="mt-1 h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-base text-[#111111] focus:border-[#fe3619] focus:outline-none sm:h-10 sm:text-[14px]"
               >
                 <option value="">Prefer not to say</option>
                 {STAGE_OPTIONS.filter(Boolean).map((stage) => (
@@ -308,102 +312,129 @@ export function SessionLiveQaQueue({
               value={questionText}
               onChange={(e) => setQuestionText(e.target.value)}
               placeholder="Ask something specific about studio practice, registration, or career decisions..."
-              className="mt-1 w-full rounded-lg border border-black/10 bg-white p-3 text-[14px] leading-relaxed text-[#111111] placeholder:text-[#111111]/40 focus:border-[#fe3619] focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-black/10 bg-white p-3 text-base leading-relaxed text-[#111111] placeholder:text-[#111111]/40 focus:border-[#fe3619] focus:outline-none sm:text-[14px]"
             />
           </div>
 
-          {submitError && (
-            <p role="alert" className="mt-2 text-[13px] font-medium text-[#fe3619]">
-              {submitError}
-            </p>
-          )}
-          {submitSuccess && (
-            <p role="status" className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-[#111111]">
-              <Check className="h-3.5 w-3.5 text-[#fe3619]" aria-hidden="true" />
-              <span>{submitSuccess}</span>
-            </p>
-          )}
+          <AnimatePresence>
+            {submitError && (
+              <motion.p
+                key="qa-error"
+                initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                role="alert"
+                className="mt-2 text-[13px] font-medium text-[#fe3619]"
+              >
+                {submitError}
+              </motion.p>
+            )}
+            {submitSuccess && (
+              <motion.p
+                key="qa-success"
+                initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0 }}
+                transition={{ duration: 0.22, ease: EDITORIAL_EASE }}
+                role="status"
+                className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-[#111111]"
+              >
+                <Check className="h-3.5 w-3.5 text-[#fe3619]" aria-hidden="true" />
+                <span>{submitSuccess}</span>
+              </motion.p>
+            )}
+          </AnimatePresence>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="font-mono text-[11px] text-[#111111]/55">
               Visible immediately to attendees and moderators.
             </p>
-            <button
+            <motion.button
               type="submit"
               disabled={submitting}
+              whileTap={prefersReduced ? undefined : { scale: 0.97 }}
               className="label-mono inline-flex min-h-[42px] cursor-pointer items-center gap-2 rounded-lg bg-[#fe3619] px-5 py-2 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               <span>{submitting ? "Sending..." : "Submit question"}</span>
-            </button>
+            </motion.button>
           </div>
         </form>
       )}
 
       {/* Pinned On-Air Spotlight */}
-      {onAirQuestions.length > 0 && (
-        <div className="mt-6 space-y-3">
-          {onAirQuestions.map((q) => {
-            const hasVoted = upvotedIds.has(q.id);
-            return (
-              <article
-                key={q.id}
-                className="rounded-xl bg-[#111111] p-5 text-[#f7f6f4]"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#fe3619]">
-                    <Mic className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Being answered on-air now</span>
-                  </span>
-                  <span className="font-mono text-[11px] tabular-nums text-[#f7f6f4]/70">
-                    {q.upvotes} {q.upvotes === 1 ? "vote" : "votes"}
-                  </span>
-                </div>
+      <AnimatePresence initial={false}>
+        {onAirQuestions.length > 0 && (
+          <div className="mt-6 space-y-3">
+            {onAirQuestions.map((q) => {
+              const hasVoted = upvotedIds.has(q.id);
+              return (
+                <motion.article
+                  key={q.id}
+                  layout={!prefersReduced}
+                  initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={prefersReduced ? undefined : { opacity: 0, y: -6 }}
+                  transition={{ duration: 0.28, ease: EDITORIAL_EASE }}
+                  className="rounded-xl bg-[#111111] p-5 text-[#f7f6f4]"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#fe3619]">
+                      <Mic className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Being answered on-air now</span>
+                    </span>
+                    <span className="font-mono text-[11px] tabular-nums text-[#f7f6f4]/70">
+                      {q.upvotes} {q.upvotes === 1 ? "vote" : "votes"}
+                    </span>
+                  </div>
 
-                <p className="mt-3 text-[1.08rem] font-medium leading-[1.48] text-white">
-                  {q.questionText}
-                </p>
-
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                  <p className="font-mono text-[11px] text-[#f7f6f4]/65">
-                    Asked by {q.authorName}
-                    {q.authorStage ? ` · ${q.authorStage}` : ""}
+                  <p className="mt-3 break-words text-[1.08rem] font-medium leading-[1.48] text-white">
+                    {q.questionText}
                   </p>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {canSubmitOrVote && (
-                      <button
-                        type="button"
-                        disabled={hasVoted || votingId === q.id}
-                        onClick={() => handleUpvote(q)}
-                        className={`label-mono inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] tabular-nums transition-colors ${
-                          hasVoted
-                            ? "bg-white/15 text-white"
-                            : "bg-white text-[#111111] hover:bg-[#fe3619] hover:text-white"
-                        } disabled:cursor-default`}
-                      >
-                        <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>{hasVoted ? `Upvoted (${q.upvotes})` : `Upvote (${q.upvotes})`}</span>
-                      </button>
-                    )}
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="font-mono text-[11px] text-[#f7f6f4]/65">
+                      Asked by {q.authorName}
+                      {q.authorStage ? ` · ${q.authorStage}` : ""}
+                    </p>
 
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        disabled={moderatingId === q.id}
-                        onClick={() => handleAdminStatus(q, "answered")}
-                        className="label-mono inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[11px] text-white hover:bg-white/10"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>Mark Answered</span>
-                      </button>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {canSubmitOrVote && (
+                        <motion.button
+                          type="button"
+                          disabled={hasVoted || votingId === q.id}
+                          onClick={() => handleUpvote(q)}
+                          whileTap={prefersReduced ? undefined : { scale: 0.94 }}
+                          className={`label-mono inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] tabular-nums transition-colors ${
+                            hasVoted
+                              ? "bg-white/15 text-white"
+                              : "bg-white text-[#111111] hover:bg-[#fe3619] hover:text-white"
+                          } disabled:cursor-default`}
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>{hasVoted ? `Upvoted (${q.upvotes})` : `Upvote (${q.upvotes})`}</span>
+                        </motion.button>
+                      )}
+
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          disabled={moderatingId === q.id}
+                          onClick={() => handleAdminStatus(q, "answered")}
+                          className="label-mono inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[11px] text-white hover:bg-white/10"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>Mark Answered</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
+                </motion.article>
+              );
+            })}
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Queued Questions List */}
       <div className="mt-6">
@@ -418,71 +449,84 @@ export function SessionLiveQaQueue({
           </p>
         ) : (
           <ul className="divide-y divide-black/[0.08] rounded-xl border border-black/[0.08] bg-[#f7f6f4]">
-            {queuedQuestions.map((q) => {
-              const hasVoted = upvotedIds.has(q.id);
-              return (
-                <li key={q.id} className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-start sm:p-5">
-                  <div className="flex-1">
-                    <p className="text-[15px] leading-[1.55] text-[#111111]">{q.questionText}</p>
-                    <p className="mt-2 font-mono text-[11px] text-[#111111]/55">
-                      {q.authorName}
-                      {q.authorStage ? ` · ${q.authorStage}` : ""}
-                    </p>
-                  </div>
+            <AnimatePresence initial={false}>
+              {queuedQuestions.map((q) => {
+                const hasVoted = upvotedIds.has(q.id);
+                return (
+                  <motion.li
+                    key={q.id}
+                    layout={!prefersReduced}
+                    initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={prefersReduced ? undefined : { opacity: 0 }}
+                    transition={{ duration: 0.24, ease: EDITORIAL_EASE }}
+                    className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-start sm:p-5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-[15px] leading-[1.55] text-[#111111]">
+                        {q.questionText}
+                      </p>
+                      <p className="mt-2 font-mono text-[11px] text-[#111111]/55">
+                        {q.authorName}
+                        {q.authorStage ? ` · ${q.authorStage}` : ""}
+                      </p>
+                    </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={!canSubmitOrVote || hasVoted || votingId === q.id}
-                      onClick={() => handleUpvote(q)}
-                      aria-label={`Upvote question by ${q.authorName}`}
-                      className={`label-mono inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-[11px] tabular-nums transition-colors ${
-                        hasVoted
-                          ? "border-[#fe3619] bg-[#fe3619] text-white"
-                          : canSubmitOrVote
-                            ? "cursor-pointer border-black/12 bg-white text-[#111111] hover:border-[#fe3619] hover:text-[#fe3619]"
-                            : "border-black/10 bg-white/60 text-[#111111]/55"
-                      }`}
-                    >
-                      <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{q.upvotes}</span>
-                    </button>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <motion.button
+                        type="button"
+                        disabled={!canSubmitOrVote || hasVoted || votingId === q.id}
+                        onClick={() => handleUpvote(q)}
+                        whileTap={prefersReduced ? undefined : { scale: 0.92 }}
+                        aria-label={`Upvote question by ${q.authorName}`}
+                        className={`label-mono inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-[11px] tabular-nums transition-colors ${
+                          hasVoted
+                            ? "border-[#fe3619] bg-[#fe3619] text-white"
+                            : canSubmitOrVote
+                              ? "cursor-pointer border-black/12 bg-white text-[#111111] hover:border-[#fe3619] hover:text-[#fe3619]"
+                              : "border-black/10 bg-white/60 text-[#111111]/55"
+                        }`}
+                      >
+                        <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{q.upvotes}</span>
+                      </motion.button>
 
-                    {isAdmin && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={moderatingId === q.id}
-                          onClick={() => handleAdminStatus(q, "on_air")}
-                          className="label-mono inline-flex min-h-[38px] cursor-pointer items-center gap-1 rounded-lg bg-[#111111] px-3 py-1.5 text-[11px] text-white hover:bg-[#fe3619]"
-                        >
-                          <Mic className="h-3 w-3" aria-hidden="true" />
-                          <span>On Air</span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={moderatingId === q.id}
-                          onClick={() => handleAdminStatus(q, "answered")}
-                          className="label-mono inline-flex min-h-[38px] cursor-pointer items-center gap-1 rounded-lg border border-black/12 bg-white px-3 py-1.5 text-[11px] text-[#111111] hover:bg-[#efeeec]"
-                        >
-                          <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                          <span>Answered</span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={moderatingId === q.id}
-                          onClick={() => handleAdminDelete(q)}
-                          aria-label="Delete question"
-                          className="inline-flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-lg border border-black/12 bg-white text-[#111111]/60 hover:border-[#fe3619] hover:text-[#fe3619]"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
+                      {isAdmin && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={moderatingId === q.id}
+                            onClick={() => handleAdminStatus(q, "on_air")}
+                            className="label-mono inline-flex min-h-[38px] cursor-pointer items-center gap-1 rounded-lg bg-[#111111] px-3 py-1.5 text-[11px] text-white hover:bg-[#fe3619]"
+                          >
+                            <Mic className="h-3 w-3" aria-hidden="true" />
+                            <span>On Air</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={moderatingId === q.id}
+                            onClick={() => handleAdminStatus(q, "answered")}
+                            className="label-mono inline-flex min-h-[38px] cursor-pointer items-center gap-1 rounded-lg border border-black/12 bg-white px-3 py-1.5 text-[11px] text-[#111111] hover:bg-[#efeeec]"
+                          >
+                            <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                            <span>Answered</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={moderatingId === q.id}
+                            onClick={() => handleAdminDelete(q)}
+                            aria-label="Delete question"
+                            className="inline-flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-lg border border-black/12 bg-white text-[#111111]/60 hover:border-[#fe3619] hover:text-[#fe3619]"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </motion.li>
+                );
+              })}
+            </AnimatePresence>
           </ul>
         )}
       </div>
@@ -494,45 +538,53 @@ export function SessionLiveQaQueue({
             Answered on-air ({answeredQuestions.length})
           </p>
           <ul className="mt-3 space-y-2.5">
-            {answeredQuestions.map((q) => (
-              <li
-                key={q.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-black/[0.06] bg-[#f7f6f4]/75 px-4 py-3 text-[#111111]/70"
-              >
-                <div className="flex-1">
-                  <p className="text-[14px] leading-snug">{q.questionText}</p>
-                  <p className="mt-1 font-mono text-[11px] text-[#111111]/50">
-                    {q.authorName}
-                    {q.authorStage ? ` · ${q.authorStage}` : ""} · {q.upvotes}{" "}
-                    {q.upvotes === 1 ? "vote" : "votes"}
-                  </p>
-                </div>
-                {isAdmin && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={moderatingId === q.id}
-                      onClick={() => handleAdminStatus(q, "queued")}
-                      className="label-mono cursor-pointer rounded-md border border-black/10 bg-white px-2.5 py-1 text-[10px] text-[#111111]"
-                    >
-                      Re-queue
-                    </button>
-                    <button
-                      type="button"
-                      disabled={moderatingId === q.id}
-                      onClick={() => handleAdminDelete(q)}
-                      aria-label="Delete answered question"
-                      className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-black/10 bg-white text-[#111111]/60 hover:text-[#fe3619]"
-                    >
-                      <Trash2 className="h-3 w-3" aria-hidden="true" />
-                    </button>
+            <AnimatePresence initial={false}>
+              {answeredQuestions.map((q) => (
+                <motion.li
+                  key={q.id}
+                  layout={!prefersReduced}
+                  initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={prefersReduced ? undefined : { opacity: 0 }}
+                  transition={{ duration: 0.22, ease: EDITORIAL_EASE }}
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-black/[0.06] bg-[#f7f6f4]/75 px-4 py-3 text-[#111111]/70"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-[14px] leading-snug">{q.questionText}</p>
+                    <p className="mt-1 font-mono text-[11px] text-[#111111]/50">
+                      {q.authorName}
+                      {q.authorStage ? ` · ${q.authorStage}` : ""} · {q.upvotes}{" "}
+                      {q.upvotes === 1 ? "vote" : "votes"}
+                    </p>
                   </div>
-                )}
-              </li>
-            ))}
+                  {isAdmin && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={moderatingId === q.id}
+                        onClick={() => handleAdminStatus(q, "queued")}
+                        className="label-mono cursor-pointer rounded-md border border-black/10 bg-white px-2.5 py-1 text-[10px] text-[#111111]"
+                      >
+                        Re-queue
+                      </button>
+                      <button
+                        type="button"
+                        disabled={moderatingId === q.id}
+                        onClick={() => handleAdminDelete(q)}
+                        aria-label="Delete answered question"
+                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-black/10 bg-white text-[#111111]/60 hover:text-[#fe3619]"
+                      >
+                        <Trash2 className="h-3 w-3" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+                </motion.li>
+              ))}
+            </AnimatePresence>
           </ul>
         </div>
       )}
     </section>
+    </EditorialReveal>
   );
 }

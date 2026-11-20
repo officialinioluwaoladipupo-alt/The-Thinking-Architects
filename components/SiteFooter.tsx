@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
@@ -12,8 +13,11 @@ import {
   type SiteSettingsRecord,
 } from "../lib/firebaseContent";
 import { CONTACT_EMAIL } from "../lib/tally";
+import { EDITORIAL_EASE, EditorialReveal } from "./MotionPrimitives";
+import { MagneticAction } from "./WrappedPrimitives";
 
 export default function SiteFooter() {
+  const prefersReduced = useReducedMotion();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -91,8 +95,8 @@ export default function SiteFooter() {
   ].filter((item) => item.href.trim().startsWith("https://"));
 
   return (
-    <footer className="bg-[#f7f6f4] px-6 text-[#111111] sm:px-10">
-      <div className="mx-auto flex w-full max-w-[1120px] flex-col items-center border-t border-black/[0.09] py-20 text-center md:py-24">
+    <footer className="bg-[#f7f6f4] px-4 text-[#111111] sm:px-8 lg:px-10">
+      <div className="mx-auto flex w-full max-w-[1120px] flex-col items-center border-t border-black/[0.09] py-14 text-center sm:py-20 md:py-24">
         <Link
           href="/#top"
           aria-label="TTA — The Thinking Architects home"
@@ -107,54 +111,82 @@ export default function SiteFooter() {
         </Link>
 
         {/* Inline newsletter/resource bar */}
-        <div className="mt-14 flex w-full flex-col items-center gap-6 md:flex-row md:items-center md:justify-center md:gap-10 md:text-right">
-          <h2 className="max-w-[18ch] text-[clamp(1.4rem,2.3vw,1.85rem)] font-medium leading-[1.12] tracking-[-0.02em]">
+        <EditorialReveal
+          className="mt-10 flex w-full flex-col items-center gap-6 sm:mt-14 md:flex-row md:items-center md:justify-center md:gap-10 md:text-right"
+        >
+          <h2 className="max-w-[18ch] text-[clamp(1.35rem,2.3vw,1.85rem)] font-medium leading-[1.12] tracking-[-0.02em]">
             Be the first to know about the next Think Session
           </h2>
 
           <div className="w-full max-w-[460px]">
-            {subscribed ? (
-              <div className="flex h-[60px] items-center justify-center gap-2.5 rounded-xl border border-black/10 bg-[#efeeec] px-5 text-[14px] font-medium text-[#111111]">
-                <Check className="h-4 w-4 text-[#fe3619]" aria-hidden="true" />
-                <span>You&apos;re on the list for session invitations and updates.</span>
-              </div>
-            ) : (
-              <form
-                onSubmit={handleSubscribe}
-                noValidate
-                className="relative flex h-[60px] items-center rounded-xl border border-black/10 bg-[#efeeec] p-1.5 pl-5 transition-colors focus-within:border-black/30"
-              >
-                <label htmlFor="footer-email" className="sr-only">
-                  Email address
-                </label>
-                <input
-                  id="footer-email"
-                  type="email"
-                  required
-                  maxLength={254}
-                  autoComplete="email"
-                  inputMode="email"
-                  disabled={submitting}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="h-full min-w-0 flex-1 bg-transparent text-[16px] leading-none text-[#111111] outline-none placeholder:text-[#111111]/40 disabled:opacity-60"
-                />
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  aria-label="Subscribe for session invitations"
-                  className="flex h-full w-[56px] shrink-0 cursor-pointer items-center justify-center rounded-lg bg-[#111111] text-[#f7f6f4] transition-opacity duration-200 hover:opacity-75 disabled:opacity-50"
+            <AnimatePresence mode="wait" initial={false}>
+              {subscribed ? (
+                <motion.div
+                  key="subscribed-state"
+                  initial={prefersReduced ? false : { opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={prefersReduced ? undefined : { opacity: 0, y: -6 }}
+                  transition={{ duration: 0.28, ease: EDITORIAL_EASE }}
+                  className="flex min-h-[60px] items-center justify-center gap-2.5 rounded-xl border border-black/10 bg-[#efeeec] px-4 py-3 text-[14px] font-medium text-[#111111] sm:px-5"
                 >
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </form>
-            )}
+                  <motion.span
+                    initial={prefersReduced ? false : { scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 450, damping: 22 }}
+                  >
+                    <Check className="h-4 w-4 shrink-0 text-[#fe3619]" aria-hidden="true" />
+                  </motion.span>
+                  <span>You&apos;re on the list for session invitations and updates.</span>
+                </motion.div>
+              ) : (
+                <motion.form
+                  key="subscribe-form"
+                  initial={prefersReduced ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={prefersReduced ? undefined : { opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                  onSubmit={handleSubscribe}
+                  noValidate
+                  className="relative flex h-[56px] items-center rounded-xl border border-black/10 bg-[#efeeec] p-1.5 pl-4 transition-colors focus-within:border-black/30 sm:h-[60px] sm:pl-5"
+                >
+                  <label htmlFor="footer-email" className="sr-only">
+                    Email address
+                  </label>
+                  <input
+                    id="footer-email"
+                    type="email"
+                    required
+                    maxLength={254}
+                    autoComplete="email"
+                    inputMode="email"
+                    disabled={submitting}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="h-full min-w-0 flex-1 bg-transparent text-[16px] leading-none text-[#111111] outline-none placeholder:text-[#111111]/40 disabled:opacity-60"
+                  />
+                  <motion.button
+                    type="submit"
+                    disabled={submitting}
+                    whileTap={prefersReduced ? undefined : { scale: 0.94 }}
+                    aria-label="Subscribe for session invitations"
+                    className="flex h-full w-[50px] shrink-0 cursor-pointer items-center justify-center rounded-lg bg-[#111111] text-[#f7f6f4] transition-opacity duration-200 hover:opacity-75 disabled:opacity-50 sm:w-[56px]"
+                  >
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </motion.button>
+                </motion.form>
+              )}
+            </AnimatePresence>
 
             {error && (
-              <p role="alert" className="mt-2 px-1 text-left text-[12px] font-medium text-[#fe3619]">
+              <motion.p
+                initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                role="alert"
+                className="mt-2 px-1 text-left text-[12px] font-medium text-[#fe3619]"
+              >
                 {error}
-              </p>
+              </motion.p>
             )}
 
             <p className="mt-2.5 px-1 text-[11px] leading-[1.45] text-[#111111]/55 md:text-left">
@@ -162,27 +194,29 @@ export default function SiteFooter() {
               deleted, email{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="underline underline-offset-2 hover:text-[#111111]"
+                className="break-all underline underline-offset-2 hover:text-[#111111] sm:break-normal"
               >
                 {CONTACT_EMAIL}
               </a>
               .
             </p>
           </div>
-        </div>
+        </EditorialReveal>
 
-        <a
-          href={`mailto:${CONTACT_EMAIL}`}
-          className="label-mono group mt-10 inline-flex min-h-[50px] items-center gap-2 rounded-xl bg-[#fe3619] px-8 py-3.5 text-[12px] text-white transition-opacity duration-200 hover:opacity-90"
-        >
-          <span className="whitespace-nowrap">{CONTACT_EMAIL}</span>
-          <ArrowUpRight
-            className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-            aria-hidden="true"
-          />
-        </a>
+        <MagneticAction strength={0.14} className="mt-9 sm:mt-10">
+          <a
+            href={`mailto:${CONTACT_EMAIL}`}
+            className="label-mono group inline-flex min-h-[50px] max-w-full items-center justify-center gap-2 rounded-xl bg-[#fe3619] px-4 py-3.5 text-[10.5px] tracking-[0.04em] text-white transition-opacity duration-200 hover:opacity-90 sm:px-8 sm:text-[12px] sm:tracking-[0.09em]"
+          >
+            <span className="break-all sm:break-normal">{CONTACT_EMAIL}</span>
+            <ArrowUpRight
+              className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+              aria-hidden="true"
+            />
+          </a>
+        </MagneticAction>
 
-        <div className="mt-14 flex w-full flex-col items-center justify-between gap-6 border-t border-black/[0.08] pt-8 text-left md:flex-row md:items-end">
+        <div className="mt-12 flex w-full flex-col items-center justify-between gap-6 border-t border-black/[0.08] pt-8 text-left sm:mt-14 md:flex-row md:items-end">
           <div className="space-y-2 text-center md:text-left">
             <p className="max-w-[60ch] text-[12px] leading-relaxed text-[#111111]/60">
               The Thinking Architects is an independent community and is not affiliated with ARCON,
@@ -195,7 +229,7 @@ export default function SiteFooter() {
 
           <nav
             aria-label="Footer navigation"
-            className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] font-medium text-[#111111]/75"
+            className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 text-[13px] font-medium text-[#111111]/75 md:justify-end"
           >
             <Link
               href="/"

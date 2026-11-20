@@ -14,6 +14,7 @@ import {
   RotateCcw,
   User,
 } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
@@ -31,6 +32,12 @@ import { CONTACT_EMAIL, TALLY_FORM_URL, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
 import { LiveElapsedClock } from "./LiveElapsedClock";
+import {
+  EDITORIAL_EASE,
+  EditorialReveal,
+  SplitHeadlineReveal,
+  SpotlightSurface,
+} from "./MotionPrimitives";
 import PitchModal from "./PitchModal";
 import { SessionCalendarActions, SessionLocalTimeNote } from "./SessionCalendarActions";
 import { SessionLiveQaQueue } from "./SessionLiveQaQueue";
@@ -38,12 +45,14 @@ import { SessionRemindButton } from "./SessionRemindButton";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 import { TakeawayQuoteButton } from "./TakeawayQuoteButton";
+import { MagneticAction } from "./WrappedPrimitives";
 
 type SessionDetailClientProps = {
   sessionId: string;
 };
 
 function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
+  const prefersReduced = useReducedMotion();
   const [joinOpen, setJoinOpen] = useState(false);
   const [pitchOpen, setPitchOpen] = useState(false);
   const [session, setSession] = useState<FirestoreSessionRecord | null>(null);
@@ -158,8 +167,8 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
     <>
       <SiteHeader onOpenJoin={handleOpenJoin} />
 
-      <main className="min-h-screen bg-[#f7f6f4] pt-32 pb-20 text-[#111111]">
-        <div className="mx-auto max-w-[960px] px-6">
+      <main className="min-h-screen bg-[#f7f6f4] pt-24 pb-16 text-[#111111] sm:pt-32 sm:pb-20">
+        <div className="mx-auto max-w-[960px] px-4 sm:px-6">
           <Link
             href="/sessions"
             className="label-mono inline-flex items-center gap-2 text-[#111111]/60 transition-colors hover:text-[#111111]"
@@ -215,16 +224,18 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
             </section>
           ) : (
             <article className="mt-8">
-              <p className="label-mono text-[#fe3619]">
-                Think Session · {session.number} ·{" "}
-                {session.status === "upcoming" ? "Upcoming" : "Past Session"}
-              </p>
+              <EditorialReveal trigger="mount">
+                <p className="label-mono text-[#fe3619]">
+                  Think Session · {session.number} ·{" "}
+                  {session.status === "upcoming" ? "Upcoming" : "Past Session"}
+                </p>
+              </EditorialReveal>
 
               <h1
                 className="mt-3 max-w-[22ch] text-[clamp(2rem,4.5vw,3.6rem)] font-medium leading-[1.06] tracking-[-0.03em]"
                 style={{ textWrap: "balance" }}
               >
-                {session.title}
+                <SplitHeadlineReveal text={session.title} delay={0.04} />
               </h1>
 
               {isThisSessionLive && (
@@ -275,8 +286,9 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
               )}
 
               {/* Metadata Grid: Your speaker + Date and time */}
-              <div className="mt-8 grid grid-cols-1 gap-px border border-black/[0.09] bg-black/[0.09] sm:grid-cols-2">
-                <div className="bg-[#efeeec] p-6">
+              <EditorialReveal trigger="mount" delay={0.14}>
+                <div className="mt-8 grid grid-cols-1 gap-px border border-black/[0.09] bg-black/[0.09] sm:grid-cols-2">
+                <div className="bg-[#efeeec] p-5 sm:p-6">
                   <div className="flex items-center gap-2 text-[#111111]/55">
                     <User className="h-3.5 w-3.5" aria-hidden="true" />
                     <span className="label-mono">Your speaker</span>
@@ -287,7 +299,7 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                   <p className="mt-1 text-[14px] text-[#111111]/70">{session.speakerRole}</p>
                 </div>
 
-                <div className="bg-[#efeeec] p-6">
+                <div className="bg-[#efeeec] p-5 sm:p-6">
                   <div className="flex items-center gap-2 text-[#111111]/55">
                     <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
                     <span className="label-mono">Date and time</span>
@@ -304,48 +316,57 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                   </p>
                 </div>
               </div>
+              </EditorialReveal>
 
               {/* About this session */}
-              <section className="mt-10 border-t border-black/[0.09] pt-8">
+              <EditorialReveal className="mt-10 border-t border-black/[0.09] pt-8">
                 <p className="label-mono text-[#fe3619]">About this session</p>
                 <p className="mt-4 max-w-[65ch] text-[1.04rem] leading-[1.68] text-[#111111]/80">
                   {session.summary}
                 </p>
 
                 {session.topics.length > 0 && (
-                  <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                  <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {session.topics.map((topic, idx) => (
-                      <div
+                      <motion.div
                         key={topic}
-                        className="flex flex-col justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#efeeec] p-5"
+                        initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, amount: 0.12 }}
+                        transition={{ duration: 0.38, delay: idx * 0.05, ease: EDITORIAL_EASE }}
                       >
-                        <div>
-                          <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
-                            0{idx + 1}
-                          </span>
-                          <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{topic}</p>
-                        </div>
-                        <TakeawayQuoteButton
-                          payload={{
-                            quote: topic,
-                            label: `${session.number} · Topic 0${idx + 1}`,
-                            sourceTitle: session.title,
-                            speaker: session.speaker,
-                            speakerRole: session.speakerRole,
-                            metaLabel: `${session.number} · ${session.dateLabel}`,
-                            fileSlug: `${session.id}-topic-${idx + 1}`,
-                          }}
-                          className="self-start bg-[#f7f6f4]"
-                        />
-                      </div>
+                        <SpotlightSurface
+                          spotlightColor="rgba(254, 54, 25, 0.065)"
+                          className="flex h-full flex-col justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#efeeec] p-5"
+                        >
+                          <div>
+                            <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
+                              0{idx + 1}
+                            </span>
+                            <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{topic}</p>
+                          </div>
+                          <TakeawayQuoteButton
+                            payload={{
+                              quote: topic,
+                              label: `${session.number} · Topic 0${idx + 1}`,
+                              sourceTitle: session.title,
+                              speaker: session.speaker,
+                              speakerRole: session.speakerRole,
+                              metaLabel: `${session.number} · ${session.dateLabel}`,
+                              fileSlug: `${session.id}-topic-${idx + 1}`,
+                            }}
+                            className="self-start bg-[#f7f6f4]"
+                          />
+                        </SpotlightSurface>
+                      </motion.div>
                     ))}
                   </div>
                 )}
-              </section>
+              </EditorialReveal>
 
               {/* Key Takeaways from Linked Recording/Feature (when published) */}
               {matchingMedia && matchingMedia.highlights.length > 0 && (
-                <section className="mt-10 border-t border-black/[0.09] pt-8">
+                <EditorialReveal className="mt-10 border-t border-black/[0.09] pt-8">
                   <div className="flex flex-wrap items-baseline justify-between gap-3">
                     <div>
                       <p className="label-mono text-[#fe3619]">Key Takeaways</p>
@@ -357,39 +378,47 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                       1080×1350 Story / Post Cards
                     </span>
                   </div>
-                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {matchingMedia.highlights.map((note, idx) => (
-                      <div
+                      <motion.div
                         key={note}
-                        className="flex flex-col justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#efeeec] p-5"
+                        initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, amount: 0.12 }}
+                        transition={{ duration: 0.38, delay: idx * 0.05, ease: EDITORIAL_EASE }}
                       >
-                        <div>
-                          <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
-                            Takeaway 0{idx + 1}
-                          </span>
-                          <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{note}</p>
-                        </div>
-                        <TakeawayQuoteButton
-                          payload={{
-                            quote: note,
-                            label: `${session.number} · Key Takeaway 0${idx + 1}`,
-                            sourceTitle: session.title,
-                            speaker: matchingMedia.speaker || session.speaker,
-                            speakerRole: session.speakerRole,
-                            metaLabel: `${matchingMedia.kind} · ${session.dateLabel}`,
-                            fileSlug: `${session.id}-takeaway-${idx + 1}`,
-                          }}
-                          className="self-start bg-[#f7f6f4]"
-                        />
-                      </div>
+                        <SpotlightSurface
+                          spotlightColor="rgba(254, 54, 25, 0.065)"
+                          className="flex h-full flex-col justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#efeeec] p-5"
+                        >
+                          <div>
+                            <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
+                              Takeaway 0{idx + 1}
+                            </span>
+                            <p className="mt-2 text-[14px] leading-snug text-[#111111]/85">{note}</p>
+                          </div>
+                          <TakeawayQuoteButton
+                            payload={{
+                              quote: note,
+                              label: `${session.number} · Key Takeaway 0${idx + 1}`,
+                              sourceTitle: session.title,
+                              speaker: matchingMedia.speaker || session.speaker,
+                              speakerRole: session.speakerRole,
+                              metaLabel: `${matchingMedia.kind} · ${session.dateLabel}`,
+                              fileSlug: `${session.id}-takeaway-${idx + 1}`,
+                            }}
+                            className="self-start bg-[#f7f6f4]"
+                          />
+                        </SpotlightSurface>
+                      </motion.div>
                     ))}
                   </div>
-                </section>
+                </EditorialReveal>
               )}
 
               {/* Companion Links & Resources */}
               {session.resources.length > 0 && (
-                <section className="mt-10 border-t border-black/[0.09] pt-8">
+                <EditorialReveal className="mt-10 border-t border-black/[0.09] pt-8">
                   <div className="flex flex-wrap items-baseline justify-between gap-3">
                     <div>
                       <p className="label-mono text-[#fe3619]">Session Companion Links</p>
@@ -410,34 +439,40 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                         // Ignore invalid URL parse
                       }
                       return (
-                        <a
+                        <motion.a
                           key={`${res.url}-${idx}`}
                           href={res.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-black/[0.03]"
+                          initial={prefersReduced ? false : { opacity: 0, x: -6 }}
+                          whileInView={{ opacity: 1, x: 0 }}
+                          viewport={{ once: true, amount: 0.2 }}
+                          transition={{ duration: 0.34, delay: idx * 0.04, ease: EDITORIAL_EASE }}
+                          className="group flex flex-wrap items-center justify-between gap-3 px-4 py-4 transition-colors hover:bg-black/[0.03] sm:gap-4 sm:px-5"
                         >
-                          <div className="flex items-start gap-3">
+                          <div className="flex min-w-0 flex-1 items-start gap-3">
                             <Link2
                               className="mt-0.5 h-4 w-4 shrink-0 text-[#fe3619]"
                               aria-hidden="true"
                             />
-                            <div>
-                              <p className="text-[15px] font-medium text-[#111111]">{res.label}</p>
-                              <p className="mt-0.5 font-mono text-[11px] text-[#111111]/55">
+                            <div className="min-w-0">
+                              <p className="break-words text-[15px] font-medium text-[#111111]">
+                                {res.label}
+                              </p>
+                              <p className="mt-0.5 break-all font-mono text-[11px] text-[#111111]/55 sm:break-normal">
                                 {hostname}
                               </p>
                             </div>
                           </div>
-                          <span className="label-mono inline-flex items-center gap-1.5 text-[11px] text-[#111111]/75">
+                          <span className="label-mono inline-flex shrink-0 items-center gap-1.5 text-[11px] text-[#111111]/75 transition-transform duration-200 group-hover:translate-x-0.5">
                             <span>Open resource</span>
                             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                           </span>
-                        </a>
+                        </motion.a>
                       );
                     })}
                   </div>
-                </section>
+                </EditorialReveal>
               )}
 
               {/* Live Session Q&A Queue */}
@@ -451,125 +486,143 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
 
               {/* Reserve your place (upcoming) OR Watch the recording (after session) */}
               {session.status === "upcoming" && (
-                <section className="mt-10 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-8">
-                  <p className="label-mono text-[#fe3619]">Reserve your place</p>
-                  <h2 className="mt-2 text-[1.45rem] font-medium tracking-[-0.02em]">
-                    Join us live and bring your questions.
-                  </h2>
-                  <p className="mt-2 max-w-[58ch] text-[15px] leading-[1.6] text-[#111111]/75">
-                    Every Think Session reserves open Q&amp;A time with our speakers. RSVP to get
-                    the session link and calendar invite.
-                  </p>
-                  <div className="mt-6 flex flex-wrap items-start gap-3">
-                    {hasCustomRegistration ? (
-                      <a
-                        href={session.registrationUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="label-mono inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-[#fe3619] px-7 py-3 text-white transition-opacity hover:opacity-90"
-                      >
-                        <span>Reserve your place</span>
-                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleOpenJoin}
-                        className="label-mono group inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl bg-[#fe3619] px-7 py-3 text-white transition-opacity hover:opacity-90"
-                      >
-                        <span>Reserve your place</span>
-                        <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    )}
+                <EditorialReveal className="mt-10">
+                  <SpotlightSurface
+                    spotlightColor="rgba(254, 54, 25, 0.065)"
+                    className="rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-8"
+                  >
+                    <p className="label-mono text-[#fe3619]">Reserve your place</p>
+                    <h2 className="mt-2 text-[1.45rem] font-medium tracking-[-0.02em]">
+                      Join us live and bring your questions.
+                    </h2>
+                    <p className="mt-2 max-w-[58ch] text-[15px] leading-[1.6] text-[#111111]/75">
+                      Every Think Session reserves open Q&amp;A time with our speakers. RSVP to get
+                      the session link and calendar invite.
+                    </p>
+                    <div className="mt-6 flex flex-wrap items-start gap-3">
+                      <MagneticAction strength={0.12}>
+                        {hasCustomRegistration ? (
+                          <a
+                            href={session.registrationUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="label-mono inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-[#fe3619] px-7 py-3 text-white transition-opacity hover:opacity-90"
+                          >
+                            <span>Reserve your place</span>
+                            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                          </a>
+                        ) : (
+                          <motion.button
+                            type="button"
+                            onClick={handleOpenJoin}
+                            whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+                            className="label-mono group inline-flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl bg-[#fe3619] px-7 py-3 text-white transition-opacity hover:opacity-90"
+                          >
+                            <span>Reserve your place</span>
+                            <ArrowUpRight
+                              className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                              aria-hidden="true"
+                            />
+                          </motion.button>
+                        )}
+                      </MagneticAction>
 
-                    <SessionCalendarActions session={session} />
+                      <SessionCalendarActions session={session} />
 
-                    <SessionRemindButton session={session} />
-                  </div>
-                </section>
+                      <SessionRemindButton session={session} />
+                    </div>
+                  </SpotlightSurface>
+                </EditorialReveal>
               )}
 
               {showRecordingSection && (
-                <section className="mt-10 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-8">
-                  <p className="label-mono text-[#fe3619]">Watch the recording</p>
-                  <h2 className="mt-2 text-[1.45rem] font-medium tracking-[-0.02em]">
-                    {matchingMedia ? matchingMedia.title : "Session Recording"}
-                  </h2>
+                <EditorialReveal className="mt-10">
+                  <SpotlightSurface
+                    spotlightColor="rgba(17, 17, 17, 0.045)"
+                    className="rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-8"
+                  >
+                    <p className="label-mono text-[#fe3619]">Watch the recording</p>
+                    <h2 className="mt-2 text-[1.45rem] font-medium tracking-[-0.02em]">
+                      {matchingMedia ? matchingMedia.title : "Session Recording"}
+                    </h2>
 
-                  {recordingEmbed ? (
-                    <div className="mt-5 overflow-hidden rounded-[10px] border border-black/[0.08] bg-[#111111]">
-                      {recordingEmbed.type === "iframe" && recordingEmbed.aspect === "video" && (
-                        <div className="relative aspect-video w-full">
+                    {recordingEmbed ? (
+                      <div className="mt-5 overflow-hidden rounded-[10px] border border-black/[0.08] bg-[#111111]">
+                        {recordingEmbed.type === "iframe" && recordingEmbed.aspect === "video" && (
+                          <div className="relative aspect-video w-full">
+                            <iframe
+                              src={recordingEmbed.src}
+                              title={recordingEmbed.title}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              className="absolute inset-0 h-full w-full border-0"
+                            />
+                          </div>
+                        )}
+                        {recordingEmbed.type === "iframe" && recordingEmbed.aspect === "audio" && (
                           <iframe
                             src={recordingEmbed.src}
                             title={recordingEmbed.title}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                            className="absolute inset-0 h-full w-full border-0"
+                            height="152"
+                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                            loading="lazy"
+                            className="w-full border-0"
                           />
-                        </div>
-                      )}
-                      {recordingEmbed.type === "iframe" && recordingEmbed.aspect === "audio" && (
-                        <iframe
-                          src={recordingEmbed.src}
-                          title={recordingEmbed.title}
-                          height="152"
-                          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                          loading="lazy"
-                          className="w-full border-0"
-                        />
-                      )}
-                      {recordingEmbed.type === "video" && (
-                        <video
-                          src={recordingEmbed.src}
-                          controls
-                          preload="metadata"
-                          className="aspect-video w-full bg-black"
-                        />
-                      )}
-                      {recordingEmbed.type === "audio" && (
-                        <div className="bg-[#f7f6f4] p-4">
-                          <audio
+                        )}
+                        {recordingEmbed.type === "video" && (
+                          <video
                             src={recordingEmbed.src}
                             controls
                             preload="metadata"
-                            className="w-full"
+                            className="aspect-video w-full bg-black"
                           />
-                        </div>
+                        )}
+                        {recordingEmbed.type === "audio" && (
+                          <div className="bg-[#f7f6f4] p-4">
+                            <audio
+                              src={recordingEmbed.src}
+                              controls
+                              preload="metadata"
+                              className="w-full"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[15px] text-[#111111]/75">
+                        {matchingMedia?.mediaUrl
+                          ? "Watch the full recording or browse highlights on our Media page."
+                          : "The recording for this session will appear on the Media page once published."}
+                      </p>
+                    )}
+
+                    <div className="mt-6 flex flex-wrap items-center gap-3">
+                      <MagneticAction strength={0.12}>
+                        <Link
+                          href={`/media?session=${encodeURIComponent(session.number)}`}
+                          className="label-mono inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-[#111111] px-6 py-3 text-white transition-opacity hover:opacity-85"
+                        >
+                          <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>Watch the recording</span>
+                        </Link>
+                      </MagneticAction>
+                      {matchingMedia?.mediaUrl && (
+                        <a
+                          href={matchingMedia.mediaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="label-mono inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-black/10 bg-[#f7f6f4] px-5 py-3 text-[#111111] transition-colors hover:bg-[#e5e3e0]"
+                        >
+                          <span>Open external link</span>
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                        </a>
                       )}
                     </div>
-                  ) : (
-                    <p className="mt-2 text-[15px] text-[#111111]/75">
-                      {matchingMedia?.mediaUrl
-                        ? "Watch the full recording or browse highlights on our Media page."
-                        : "The recording for this session will appear on the Media page once published."}
-                    </p>
-                  )}
-
-                  <div className="mt-6 flex flex-wrap items-center gap-3">
-                    <Link
-                      href={`/media?session=${encodeURIComponent(session.number)}`}
-                      className="label-mono inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-[#111111] px-6 py-3 text-white transition-opacity hover:opacity-85"
-                    >
-                      <Play className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>Watch the recording</span>
-                    </Link>
-                    {matchingMedia?.mediaUrl && (
-                      <a
-                        href={matchingMedia.mediaUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="label-mono inline-flex min-h-[46px] items-center gap-2 rounded-xl border border-black/10 bg-[#f7f6f4] px-5 py-3 text-[#111111] transition-colors hover:bg-[#e5e3e0]"
-                      >
-                        <span>Open external link</span>
-                        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                      </a>
-                    )}
-                  </div>
-                </section>
+                  </SpotlightSurface>
+                </EditorialReveal>
               )}
 
-              <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-black/[0.09] pt-8">
+              <EditorialReveal className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-black/[0.09] pt-8">
                 <p className="text-[14.5px] text-[#111111]/72">
                   Have a topic or want to speak at a future Think Session?{" "}
                   <button
@@ -582,13 +635,13 @@ function SessionDetailInner({ sessionId }: SessionDetailClientProps) {
                   or email{" "}
                   <a
                     href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Topic`}
-                    className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
+                    className="break-all font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619] sm:break-normal"
                   >
                     {CONTACT_EMAIL}
                   </a>
                   .
                 </p>
-              </div>
+              </EditorialReveal>
             </article>
           )}
         </div>

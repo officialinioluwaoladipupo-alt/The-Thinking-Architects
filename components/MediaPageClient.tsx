@@ -11,6 +11,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -35,11 +36,18 @@ import { getEmbedInfo } from "../lib/mediaEmbed";
 import { CONTACT_EMAIL, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
+import {
+  EDITORIAL_EASE,
+  EditorialReveal,
+  SplitHeadlineReveal,
+  SpotlightSurface,
+} from "./MotionPrimitives";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
 import { TakeawayQuoteButton } from "./TakeawayQuoteButton";
 
 function MediaPageInner() {
+  const prefersReduced = useReducedMotion();
   const searchParams = useSearchParams();
   const router = useRouter();
   const sessionQuery = searchParams.get("session")?.trim() ?? "";
@@ -211,8 +219,8 @@ function MediaPageInner() {
     <>
       <SiteHeader onOpenJoin={handleOpenJoin} />
 
-      <main className="min-h-screen bg-[#f7f6f4] pt-32 pb-20 text-[#111111]">
-        <div className="mx-auto max-w-[1120px] px-6">
+      <main className="min-h-screen bg-[#f7f6f4] pt-24 pb-16 text-[#111111] sm:pt-32 sm:pb-20">
+        <div className="mx-auto max-w-[1120px] px-4 sm:px-6">
           <Link
             href="/"
             className="label-mono inline-flex items-center gap-2 text-[#111111]/60 transition-colors hover:text-[#111111]"
@@ -223,19 +231,23 @@ function MediaPageInner() {
 
           <div className="mt-8 flex flex-wrap items-end justify-between gap-6">
             <div>
-              <p className="label-mono text-[#fe3619]">Media · Latest Recordings &amp; Features</p>
+              <EditorialReveal trigger="mount">
+                <p className="label-mono text-[#fe3619]">Media · Latest Recordings &amp; Features</p>
+              </EditorialReveal>
               <h1
                 className="mt-3 max-w-[18ch] text-[clamp(2.2rem,5vw,4.5rem)] font-medium leading-[1.04] tracking-[-0.035em]"
                 style={{ textWrap: "balance" }}
               >
-                Media
+                <SplitHeadlineReveal text="Media" delay={0.04} />
               </h1>
-              <p className="mt-5 max-w-[60ch] text-[1.06rem] leading-[1.6] text-[#111111]/75">
-                The conversation doesn&apos;t end when the call does. Watch recordings from our
-                Think Sessions and share them with someone who needs them.
-              </p>
+              <EditorialReveal trigger="mount" delay={0.12}>
+                <p className="mt-5 max-w-[60ch] text-[1.06rem] leading-[1.6] text-[#111111]/75">
+                  The conversation doesn&apos;t end when the call does. Watch recordings from our
+                  Think Sessions and share them with someone who needs them.
+                </p>
+              </EditorialReveal>
 
-              <div className="mt-6 flex flex-wrap items-center gap-3">
+              <EditorialReveal trigger="mount" delay={0.18} className="mt-6 flex flex-wrap items-center gap-3">
                 {youtubeUrl.startsWith("https://") ? (
                   <a
                     href={youtubeUrl}
@@ -255,11 +267,11 @@ function MediaPageInner() {
                     <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
                   </Link>
                 )}
-              </div>
+              </EditorialReveal>
             </div>
 
             {/* Interactive filter segmented control */}
-            <div className="flex items-center gap-1 rounded-xl border border-black/[0.08] bg-[#efeeec] p-1">
+            <div className="grid w-full grid-cols-3 items-center gap-1 rounded-xl border border-black/[0.08] bg-[#efeeec] p-1 sm:inline-flex sm:w-auto">
               {(["All", "Recording", "Feature"] as const).map((tab) => {
                 const active = filter === tab;
                 return (
@@ -267,13 +279,21 @@ function MediaPageInner() {
                     key={tab}
                     type="button"
                     onClick={() => setFilter(tab)}
-                    className={`label-mono min-h-[38px] cursor-pointer rounded-lg px-4 py-2 transition-colors ${
+                    className={`label-mono relative min-h-[38px] cursor-pointer rounded-lg px-2 py-2 text-center text-[10px] transition-colors sm:px-4 sm:text-[11px] ${
                       active
-                        ? "bg-[#111111] text-white"
+                        ? "text-white"
                         : "text-[#111111]/65 hover:text-[#111111]"
                     }`}
                   >
-                    {tab === "All" ? "Latest recordings" : `${tab}s`}
+                    {active && (
+                      <motion.span
+                        layoutId="media-kind-tab"
+                        transition={{ type: "spring", stiffness: 460, damping: 34 }}
+                        aria-hidden="true"
+                        className="absolute inset-0 rounded-lg bg-[#111111]"
+                      />
+                    )}
+                    <span className="relative z-10">{tab === "All" ? "Latest" : `${tab}s`}</span>
                   </button>
                 );
               })}
@@ -294,7 +314,7 @@ function MediaPageInner() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search recordings, takeaways, or speakers..."
                   aria-label="Search media archive"
-                  className="h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] pr-9 pl-10 text-[14px] text-[#111111] placeholder:text-[#111111]/45 focus:border-[#fe3619] focus:outline-none"
+                  className="h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] pr-9 pl-10 text-base text-[#111111] placeholder:text-[#111111]/45 focus:border-[#fe3619] focus:outline-none sm:text-[14px]"
                 />
                 {searchQuery && (
                   <button
@@ -316,13 +336,21 @@ function MediaPageInner() {
                       key={topic}
                       type="button"
                       onClick={() => setActiveTopic(topic)}
-                      className={`label-mono min-h-[38px] cursor-pointer rounded-lg border px-3.5 py-1.5 text-[11px] whitespace-nowrap transition-colors ${
+                      className={`label-mono relative min-h-[38px] cursor-pointer rounded-lg border px-3.5 py-1.5 text-[11px] whitespace-nowrap transition-colors ${
                         selected
-                          ? "border-[#111111] bg-[#111111] text-white"
+                          ? "border-[#111111] text-white"
                           : "border-black/10 bg-[#f7f6f4] text-[#111111]/70 hover:border-black/25 hover:text-[#111111]"
                       }`}
                     >
-                      {topic}
+                      {selected && (
+                        <motion.span
+                          layoutId="media-topic-tab"
+                          transition={{ type: "spring", stiffness: 460, damping: 34 }}
+                          aria-hidden="true"
+                          className="absolute inset-0 rounded-[7px] bg-[#111111]"
+                        />
+                      )}
+                      <span className="relative z-10">{topic}</span>
                     </button>
                   );
                 })}
@@ -491,8 +519,16 @@ function MediaPageInner() {
           ) : (
             <>
               {/* Active Feature / Recording Reader */}
-              {activeMedia && (
-                <section className="mt-10 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-10">
+              <AnimatePresence mode="wait">
+                {activeMedia && (
+                  <motion.section
+                    key={activeMedia.id}
+                    initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={prefersReduced ? undefined : { opacity: 0, y: -8 }}
+                    transition={{ duration: 0.28, ease: EDITORIAL_EASE }}
+                    className="mt-10 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-10"
+                  >
                   <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#111111]/60">
                     <span className="text-[#fe3619]">{activeMedia.kind}</span>
                     <span aria-hidden="true">·</span>
@@ -552,7 +588,7 @@ function MediaPageInner() {
                     {activeMedia.summary}
                   </p>
 
-                  <div className="mt-6 grid gap-3 border-t border-black/[0.08] pt-6 sm:grid-cols-3">
+                  <div className="mt-6 grid gap-3 border-t border-black/[0.08] pt-6 sm:grid-cols-2 lg:grid-cols-3">
                     {activeMedia.highlights.map((note, idx) => (
                       <div
                         key={note}
@@ -604,8 +640,9 @@ function MediaPageInner() {
                       />
                     </button>
                   </div>
-                </section>
-              )}
+                  </motion.section>
+                )}
+              </AnimatePresence>
 
               {/* Media Archive List */}
               <section className="mt-14">
@@ -628,40 +665,57 @@ function MediaPageInner() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid gap-px border-y border-black/[0.09] bg-black/[0.09] md:grid-cols-3">
-                    {filtered.map((item) => {
+                  <div className="grid gap-px border-y border-black/[0.09] bg-black/[0.09] sm:grid-cols-2 lg:grid-cols-3">
+                    {filtered.map((item, idx) => {
                       const isActive = activeMedia && item.id === activeMedia.id;
                       return (
-                        <button
+                        <motion.div
                           key={item.id}
-                          type="button"
-                          onClick={() => setActiveMediaId(item.id)}
-                          className={`flex cursor-pointer flex-col justify-between p-7 text-left transition-colors ${
-                            isActive ? "bg-[#efeeec]" : "bg-[#f7f6f4] hover:bg-[#efeeec]/55"
-                          }`}
+                          initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true, amount: 0.1 }}
+                          transition={{
+                            duration: 0.36,
+                            delay: Math.min(idx * 0.04, 0.2),
+                            ease: EDITORIAL_EASE,
+                          }}
+                          className="flex min-w-0"
                         >
-                          <div>
-                            <div className="flex items-center justify-between font-mono text-[11px] font-bold uppercase tracking-[0.08em]">
-                              <span className="text-[#fe3619]">{item.kind}</span>
-                              <span className="tabular-nums text-[#111111]/55">
-                                {item.duration}
-                              </span>
-                            </div>
-                            <h3 className="mt-4 text-[1.2rem] font-medium leading-[1.22] tracking-[-0.02em] text-[#111111]">
-                              {item.title}
-                            </h3>
-                            <p className="mt-2.5 text-[14px] leading-[1.55] text-[#111111]/70">
-                              {item.summary}
-                            </p>
-                          </div>
+                          <SpotlightSurface
+                            spotlightColor="rgba(254, 54, 25, 0.065)"
+                            className={`flex w-full transition-colors ${
+                              isActive ? "bg-[#efeeec]" : "bg-[#f7f6f4] hover:bg-[#efeeec]/55"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setActiveMediaId(item.id)}
+                              className="flex h-full w-full min-w-0 cursor-pointer flex-col justify-between p-5 text-left sm:p-7"
+                            >
+                              <div>
+                                <div className="flex items-center justify-between font-mono text-[11px] font-bold uppercase tracking-[0.08em]">
+                                  <span className="text-[#fe3619]">{item.kind}</span>
+                                  <span className="tabular-nums text-[#111111]/55">
+                                    {item.duration}
+                                  </span>
+                                </div>
+                                <h3 className="mt-4 text-[1.2rem] font-medium leading-[1.22] tracking-[-0.02em] text-[#111111]">
+                                  {item.title}
+                                </h3>
+                                <p className="mt-2.5 text-[14px] leading-[1.55] text-[#111111]/70">
+                                  {item.summary}
+                                </p>
+                              </div>
 
-                          <div className="mt-6 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#111111]">
-                            <Play className="h-3.5 w-3.5 text-[#fe3619]" aria-hidden="true" />
-                            <span>
-                              {isActive ? "Viewing summary above" : "Watch & view notes"}
-                            </span>
-                          </div>
-                        </button>
+                              <div className="mt-6 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#111111]">
+                                <Play className="h-3.5 w-3.5 text-[#fe3619]" aria-hidden="true" />
+                                <span>
+                                  {isActive ? "Viewing summary above" : "Watch & view notes"}
+                                </span>
+                              </div>
+                            </button>
+                          </SpotlightSurface>
+                        </motion.div>
                       );
                     })}
                   </div>

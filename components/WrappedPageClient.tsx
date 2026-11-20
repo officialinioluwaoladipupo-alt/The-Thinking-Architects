@@ -170,7 +170,7 @@ function WrappedSlideContent({
               {slide.eyebrow}
             </p>
           )}
-          <p className="text-[clamp(4.5rem,13.5vw,8.5rem)] font-bold leading-[0.98] tracking-[-0.04em] text-[#D94F2B]">
+          <p className="text-[clamp(3.25rem,12.5vw,8.5rem)] font-bold leading-[0.98] tracking-[-0.04em] text-[#D94F2B]">
             <RollingCounter
               target={slide.metricValue}
               prefix={slide.metricPrefix}
@@ -233,7 +233,7 @@ function WrappedSlideContent({
                   }`}
                 >
                   {hasDatePrefix && (
-                    <span className="w-[5.5rem] shrink-0 font-mono text-[13px] font-bold tracking-[0.04em] tabular-nums text-[#D94F2B] uppercase">
+                    <span className="shrink-0 font-mono text-[13px] font-bold tracking-[0.04em] tabular-nums text-[#D94F2B] uppercase sm:w-[5.5rem]">
                       <DecryptedText text={prefix} speed={24} />
                     </span>
                   )}
@@ -258,7 +258,7 @@ function WrappedSlideContent({
 
       return (
         <div className="flex flex-1 flex-col justify-center">
-          <p className="text-[clamp(4.5rem,13.5vw,8.5rem)] font-bold leading-[0.98] tracking-[-0.04em] text-[#D94F2B]">
+          <p className="text-[clamp(3.25rem,12.5vw,8.5rem)] font-bold leading-[0.98] tracking-[-0.04em] text-[#D94F2B]">
             <RollingCounter
               target={slide.metricValue}
               prefix={slide.metricPrefix}
@@ -482,7 +482,7 @@ function CountdownLockedStage({
 
   return (
     <section aria-label="TTA Year Wrapped countdown" className="mt-7">
-      <div className="relative flex min-h-[460px] flex-col justify-between overflow-hidden rounded-[12px] border border-black/[0.12] bg-[#1C1C1C] p-7 text-[#F2EDE8] sm:p-12">
+      <div className="relative flex min-h-[460px] flex-col justify-between overflow-hidden rounded-[12px] border border-black/[0.12] bg-[#1C1C1C] p-5 text-[#F2EDE8] sm:p-12">
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
           <DitherBackground
             theme="dark"
@@ -502,7 +502,7 @@ function CountdownLockedStage({
           />
         </div>
 
-        <div className="relative z-10 flex items-center justify-between gap-4 border-b border-[#F2EDE8]/14 pb-5">
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-[#F2EDE8]/14 pb-5 sm:gap-4">
           <span className="font-mono text-[11px] font-bold tracking-[0.09em] text-[#D94F2B] uppercase">
             Annual Review · Upcoming Release
           </span>
@@ -524,15 +524,15 @@ function CountdownLockedStage({
           </p>
 
           {hasValidTarget && diffMs > 0 ? (
-            <div className="mt-8 grid max-w-[540px] grid-cols-4 gap-px border border-[#F2EDE8]/16 bg-[#F2EDE8]/16">
+            <div className="mt-8 grid max-w-[540px] grid-cols-2 gap-px border border-[#F2EDE8]/16 bg-[#F2EDE8]/16 sm:grid-cols-4">
               {[
                 { value: days, label: "Days" },
                 { value: hours, label: "Hours" },
                 { value: minutes, label: "Minutes" },
                 { value: seconds, label: "Seconds" },
               ].map((unit) => (
-                <div key={unit.label} className="bg-[#1C1C1C]/90 px-4 py-4 text-center sm:px-6">
-                  <p className="font-mono text-[clamp(1.75rem,3.6vw,2.75rem)] font-bold tabular-nums text-[#D94F2B]">
+                <div key={unit.label} className="bg-[#1C1C1C]/90 px-3 py-3 text-center sm:px-6 sm:py-4">
+                  <p className="font-mono text-[clamp(1.6rem,3.6vw,2.75rem)] font-bold tabular-nums text-[#D94F2B]">
                     {String(unit.value).padStart(2, "0")}
                   </p>
                   <p className="mt-1 font-mono text-[10px] tracking-[0.08em] text-[#F2EDE8]/65 uppercase">
@@ -703,6 +703,15 @@ function WrappedPageInner() {
   }, []);
 
   useEffect(() => {
+    if (!isFullscreen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isFullscreen]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (
@@ -760,8 +769,8 @@ function WrappedPageInner() {
     <MotionConfig reducedMotion="user">
       <SiteHeader onOpenJoin={handleOpenJoin} />
 
-      <main className="min-h-screen bg-[#f7f6f4] pt-24 pb-24 text-[#111111] sm:pt-28">
-        <div className="mx-auto max-w-[1040px] px-6">
+      <main className="min-h-screen bg-[#f7f6f4] pt-24 pb-16 text-[#111111] sm:pt-28 sm:pb-24">
+        <div className="mx-auto max-w-[1040px] px-4 sm:px-6">
           <Link
             href="/"
             className="label-mono inline-flex items-center gap-2 text-[#111111]/60 transition-colors hover:text-[#111111]"
@@ -864,10 +873,10 @@ function WrappedPageInner() {
                   role="region"
                   aria-roledescription="carousel"
                   aria-label={`Slide ${currentIndex + 1} of ${slides.length}: ${activeSlide.label}`}
-                  className={`relative flex w-full cursor-pointer select-none flex-col justify-between overflow-hidden rounded-[12px] border transition-colors duration-300 ${
+                  className={`relative flex min-h-0 w-full cursor-pointer select-none flex-col justify-between overflow-hidden rounded-[12px] border transition-colors duration-300 ${
                     isFullscreen
-                      ? "mx-auto h-full w-full max-w-[1040px] border-white/15 p-6 sm:p-12"
-                      : "min-h-[450px] border-black/[0.1] p-6 sm:min-h-[480px] sm:p-10"
+                      ? "mx-auto h-full w-full max-w-[1040px] border-white/15 p-5 sm:p-12"
+                      : "min-h-[430px] border-black/[0.1] p-5 sm:min-h-[480px] sm:p-10"
                   } ${isDark ? "bg-[#1C1C1C] text-[#F2EDE8]" : "bg-[#F2EDE8] text-[#1C1C1C]"}`}
                 >
                   {/* WebGL 8x8 Bayer Dither Shader + Architectural Drafting Lines + Pointer Spotlight */}
@@ -974,7 +983,7 @@ function WrappedPageInner() {
                   </div>
 
                   {/* Slide body */}
-                  <div className="relative z-10 my-8 flex flex-1 flex-col justify-center">
+                  <div className="relative z-10 my-4 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain sm:my-8">
                     <AnimatePresence mode="wait" initial={false}>
                       <motion.div
                         key={activeSlide.id}
@@ -982,7 +991,7 @@ function WrappedPageInner() {
                         animate={{ opacity: 1, x: 0, scale: 1 }}
                         exit={{ opacity: 0, x: direction * -22, scale: 0.99 }}
                         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                        className="flex flex-1 flex-col justify-center"
+                        className="my-auto flex flex-col justify-center"
                       >
                         <WrappedSlideContent slide={activeSlide} onOpenJoin={handleOpenJoin} />
                       </motion.div>
@@ -1076,7 +1085,7 @@ function WrappedPageInner() {
           )}
 
           {/* Closing block (below the embed) */}
-          <section className="mt-14 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-7 sm:p-10">
+          <section className="mt-14 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-5 sm:p-10">
             <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
               <div className="max-w-[54ch]">
                 <h2 className="text-[clamp(1.6rem,2.8vw,2.25rem)] font-medium leading-[1.15] tracking-[-0.025em]">
@@ -1105,8 +1114,8 @@ function WrappedPageInner() {
           {/* Share caption (Instagram, LinkedIn, X) */}
           <section className="mt-12 border-t border-black/[0.09] pt-10">
             <p className="label-mono text-[#D94F2B]">Share · Instagram, LinkedIn, X</p>
-            <div className="mt-4 flex flex-col justify-between gap-6 rounded-[12px] border border-black/[0.08] bg-white p-6 sm:p-8 lg:flex-row lg:items-center">
-              <p className="max-w-[66ch] text-[15px] leading-[1.65] text-[#111111]/82">
+            <div className="mt-4 flex flex-col justify-between gap-6 rounded-[12px] border border-black/[0.08] bg-white p-5 sm:p-8 lg:flex-row lg:items-center">
+              <p className="min-w-0 max-w-[66ch] break-words text-[15px] leading-[1.65] text-[#111111]/82">
                 {resolvedShareCaption}
               </p>
 

@@ -1,8 +1,10 @@
 "use client";
 
 import { ArrowUpRight, Mic, Minus, Plus } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState, type ReactNode } from "react";
 import { CONTACT_EMAIL } from "../lib/tally";
+import { EDITORIAL_EASE, EditorialReveal, SplitHeadlineReveal } from "./MotionPrimitives";
 
 type FaqItem = {
   question: string;
@@ -28,7 +30,7 @@ const questions: FaqItem[] = [
         share it. To have it deleted, email{" "}
         <a
           href={`mailto:${CONTACT_EMAIL}`}
-          className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
+          className="break-all font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619] sm:break-normal"
         >
           {CONTACT_EMAIL}
         </a>
@@ -61,7 +63,7 @@ const questions: FaqItem[] = [
           )}
           <a
             href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Pitch`}
-            className="text-[13px] font-medium text-[#111111]/70 underline underline-offset-4 transition-colors hover:text-[#fe3619]"
+            className="break-all text-[13px] font-medium text-[#111111]/70 underline underline-offset-4 transition-colors hover:text-[#fe3619] sm:break-normal"
           >
             Or email {CONTACT_EMAIL}
           </a>
@@ -72,47 +74,71 @@ const questions: FaqItem[] = [
 ];
 
 export default function FaqSection({ onOpenPitch }: { onOpenPitch?: () => void }) {
+  const prefersReduced = useReducedMotion();
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section id="questions" className="bg-[#f7f6f4] px-6 pt-[100px] pb-[110px] sm:pt-[130px]">
+    <section id="questions" className="bg-[#f7f6f4] px-4 pt-[76px] pb-[84px] sm:px-6 sm:pt-[130px] sm:pb-[110px]">
       <div className="mx-auto max-w-[920px]">
-        <p className="label-mono text-[#fe3619]">Good to Know</p>
+        <EditorialReveal>
+          <p className="label-mono text-[#fe3619]">Good to Know</p>
+        </EditorialReveal>
         <h2 className="mt-3 text-[clamp(1.85rem,3.4vw,3.25rem)] font-medium leading-[1.1] tracking-[-0.025em] text-[#111111]">
-          Questions
+          <SplitHeadlineReveal text="Questions" trigger="inView" />
         </h2>
 
         <div className="mt-10 border-t border-black/[0.09]">
           {questions.map((item, idx) => {
             const isOpen = openIndex === idx;
             return (
-              <div key={item.question} className="border-b border-black/[0.09]">
+              <motion.div
+                key={item.question}
+                initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.4, delay: idx * 0.05, ease: EDITORIAL_EASE }}
+                className="border-b border-black/[0.09]"
+              >
                 <button
                   type="button"
                   onClick={() => setOpenIndex(isOpen ? null : idx)}
                   aria-expanded={isOpen}
-                  className="flex min-h-[64px] w-full cursor-pointer items-center justify-between gap-6 py-5 text-left transition-colors hover:text-[#fe3619]"
+                  className="group flex min-h-[64px] w-full cursor-pointer items-center justify-between gap-6 py-5 text-left transition-colors hover:text-[#fe3619]"
                 >
-                  <span className="text-[1.08rem] font-medium tracking-[-0.02em] text-[#111111]">
+                  <span className="text-[1.08rem] font-medium tracking-[-0.02em] text-[#111111] transition-colors group-hover:text-[#fe3619]">
                     {item.question}
                   </span>
-                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#efeeec] text-[#111111]">
+                  <motion.span
+                    animate={prefersReduced ? undefined : { rotate: isOpen ? 180 : 0 }}
+                    transition={{ duration: 0.24, ease: EDITORIAL_EASE }}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#efeeec] text-[#111111]"
+                  >
                     {isOpen ? (
                       <Minus className="h-4 w-4 text-[#fe3619]" aria-hidden="true" />
                     ) : (
                       <Plus className="h-4 w-4" aria-hidden="true" />
                     )}
-                  </span>
+                  </motion.span>
                 </button>
 
-                {isOpen && (
-                  <div className="pb-6 pr-10">
-                    <div className="max-w-[65ch] text-[15px] leading-[1.65] text-[#111111]/72">
-                      {item.answer(onOpenPitch)}
-                    </div>
-                  </div>
-                )}
-              </div>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={prefersReduced ? false : { height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={prefersReduced ? undefined : { height: 0, opacity: 0 }}
+                      transition={{ duration: 0.28, ease: EDITORIAL_EASE }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pb-6 sm:pr-10">
+                        <div className="max-w-[65ch] text-[15px] leading-[1.65] text-[#111111]/72">
+                          {item.answer(onOpenPitch)}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             );
           })}
         </div>

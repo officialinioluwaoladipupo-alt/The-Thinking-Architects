@@ -28,6 +28,7 @@ import studioImg from "../src/assets/images/hero_architecture_studio_17949136439
 import draftingImg from "../src/assets/images/track_licensure_path_1794913644519.jpg";
 import critiqueImg from "../src/assets/images/track_live_sessions_1794913644707.jpg";
 import { LiveElapsedClock } from "./LiveElapsedClock";
+import { EditorialReveal, SpotlightSurface } from "./MotionPrimitives";
 import { SessionCalendarActions, SessionLocalTimeNote } from "./SessionCalendarActions";
 
 type TracksGridProps = {
@@ -140,99 +141,115 @@ export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: Tra
   return (
     <section
       id="what-we-do"
-      className={`relative bg-[#f7f6f4] px-6 pb-16 ${
+      className={`relative bg-[#f7f6f4] px-4 pb-16 sm:px-6 ${
         hasWrappedBanner
           ? "mt-0 pt-10 sm:pt-14"
-          : "-mt-[12vh] pt-[96px] sm:-mt-[20vh] sm:pt-[140px]"
+          : "-mt-[8vh] pt-[76px] sm:-mt-[18vh] sm:pt-[140px]"
       }`}
     >
       <div className="mx-auto max-w-[1440px]">
-        <p className="label-mono text-center text-[#fe3619]">Media, Events &amp; Community</p>
-        <h2
-          className="mx-auto mt-3 max-w-[22ch] text-center text-[clamp(1.85rem,3.6vw,3.45rem)] font-medium leading-[1.08] tracking-[-0.025em] text-[#111111]"
-          style={{ textWrap: "balance" }}
-        >
-          What we do.
-        </h2>
+        <EditorialReveal>
+          <p className="label-mono text-center text-[#fe3619]">Media, Events &amp; Community</p>
+          <h2
+            className="mx-auto mt-3 max-w-[22ch] text-center text-[clamp(1.85rem,3.6vw,3.45rem)] font-medium leading-[1.08] tracking-[-0.025em] text-[#111111]"
+            style={{ textWrap: "balance" }}
+          >
+            What we do.
+          </h2>
+        </EditorialReveal>
 
         {/* 3 Core Pillar Cards modeled on theacademysf.com square frame + #EAEAEA caption block */}
         <ul className="mx-auto mt-12 grid w-full grid-cols-1 gap-x-5 gap-y-10 md:grid-cols-3">
           {pillars.map((pillar, idx) => (
             <motion.li
               key={pillar.id}
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.15 }}
               transition={{
                 duration: 0.45,
-                delay: idx * 0.06,
+                delay: idx * 0.08,
                 ease: [0.16, 1, 0.3, 1],
               }}
               className="flex flex-col"
             >
-              <div className="group relative aspect-[4/3] w-full overflow-hidden rounded-[10px] bg-[#1a1917]">
-                <Image
-                  src={pillar.image}
-                  alt={pillar.alt}
-                  fill
-                  referrerPolicy="no-referrer"
-                  sizes="(max-width: 768px) 92vw, 31vw"
-                  className="object-cover object-center grayscale transition-all duration-500 group-hover:scale-[1.02] group-hover:grayscale-0"
-                />
-              </div>
+              <SpotlightSurface
+                spotlightColor="rgba(254, 54, 25, 0.07)"
+                className="flex h-full flex-col rounded-[12px] p-1 -m-1 transition-transform duration-300 hover:-translate-y-0.5"
+              >
+                <div className="group relative aspect-[4/3] w-full overflow-hidden rounded-[10px] bg-[#1a1917]">
+                  <Image
+                    src={pillar.image}
+                    alt={pillar.alt}
+                    fill
+                    referrerPolicy="no-referrer"
+                    sizes="(max-width: 768px) 92vw, 31vw"
+                    className="object-cover object-center grayscale transition-all duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
+                  />
+                </div>
 
-              <div className="mt-2.5 flex w-full items-center justify-between rounded-[5px] bg-[#EAEAEA] px-3 py-2 text-[#111111]">
-                <span className="font-mono text-[11px] font-bold uppercase tracking-[0.07em]">
-                  {pillar.eyebrow}: {pillar.title}
-                </span>
-                <span className="font-mono text-[10px] tabular-nums text-[#111111]/55">
-                  0{idx + 1}
-                </span>
-              </div>
+                <div className="mt-2.5 flex w-full items-center justify-between rounded-[5px] bg-[#EAEAEA] px-3 py-2 text-[#111111]">
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.07em]">
+                    {pillar.eyebrow}: {pillar.title}
+                  </span>
+                  <span className="font-mono text-[10px] tabular-nums text-[#111111]/55">
+                    0{idx + 1}
+                  </span>
+                </div>
 
-              <p className="mt-4 flex-1 text-[15px] leading-[1.6] text-[#111111]/75">
-                {pillar.description}
-              </p>
+                <p className="mt-4 flex-1 text-[15px] leading-[1.6] text-[#111111]/75">
+                  {pillar.description}
+                </p>
 
-              <div className="mt-5">
-                {pillar.href ? (
-                  <Link
-                    href={pillar.href}
-                    className="label-mono group inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-black/12 bg-[#efeeec] px-5 py-2.5 text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"
-                  >
-                    <span>{pillar.actionLabel}</span>
-                    <ArrowRight
-                      className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={onOpenJoin}
-                    className="label-mono group inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg bg-[#fe3619] px-5 py-2.5 text-white transition-opacity hover:opacity-90"
-                  >
-                    <span>{pillar.actionLabel}</span>
-                    <ArrowUpRight
-                      className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                      aria-hidden="true"
-                    />
-                  </button>
-                )}
-              </div>
+                <div className="mt-5">
+                  {pillar.href ? (
+                    <Link
+                      href={pillar.href}
+                      className="label-mono group inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-black/12 bg-[#efeeec] px-5 py-2.5 text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"
+                    >
+                      <span>{pillar.actionLabel}</span>
+                      <ArrowRight
+                        className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onOpenJoin}
+                      className="label-mono group inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg bg-[#fe3619] px-5 py-2.5 text-white transition-opacity hover:opacity-90"
+                    >
+                      <span>{pillar.actionLabel}</span>
+                      <ArrowUpRight
+                        className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  )}
+                </div>
+              </SpotlightSurface>
             </motion.li>
           ))}
         </ul>
 
         {/* Dynamic Live Room / Next Session block pulled live from Firestore */}
-        <div
-          id="next-session"
-          className={`mx-auto mt-14 rounded-[12px] border p-6 sm:p-9 ${
-            showLiveHeroBanner
-              ? "border-black/15 bg-[#111111] text-[#f7f6f4]"
-              : "border-black/[0.08] bg-[#efeeec] text-[#111111]"
-          }`}
+        <EditorialReveal
+          className="mx-auto mt-12 sm:mt-14"
         >
+          <SpotlightSurface
+            spotlightColor={
+              showLiveHeroBanner
+                ? "rgba(254, 54, 25, 0.14)"
+                : "rgba(17, 17, 17, 0.045)"
+            }
+            radius={480}
+            className={`rounded-[12px] border p-5 sm:p-9 ${
+              showLiveHeroBanner
+                ? "border-black/15 bg-[#111111] text-[#f7f6f4]"
+                : "border-black/[0.08] bg-[#efeeec] text-[#111111]"
+            }`}
+          >
+            <div id="next-session">
           {showLiveHeroBanner ? (
             <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:items-center">
               <div>
@@ -480,7 +497,9 @@ export default function TracksGrid({ onOpenJoin, hasWrappedBanner = false }: Tra
               </div>
             </div>
           )}
-        </div>
+            </div>
+          </SpotlightSurface>
+        </EditorialReveal>
       </div>
     </section>
   );

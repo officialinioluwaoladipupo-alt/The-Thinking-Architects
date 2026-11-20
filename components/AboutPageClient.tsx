@@ -1,13 +1,21 @@
 "use client";
 
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useState } from "react";
 import { triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
+import {
+  EDITORIAL_EASE,
+  EditorialReveal,
+  SplitHeadlineReveal,
+  SpotlightSurface,
+} from "./MotionPrimitives";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
+import { MagneticAction } from "./WrappedPrimitives";
 
 const principles = [
   {
@@ -28,6 +36,7 @@ const principles = [
 ];
 
 function AboutPageInner() {
+  const prefersReduced = useReducedMotion();
   const [joinOpen, setJoinOpen] = useState(false);
 
   const handleOpenJoin = () => {
@@ -38,8 +47,8 @@ function AboutPageInner() {
     <>
       <SiteHeader onOpenJoin={handleOpenJoin} />
 
-      <main className="min-h-screen bg-[#f7f6f4] pt-32 pb-24 text-[#111111]">
-        <div className="mx-auto max-w-[1040px] px-6">
+      <main className="min-h-screen bg-[#f7f6f4] pt-24 pb-16 text-[#111111] sm:pt-32 sm:pb-24">
+        <div className="mx-auto max-w-[1040px] px-4 sm:px-6">
           <Link
             href="/"
             className="label-mono inline-flex items-center gap-2 text-[#111111]/60 transition-colors hover:text-[#111111]"
@@ -49,23 +58,30 @@ function AboutPageInner() {
           </Link>
 
           <header className="mt-8 border-b border-black/[0.09] pb-12">
-            <p className="label-mono text-[#fe3619]">About The Thinking Architects</p>
+            <EditorialReveal trigger="mount">
+              <p className="label-mono text-[#fe3619]">About The Thinking Architects</p>
+            </EditorialReveal>
             <h1
               className="mt-3 max-w-[18ch] text-[clamp(2.2rem,5vw,4.35rem)] font-medium leading-[1.04] tracking-[-0.035em]"
               style={{ textWrap: "balance" }}
             >
-              Built for the questions school doesn&apos;t answer.
+              <SplitHeadlineReveal
+                text="Built for the questions school doesn't answer."
+                delay={0.04}
+              />
             </h1>
-            <p className="mt-6 max-w-[60ch] text-[clamp(1.04rem,1.3vw,1.2rem)] leading-[1.6] text-[#111111]/78">
-              The Thinking Architects is a media and events community for architecture students,
-              graduates, and practitioners. We exist so that nobody has to figure this profession
-              out alone.
-            </p>
+            <EditorialReveal trigger="mount" delay={0.14}>
+              <p className="mt-6 max-w-[60ch] text-[clamp(1.04rem,1.3vw,1.2rem)] leading-[1.6] text-[#111111]/78">
+                The Thinking Architects is a media and events community for architecture students,
+                graduates, and practitioners. We exist so that nobody has to figure this profession
+                out alone.
+              </p>
+            </EditorialReveal>
           </header>
 
           {/* The gap + What we do */}
           <section className="mt-14 grid gap-12 border-b border-black/[0.09] pb-14 md:grid-cols-2">
-            <div>
+            <EditorialReveal>
               <p className="label-mono text-[#fe3619]">01 · Why We Exist</p>
               <h2 className="mt-2.5 text-[clamp(1.55rem,2.6vw,2.15rem)] font-medium leading-[1.15] tracking-[-0.025em]">
                 The gap
@@ -82,9 +98,9 @@ function AboutPageInner() {
                   the right conversation. We think it should reach everyone.
                 </p>
               </div>
-            </div>
+            </EditorialReveal>
 
-            <div>
+            <EditorialReveal delay={0.08}>
               <p className="label-mono text-[#fe3619]">02 · Format</p>
               <h2 className="mt-2.5 text-[clamp(1.55rem,2.6vw,2.15rem)] font-medium leading-[1.15] tracking-[-0.025em]">
                 What we do
@@ -109,51 +125,72 @@ function AboutPageInner() {
                   <span>Browse Media</span>
                 </Link>
               </div>
-            </div>
+            </EditorialReveal>
           </section>
 
           {/* How we work */}
           <section className="mt-14">
-            <p className="label-mono text-[#fe3619]">03 · Principles</p>
-            <h2 className="mt-2.5 text-[clamp(1.55rem,2.6vw,2.25rem)] font-medium leading-[1.15] tracking-[-0.025em]">
-              How we work
-            </h2>
+            <EditorialReveal>
+              <p className="label-mono text-[#fe3619]">03 · Principles</p>
+              <h2 className="mt-2.5 text-[clamp(1.55rem,2.6vw,2.25rem)] font-medium leading-[1.15] tracking-[-0.025em]">
+                How we work
+              </h2>
+            </EditorialReveal>
 
             <div className="mt-8 grid gap-px border border-black/[0.09] bg-black/[0.09] md:grid-cols-3">
-              {principles.map((item) => (
-                <article key={item.index} className="bg-[#f7f6f4] p-7">
-                  <span className="font-mono text-[11px] font-bold tabular-nums tracking-[0.09em] text-[#fe3619]">
-                    {item.index}
-                  </span>
-                  <h3 className="mt-4 text-[1.25rem] font-medium leading-[1.2] tracking-[-0.02em]">
-                    {item.title}
-                  </h3>
-                  <p className="mt-3 text-[15px] leading-[1.6] text-[#111111]/72">{item.body}</p>
-                </article>
+              {principles.map((item, idx) => (
+                <SpotlightSurface
+                  key={item.index}
+                  spotlightColor="rgba(254, 54, 25, 0.065)"
+                  className="bg-[#f7f6f4] p-5 sm:p-7"
+                >
+                  <motion.article
+                    initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.2 }}
+                    transition={{ duration: 0.4, delay: idx * 0.06, ease: EDITORIAL_EASE }}
+                  >
+                    <span className="font-mono text-[11px] font-bold tabular-nums tracking-[0.09em] text-[#fe3619]">
+                      {item.index}
+                    </span>
+                    <h3 className="mt-4 text-[1.25rem] font-medium leading-[1.2] tracking-[-0.02em]">
+                      {item.title}
+                    </h3>
+                    <p className="mt-3 text-[15px] leading-[1.6] text-[#111111]/72">{item.body}</p>
+                  </motion.article>
+                </SpotlightSurface>
               ))}
             </div>
           </section>
 
           {/* Closing line + Join CTA */}
-          <section className="mt-14 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-7 sm:p-10">
-            <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
-              <p className="max-w-[58ch] text-[1.05rem] font-medium leading-[1.55] tracking-[-0.015em] text-[#111111]">
-                Founded in January 2026 and run by volunteers who believe the profession gets better
-                when its knowledge is shared.
-              </p>
-              <button
-                type="button"
-                onClick={handleOpenJoin}
-                className="label-mono group inline-flex min-h-[50px] shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[#fe3619] px-7 py-3.5 text-white transition-opacity hover:opacity-90"
-              >
-                <span>Join the community</span>
-                <ArrowUpRight
-                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-          </section>
+          <EditorialReveal className="mt-14">
+            <SpotlightSurface
+              spotlightColor="rgba(254, 54, 25, 0.065)"
+              className="rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-5 sm:p-10"
+            >
+              <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
+                <p className="max-w-[58ch] text-[1.05rem] font-medium leading-[1.55] tracking-[-0.015em] text-[#111111]">
+                  Founded in January 2026 and run by volunteers who believe the profession gets better
+                  when its knowledge is shared.
+                </p>
+                <MagneticAction strength={0.14}>
+                  <motion.button
+                    type="button"
+                    onClick={handleOpenJoin}
+                    whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+                    className="label-mono group inline-flex min-h-[50px] shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[#fe3619] px-7 py-3.5 text-white transition-opacity hover:opacity-90"
+                  >
+                    <span>Join the community</span>
+                    <ArrowUpRight
+                      className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                      aria-hidden="true"
+                    />
+                  </motion.button>
+                </MagneticAction>
+              </div>
+            </SpotlightSurface>
+          </EditorialReveal>
         </div>
       </main>
 

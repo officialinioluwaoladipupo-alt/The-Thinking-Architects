@@ -15,6 +15,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -40,6 +41,12 @@ import { CONTACT_EMAIL, TALLY_FORM_URL, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
 import { LiveElapsedClock } from "./LiveElapsedClock";
+import {
+  EDITORIAL_EASE,
+  EditorialReveal,
+  SplitHeadlineReveal,
+  SpotlightSurface,
+} from "./MotionPrimitives";
 import PitchModal from "./PitchModal";
 import {
   SessionCalendarActions,
@@ -68,6 +75,7 @@ function hasMatchingRecording(
 }
 
 function SessionsPageInner() {
+  const prefersReduced = useReducedMotion();
   const [joinOpen, setJoinOpen] = useState(false);
   const [pitchOpen, setPitchOpen] = useState(false);
   const [pitchMode, setPitchMode] = useState<PitchType>("topic");
@@ -170,8 +178,8 @@ function SessionsPageInner() {
     <>
       <SiteHeader onOpenJoin={handleOpenJoin} />
 
-      <main className="min-h-screen bg-[#f7f6f4] pt-32 pb-20 text-[#111111]">
-        <div className="mx-auto max-w-[1120px] px-6">
+      <main className="min-h-screen bg-[#f7f6f4] pt-24 pb-16 text-[#111111] sm:pt-32 sm:pb-20">
+        <div className="mx-auto max-w-[1120px] px-4 sm:px-6">
           <Link
             href="/"
             className="label-mono inline-flex items-center gap-2 text-[#111111]/60 transition-colors hover:text-[#111111]"
@@ -181,21 +189,27 @@ function SessionsPageInner() {
           </Link>
 
           <div className="mt-8">
-            <p className="label-mono text-[#fe3619]">Events · Monthly Live Conversations</p>
+            <EditorialReveal trigger="mount">
+              <p className="label-mono text-[#fe3619]">Events · Monthly Live Conversations</p>
+            </EditorialReveal>
             <h1
               className="mt-3 max-w-[18ch] text-[clamp(2.2rem,5vw,4.5rem)] font-medium leading-[1.04] tracking-[-0.035em]"
               style={{ textWrap: "balance" }}
             >
-              Think Sessions
+              <SplitHeadlineReveal text="Think Sessions" delay={0.04} />
             </h1>
-            <p className="mt-5 max-w-[62ch] text-[1.06rem] leading-[1.6] text-[#111111]/75">
-              Monthly live conversations with practising architects on the real questions: the path
-              to licensure, running a studio, building a career that lasts. Every session reserves
-              time for your questions.
-            </p>
+            <EditorialReveal trigger="mount" delay={0.14}>
+              <p className="mt-5 max-w-[62ch] text-[1.06rem] leading-[1.6] text-[#111111]/75">
+                Monthly live conversations with practising architects on the real questions: the path
+                to licensure, running a studio, building a career that lasts. Every session reserves
+                time for your questions.
+              </p>
+            </EditorialReveal>
           </div>
 
-          <SubscribeAllSessionsBar />
+          <EditorialReveal trigger="mount" delay={0.18}>
+            <SubscribeAllSessionsBar />
+          </EditorialReveal>
 
           {loading ? (
             <section
@@ -208,7 +222,7 @@ function SessionsPageInner() {
                 <div className="h-4 w-64 animate-pulse rounded bg-black/[0.06]" />
                 <div className="h-20 w-full animate-pulse rounded bg-black/[0.06]" />
               </div>
-              <div className="mt-7 grid gap-3 border-t border-black/[0.08] pt-6 sm:grid-cols-3">
+              <div className="mt-7 grid gap-3 border-t border-black/[0.08] pt-6 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="h-24 animate-pulse rounded-lg bg-[#f7f6f4]" />
                 <div className="h-24 animate-pulse rounded-lg bg-[#f7f6f4]" />
                 <div className="h-24 animate-pulse rounded-lg bg-[#f7f6f4]" />
@@ -240,9 +254,9 @@ function SessionsPageInner() {
                 </button>
                 <a
                   href={`mailto:${CONTACT_EMAIL}`}
-                  className="label-mono inline-flex min-h-[46px] items-center rounded-xl border border-black/10 bg-[#f7f6f4] px-5 py-3 text-[#111111] transition-colors hover:bg-[#e5e3e0]"
+                  className="label-mono inline-flex max-w-full min-h-[46px] items-center rounded-xl border border-black/10 bg-[#f7f6f4] px-4 py-3 text-[10.5px] text-[#111111] transition-colors hover:bg-[#e5e3e0] sm:px-5 sm:text-[11px]"
                 >
-                  <span>Email {CONTACT_EMAIL}</span>
+                  <span className="break-all sm:break-normal">Email {CONTACT_EMAIL}</span>
                 </a>
               </div>
             </section>
@@ -335,10 +349,13 @@ function SessionsPageInner() {
                   </div>
                 </section>
               ) : (
-                <section
-                  aria-label="Next live session"
-                  className="mt-12 rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-10"
-                >
+                <EditorialReveal className="mt-12">
+                  <SpotlightSurface
+                    spotlightColor="rgba(254, 54, 25, 0.065)"
+                    radius={480}
+                    className="rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-6 sm:p-10"
+                  >
+                    <section aria-label="Next live session">
                   <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#111111]/60">
                     <span className="text-[#fe3619]">Next Session · {nextSession.number}</span>
                     <span aria-hidden="true">·</span>
@@ -371,7 +388,7 @@ function SessionsPageInner() {
                     {nextSession.summary}
                   </p>
 
-                  <div className="mt-7 grid gap-3 border-t border-black/[0.08] pt-6 sm:grid-cols-3">
+                  <div className="mt-7 grid gap-3 border-t border-black/[0.08] pt-6 sm:grid-cols-2 lg:grid-cols-3">
                     {nextSession.topics.map((topic, i) => (
                       <div key={topic} className="rounded-lg bg-[#f7f6f4] p-4">
                         <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
@@ -420,7 +437,9 @@ function SessionsPageInner() {
 
                     <SessionRemindButton session={nextSession} />
                   </div>
-                </section>
+                    </section>
+                  </SpotlightSurface>
+                </EditorialReveal>
               )}
 
               {/* Archive Discovery & Past Sessions Hairline List */}
@@ -458,7 +477,7 @@ function SessionsPageInner() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search sessions by title, speaker, or topic..."
                         aria-label="Search Think Sessions"
-                        className="h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] pr-9 pl-10 text-[14px] text-[#111111] placeholder:text-[#111111]/45 focus:border-[#fe3619] focus:outline-none"
+                        className="h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] pr-9 pl-10 text-base text-[#111111] placeholder:text-[#111111]/45 focus:border-[#fe3619] focus:outline-none sm:text-[14px]"
                       />
                       {searchQuery && (
                         <button
@@ -480,13 +499,21 @@ function SessionsPageInner() {
                             key={topic}
                             type="button"
                             onClick={() => setActiveTopic(topic)}
-                            className={`label-mono min-h-[38px] cursor-pointer rounded-lg border px-3.5 py-1.5 text-[11px] whitespace-nowrap transition-colors ${
+                            className={`label-mono relative min-h-[38px] cursor-pointer rounded-lg border px-3.5 py-1.5 text-[11px] whitespace-nowrap transition-colors ${
                               selected
-                                ? "border-[#111111] bg-[#111111] text-white"
+                                ? "border-[#111111] text-white"
                                 : "border-black/10 bg-[#f7f6f4] text-[#111111]/70 hover:border-black/25 hover:text-[#111111]"
                             }`}
                           >
-                            {topic}
+                            {selected && (
+                              <motion.span
+                                layoutId="sessions-topic-pill"
+                                transition={{ type: "spring", stiffness: 460, damping: 34 }}
+                                aria-hidden="true"
+                                className="absolute inset-0 rounded-[7px] bg-[#111111]"
+                              />
+                            )}
+                            <span className="relative z-10">{topic}</span>
                           </button>
                         );
                       })}
@@ -571,12 +598,20 @@ function SessionsPageInner() {
                       )}
                     </div>
                   ) : (
-                    filteredSessions.map((session) => {
+                    filteredSessions.map((session, idx) => {
                       const canWatch = hasMatchingRecording(session, mediaItems);
                       return (
-                        <article
+                        <motion.article
                           key={session.id}
-                          className="grid gap-6 border-b border-black/[0.09] py-8 md:grid-cols-[190px_1fr_auto] md:items-start"
+                          initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true, amount: 0.1 }}
+                          transition={{
+                            duration: 0.38,
+                            delay: Math.min(idx * 0.04, 0.2),
+                            ease: EDITORIAL_EASE,
+                          }}
+                          className="grid gap-5 border-b border-black/[0.09] py-7 transition-colors hover:bg-[#efeeec]/45 md:grid-cols-[170px_1fr_auto] md:items-start md:gap-6 md:py-8 lg:grid-cols-[190px_1fr_auto]"
                         >
                           <div>
                             <span className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#fe3619]">
@@ -596,7 +631,7 @@ function SessionsPageInner() {
                             )}
                           </div>
 
-                          <div>
+                          <div className="min-w-0">
                             <h3 className="text-[1.3rem] font-medium leading-[1.2] tracking-[-0.02em]">
                               <Link
                                 href={`/sessions/${encodeURIComponent(session.id)}`}
@@ -636,7 +671,7 @@ function SessionsPageInner() {
                               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
                             </Link>
                           </div>
-                        </article>
+                        </motion.article>
                       );
                     })
                   )}
@@ -654,7 +689,7 @@ function SessionsPageInner() {
                       Send a pitch directly to our programming team or email{" "}
                       <a
                         href={`mailto:${CONTACT_EMAIL}?subject=Think%20Session%20Topic`}
-                        className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
+                        className="break-all font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619] sm:break-normal"
                       >
                         {CONTACT_EMAIL}
                       </a>

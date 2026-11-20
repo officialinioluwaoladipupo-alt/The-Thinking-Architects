@@ -26,6 +26,7 @@ import {
   Trash2,
   UserPlus,
 } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
@@ -91,6 +92,7 @@ import AdminLiveCompanionPanel from "./AdminLiveCompanionPanel";
 import AdminWrappedTab from "./AdminWrappedTab";
 import { useFirebase } from "./FirebaseProvider";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
+import { EDITORIAL_EASE, SpotlightSurface } from "./MotionPrimitives";
 
 const emptySessionForm = (): SessionInput => ({
   number: "Session 04",
@@ -124,6 +126,7 @@ const emptyMediaForm = (): MediaInput => ({
 });
 
 function AdminConsoleInner() {
+  const prefersReduced = useReducedMotion();
   const {
     user,
     authReady,
@@ -533,23 +536,23 @@ function AdminConsoleInner() {
     <div className="min-h-screen bg-[#f7f6f4] text-[#111111]">
       {/* Top Studio Bar */}
       <header className="border-b border-black/[0.08] bg-[#EAEAEA]/70 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <div className="flex items-center gap-6">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:gap-4 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-6">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-[14px] font-medium text-[#111111]/70 transition-colors hover:text-[#111111]"
+              className="inline-flex shrink-0 items-center gap-2 text-[14px] font-medium text-[#111111]/70 transition-colors hover:text-[#111111]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span>Public Site</span>
             </Link>
-            <span className="h-4 w-px bg-black/10" aria-hidden="true" />
-            <span className="text-[15px] font-semibold tracking-[-0.02em]">
+            <span className="hidden h-4 w-px bg-black/10 sm:inline-block" aria-hidden="true" />
+            <span className="truncate text-[14px] font-semibold tracking-[-0.02em] sm:text-[15px]">
               <span className="logo-tta mr-1.5 font-bold text-[#fe3619]">TTA</span>· The Thinking
               Architects Console
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-4">
             <Link
               href="/sessions"
               className="hidden text-[13px] font-medium text-[#111111]/70 hover:text-[#111111] sm:inline"
@@ -566,7 +569,7 @@ function AdminConsoleInner() {
               <button
                 type="button"
                 onClick={signOutUser}
-                className="label-mono inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-lg border border-black/12 bg-[#f7f6f4] px-4 py-2 text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"
+                className="label-mono inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-lg border border-black/12 bg-[#f7f6f4] px-3.5 py-2 text-[#111111] transition-colors hover:bg-[#111111] hover:text-white sm:px-4"
               >
                 <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Sign out</span>
@@ -576,16 +579,26 @@ function AdminConsoleInner() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1280px] px-6 py-12">
+      <main className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 sm:py-12">
         {!authReady || checkingAdmin ? (
-          <div className="mx-auto max-w-[560px] rounded-2xl border border-black/[0.08] bg-[#efeeec] p-8 text-center">
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: EDITORIAL_EASE }}
+            className="mx-auto max-w-[560px] rounded-2xl border border-black/[0.08] bg-[#efeeec] p-8 text-center"
+          >
             <p className="label-mono text-[#111111]/55">Checking Session &amp; Permissions</p>
             <p className="mt-3 text-[15px] text-[#111111]/75">
               Verifying authentication state with Firebase...
             </p>
-          </div>
+          </motion.div>
         ) : !user ? (
-          <div className="mx-auto max-w-[540px] rounded-2xl border border-black/[0.08] bg-[#efeeec] p-8 sm:p-10">
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: EDITORIAL_EASE }}
+            className="mx-auto max-w-[540px] rounded-2xl border border-black/[0.08] bg-[#efeeec] p-8 sm:p-10"
+          >
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#111111] text-white">
               <KeyRound className="h-5 w-5" aria-hidden="true" />
             </div>
@@ -613,9 +626,14 @@ function AdminConsoleInner() {
               <LogIn className="h-4 w-4" aria-hidden="true" />
               <span>Sign in with Google</span>
             </button>
-          </div>
+          </motion.div>
         ) : !isAdmin ? (
-          <div className="mx-auto max-w-[580px] rounded-2xl border border-black/[0.08] bg-[#efeeec] p-8 sm:p-10">
+          <motion.div
+            initial={prefersReduced ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: EDITORIAL_EASE }}
+            className="mx-auto max-w-[580px] rounded-2xl border border-black/[0.08] bg-[#efeeec] p-8 sm:p-10"
+          >
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#fe3619]/12 text-[#fe3619]">
               <ShieldAlert className="h-5 w-5" aria-hidden="true" />
             </div>
@@ -629,7 +647,7 @@ function AdminConsoleInner() {
               ({user.emailVerified ? "verified email" : "unverified email"}), which does not have
               administrator write access in Firestore.
             </p>
-            <div className="mt-5 rounded-xl border border-black/[0.08] bg-[#f7f6f4] p-4 font-mono text-[12px] text-[#111111]/75">
+            <div className="mt-5 break-all rounded-xl border border-black/[0.08] bg-[#f7f6f4] p-4 font-mono text-[12px] text-[#111111]/75">
               Your UID: <span className="select-all text-[#111111]">{user.uid}</span>
             </div>
             <p className="mt-4 text-[13px] text-[#111111]/60">
@@ -644,25 +662,25 @@ function AdminConsoleInner() {
               <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Switch Google account</span>
             </button>
-          </div>
+          </motion.div>
         ) : (
           <div>
             {/* Verified Admin Dashboard Header */}
             <div className="flex flex-wrap items-end justify-between gap-6 border-b border-black/[0.08] pb-8">
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 text-[#111111]">
-                  <ShieldCheck className="h-4 w-4 text-[#fe3619]" aria-hidden="true" />
-                  <span className="label-mono text-[#fe3619]">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-[#fe3619]" aria-hidden="true" />
+                  <span className="label-mono break-all text-[#fe3619] sm:break-normal">
                     Verified Admin · {user.email}
                   </span>
                 </div>
-                <h1 className="mt-2 text-[clamp(1.85rem,3.4vw,3rem)] font-medium leading-[1.08] tracking-[-0.03em]">
+                <h1 className="mt-2 text-[clamp(1.75rem,3.4vw,3rem)] font-medium leading-[1.08] tracking-[-0.03em]">
                   Community Database Control
                 </h1>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex flex-wrap items-center gap-1 rounded-xl border border-black/[0.08] bg-[#efeeec] p-1">
+              <div className="flex w-full max-w-full flex-wrap items-center gap-3 sm:w-auto">
+                <div className="no-scrollbar flex w-full max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-black/[0.08] bg-[#efeeec] p-1 sm:w-auto sm:flex-wrap">
                   {(
                     [
                       {
@@ -684,68 +702,96 @@ function AdminConsoleInner() {
                       { key: "settings", label: "Channels" },
                       { key: "admins", label: `Admins (${admins.length + 2})` },
                     ] as const
-                  ).map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => {
-                        setTab(item.key);
-                        setConfirmDeleteId(null);
-                      }}
-                      className={`label-mono min-h-[38px] cursor-pointer rounded-lg px-4 py-2 transition-colors ${
-                        tab === item.key
-                          ? "bg-[#111111] text-white"
-                          : "text-[#111111]/65 hover:text-[#111111]"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
+                  ).map((item) => {
+                    const isActiveTab = tab === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => {
+                          setTab(item.key);
+                          setConfirmDeleteId(null);
+                        }}
+                        className={`relative label-mono min-h-[38px] shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3.5 py-2 transition-colors sm:px-4 ${
+                          isActiveTab ? "text-white" : "text-[#111111]/65 hover:text-[#111111]"
+                        }`}
+                      >
+                        {isActiveTab && (
+                          <motion.span
+                            layoutId="admin-main-tab-pill"
+                            transition={
+                              prefersReduced
+                                ? { duration: 0 }
+                                : { type: "spring", stiffness: 480, damping: 36 }
+                            }
+                            className="absolute inset-0 rounded-lg bg-[#111111]"
+                            aria-hidden="true"
+                          />
+                        )}
+                        <span className="relative z-10">{item.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
-            {connectionOffline && (
-              <div
-                role="alert"
-                className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-[#fe3619]/30 bg-[#fe3619]/10 px-5 py-3.5 text-[14px] text-[#111111]"
-              >
-                <div className="flex items-center gap-2.5">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-[#fe3619]" aria-hidden="true" />
-                  <span>Unable to reach Firestore. Check network connectivity or Firebase config.</span>
-                </div>
-              </div>
-            )}
-
-            {actionError && (
-              <div
-                role="alert"
-                className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#fe3619]/30 bg-[#fe3619]/10 px-5 py-3.5 text-[14px] text-[#111111]"
-              >
-                <div className="flex items-center gap-2.5">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-[#fe3619]" aria-hidden="true" />
-                  <span>{actionError}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setRetryKey((k) => k + 1)}
-                  className="label-mono inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#111111] px-3.5 py-1.5 text-white"
+            <AnimatePresence>
+              {connectionOffline && (
+                <motion.div
+                  key="admin-offline"
+                  initial={prefersReduced ? false : { opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={prefersReduced ? undefined : { opacity: 0 }}
+                  role="alert"
+                  className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-[#fe3619]/30 bg-[#fe3619]/10 px-5 py-3.5 text-[14px] text-[#111111]"
                 >
-                  <RotateCcw className="h-3 w-3" aria-hidden="true" />
-                  <span>Retry</span>
-                </button>
-              </div>
-            )}
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-[#fe3619]" aria-hidden="true" />
+                    <span>Unable to reach Firestore. Check network connectivity or Firebase config.</span>
+                  </div>
+                </motion.div>
+              )}
 
-            {toast && (
-              <div
-                role="status"
-                className="mt-6 flex items-center gap-2.5 rounded-xl border border-black/10 bg-[#efeeec] px-5 py-3.5 text-[14px] font-medium text-[#111111]"
-              >
-                <Check className="h-4 w-4 text-[#fe3619]" aria-hidden="true" />
-                <span>{toast}</span>
-              </div>
-            )}
+              {actionError && (
+                <motion.div
+                  key="admin-error"
+                  initial={prefersReduced ? false : { opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={prefersReduced ? undefined : { opacity: 0 }}
+                  role="alert"
+                  className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#fe3619]/30 bg-[#fe3619]/10 px-5 py-3.5 text-[14px] text-[#111111]"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-[#fe3619]" aria-hidden="true" />
+                    <span>{actionError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRetryKey((k) => k + 1)}
+                    className="label-mono inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#111111] px-3.5 py-1.5 text-white"
+                  >
+                    <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                    <span>Retry</span>
+                  </button>
+                </motion.div>
+              )}
+
+              {toast && (
+                <motion.div
+                  key="admin-toast"
+                  initial={prefersReduced ? false : { opacity: 0, y: -8, scale: 0.99 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={prefersReduced ? undefined : { opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: EDITORIAL_EASE }}
+                  role="status"
+                  className="mt-6 flex items-center gap-2.5 rounded-xl border border-black/10 bg-[#efeeec] px-5 py-3.5 text-[14px] font-medium text-[#111111]"
+                >
+                  <Check className="h-4 w-4 text-[#fe3619]" aria-hidden="true" />
+                  <span>{toast}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Dual-DB Status & Optional Sync Bar */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-black/[0.08] bg-[#efeeec] px-5 py-3.5">
@@ -754,9 +800,10 @@ function AdminConsoleInner() {
                 your existing database (<span className="font-mono text-[12px]">principal-day-6n50x</span>)
                 still serve the live site automatically.
               </p>
-              <button
+              <motion.button
                 type="button"
                 disabled={syncingLegacy}
+                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                 onClick={async () => {
                   setSyncingLegacy(true);
                   try {
@@ -779,12 +826,12 @@ function AdminConsoleInner() {
                   aria-hidden="true"
                 />
                 <span>{syncingLegacy ? "Syncing..." : "Copy Legacy Items Here"}</span>
-              </button>
+              </motion.button>
             </div>
 
             {/* Overview KPI Strip */}
             <div className="mt-6 grid grid-cols-1 gap-px border border-black/[0.09] bg-black/[0.09] sm:grid-cols-2 lg:grid-cols-4">
-              <div className="bg-[#f7f6f4] p-6">
+              <SpotlightSurface spotlightColor="rgba(254, 54, 25, 0.05)" className="bg-[#f7f6f4] p-6">
                 <p className="label-mono text-[#111111]/55">
                   {liveState.isLive ? "Live Broadcast Active" : "Home Spotlight (Next Session)"}
                 </p>
@@ -795,8 +842,8 @@ function AdminConsoleInner() {
                       ? nextSpotlight.title
                       : "Served from Legacy DB or unassigned"}
                 </p>
-              </div>
-              <div className="bg-[#f7f6f4] p-6">
+              </SpotlightSurface>
+              <SpotlightSurface spotlightColor="rgba(254, 54, 25, 0.05)" className="bg-[#f7f6f4] p-6">
                 <p className="label-mono text-[#111111]/55">Wrapped Status</p>
                 <p className="mt-2 font-mono text-[1.25rem] font-bold">
                   <span className={wrappedForm.enabled ? "text-[#fe3619]" : "text-[#111111]/55"}>
@@ -806,8 +853,8 @@ function AdminConsoleInner() {
                     · {wrappedForm.homeCountdownEnabled ? "Countdown ON" : "Countdown OFF"}
                   </span>
                 </p>
-              </div>
-              <div className="bg-[#f7f6f4] p-6">
+              </SpotlightSurface>
+              <SpotlightSurface spotlightColor="rgba(254, 54, 25, 0.05)" className="bg-[#f7f6f4] p-6">
                 <p className="label-mono text-[#111111]/55">Published Media (Primary)</p>
                 <p className="mt-2 font-mono text-[1.5rem] font-bold tabular-nums">
                   {media.filter((m) => m.published).length}{" "}
@@ -815,16 +862,24 @@ function AdminConsoleInner() {
                     / {media.length} total
                   </span>
                 </p>
-              </div>
-              <div className="bg-[#f7f6f4] p-6">
+              </SpotlightSurface>
+              <SpotlightSurface spotlightColor="rgba(254, 54, 25, 0.05)" className="bg-[#f7f6f4] p-6">
                 <p className="label-mono text-[#111111]/55">Community Signups</p>
                 <p className="mt-2 font-mono text-[1.5rem] font-bold tabular-nums">
                   {subscribers.length}{" "}
                   <span className="text-[13px] font-normal text-[#111111]/55">records</span>
                 </p>
-              </div>
+              </SpotlightSurface>
             </div>
 
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={tab}
+                initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: EDITORIAL_EASE }}
+              >
             {/* TAB 1: SESSIONS */}
             {tab === "sessions" && (
               <section className="mt-10">
@@ -852,7 +907,7 @@ function AdminConsoleInner() {
                 {sessionFormOpen && (
                   <form
                     onSubmit={handleSaveSession}
-                    className="mt-6 rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8"
+                    className="mt-6 rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8"
                   >
                     <div className="flex items-center justify-between border-b border-black/[0.08] pb-4">
                       <h3 className="text-lg font-medium">
@@ -880,7 +935,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setSessionForm((f) => ({ ...f, number: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -894,7 +949,7 @@ function AdminConsoleInner() {
                               status: e.target.value === "archived" ? "archived" : "upcoming",
                             }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         >
                           <option value="upcoming">Upcoming</option>
                           <option value="archived">Archived</option>
@@ -915,7 +970,7 @@ function AdminConsoleInner() {
                             setSessionForm((f) => ({ ...f, title: e.target.value }))
                           }
                           placeholder="From Studio to Registered Practice: What Actually Counts"
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -929,7 +984,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setSessionForm((f) => ({ ...f, speaker: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -943,7 +998,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setSessionForm((f) => ({ ...f, speakerRole: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -957,7 +1012,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setSessionForm((f) => ({ ...f, dateLabel: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -973,7 +1028,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setSessionForm((f) => ({ ...f, timeLabel: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -987,7 +1042,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setSessionForm((f) => ({ ...f, format: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -1003,7 +1058,7 @@ function AdminConsoleInner() {
                             setSessionForm((f) => ({ ...f, registrationUrl: e.target.value }))
                           }
                           placeholder="https://lu.ma/your-session"
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -1011,7 +1066,7 @@ function AdminConsoleInner() {
                         <label className="label-mono block text-[#111111]/65">
                           Exact Start Date &amp; Time (WAT · unlocks Calendar + Auto-Timezone)
                         </label>
-                        <div className="mt-1.5 flex items-center gap-2">
+                        <div className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-center">
                           <input
                             type="datetime-local"
                             value={isoToWatDatetimeLocal(sessionForm.startAtIso)}
@@ -1021,7 +1076,7 @@ function AdminConsoleInner() {
                                 startAtIso: watDatetimeLocalToIso(e.target.value),
                               }))
                             }
-                            className="h-11 flex-1 rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                            className="h-11 w-full flex-1 rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                           />
                           {sessionForm.startAtIso && (
                             <button
@@ -1029,7 +1084,7 @@ function AdminConsoleInner() {
                               onClick={() =>
                                 setSessionForm((f) => ({ ...f, startAtIso: "" }))
                               }
-                              className="label-mono h-11 cursor-pointer rounded-lg border border-black/10 bg-[#f7f6f4] px-3 text-[11px] text-[#111111]/70 hover:text-[#fe3619]"
+                              className="label-mono h-11 shrink-0 cursor-pointer rounded-lg border border-black/10 bg-[#f7f6f4] px-3 text-[11px] text-[#111111]/70 hover:text-[#fe3619]"
                             >
                               Clear
                             </button>
@@ -1057,7 +1112,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setSessionForm((f) => ({ ...f, summary: e.target.value }))
                           }
-                          className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 text-[14px]"
+                          className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -1069,7 +1124,7 @@ function AdminConsoleInner() {
                           rows={3}
                           value={sessionTopicsText}
                           onChange={(e) => setSessionTopicsText(e.target.value)}
-                          className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 font-mono text-[13px]"
+                          className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 font-mono text-base sm:text-[13px]"
                         />
                       </div>
 
@@ -1117,7 +1172,7 @@ function AdminConsoleInner() {
                                     next[idx] = { ...next[idx], label: e.target.value };
                                     setSessionForm((f) => ({ ...f, resources: next }));
                                   }}
-                                  className="h-10 rounded-lg border border-black/10 bg-white px-3 text-[13.5px]"
+                                  className="h-11 rounded-lg border border-black/10 bg-white px-3 text-base sm:h-10 sm:text-[13.5px]"
                                 />
                                 <input
                                   type="url"
@@ -1129,7 +1184,7 @@ function AdminConsoleInner() {
                                     next[idx] = { ...next[idx], url: e.target.value };
                                     setSessionForm((f) => ({ ...f, resources: next }));
                                   }}
-                                  className="h-10 rounded-lg border border-black/10 bg-white px-3 text-[13.5px]"
+                                  className="h-11 rounded-lg border border-black/10 bg-white px-3 text-base sm:h-10 sm:text-[13.5px]"
                                 />
                                 <button
                                   type="button"
@@ -1292,7 +1347,7 @@ function AdminConsoleInner() {
                         key={s.id}
                         className="flex flex-col justify-between gap-5 border-b border-black/[0.09] py-6 lg:flex-row lg:items-center"
                       >
-                        <div className="max-w-[68ch]">
+                        <div className="min-w-0 max-w-[68ch]">
                           <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.07em]">
                             <span className="text-[#fe3619]">{s.number}</span>
                             <span aria-hidden="true">·</span>
@@ -1461,7 +1516,7 @@ function AdminConsoleInner() {
                 {mediaFormOpen && (
                   <form
                     onSubmit={handleSaveMedia}
-                    className="mt-6 rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8"
+                    className="mt-6 rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8"
                   >
                     <div className="flex items-center justify-between border-b border-black/[0.08] pb-4">
                       <h3 className="text-lg font-medium">
@@ -1487,7 +1542,7 @@ function AdminConsoleInner() {
                               kind: e.target.value === "Feature" ? "Feature" : "Recording",
                             }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         >
                           <option value="Recording">Recording</option>
                           <option value="Feature">Feature</option>
@@ -1506,7 +1561,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setMediaForm((f) => ({ ...f, sessionRef: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -1522,7 +1577,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setMediaForm((f) => ({ ...f, title: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -1536,7 +1591,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setMediaForm((f) => ({ ...f, speaker: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -1552,7 +1607,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setMediaForm((f) => ({ ...f, duration: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -1568,7 +1623,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setMediaForm((f) => ({ ...f, publishedAt: e.target.value }))
                           }
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -1584,7 +1639,7 @@ function AdminConsoleInner() {
                             setMediaForm((f) => ({ ...f, mediaUrl: e.target.value }))
                           }
                           placeholder="https://youtube.com/watch?v=..."
-                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                          className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -1600,7 +1655,7 @@ function AdminConsoleInner() {
                           onChange={(e) =>
                             setMediaForm((f) => ({ ...f, summary: e.target.value }))
                           }
-                          className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 text-[14px]"
+                          className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 text-base sm:text-[14px]"
                         />
                       </div>
 
@@ -1612,7 +1667,7 @@ function AdminConsoleInner() {
                           rows={3}
                           value={mediaHighlightsText}
                           onChange={(e) => setMediaHighlightsText(e.target.value)}
-                          className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 font-mono text-[13px]"
+                          className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 font-mono text-base sm:text-[13px]"
                         />
                       </div>
 
@@ -1660,7 +1715,7 @@ function AdminConsoleInner() {
                         key={m.id}
                         className="flex flex-col justify-between gap-5 border-b border-black/[0.09] py-6 lg:flex-row lg:items-center"
                       >
-                        <div className="max-w-[68ch]">
+                        <div className="min-w-0 max-w-[68ch]">
                           <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.07em]">
                             <span className="inline-flex items-center gap-1.5 text-[#fe3619]">
                               <Film className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1765,21 +1820,34 @@ function AdminConsoleInner() {
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-black/[0.08] bg-[#efeeec] p-1">
-                    {(["all", "new", "reviewed", "scheduled", "archived"] as const).map((st) => (
-                      <button
-                        key={st}
-                        type="button"
-                        onClick={() => setPitchFilter(st)}
-                        className={`label-mono min-h-[34px] cursor-pointer rounded-lg px-3 py-1.5 transition-colors ${
-                          pitchFilter === st
-                            ? "bg-[#111111] text-white"
-                            : "text-[#111111]/65 hover:text-[#111111]"
-                        }`}
-                      >
-                        {st}
-                      </button>
-                    ))}
+                  <div className="no-scrollbar flex w-full max-w-full items-center gap-1.5 overflow-x-auto rounded-xl border border-black/[0.08] bg-[#efeeec] p-1 sm:w-auto sm:flex-wrap">
+                    {(["all", "new", "reviewed", "scheduled", "archived"] as const).map((st) => {
+                      const isActiveFilter = pitchFilter === st;
+                      return (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => setPitchFilter(st)}
+                          className={`relative label-mono min-h-[34px] shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 transition-colors ${
+                            isActiveFilter ? "text-white" : "text-[#111111]/65 hover:text-[#111111]"
+                          }`}
+                        >
+                          {isActiveFilter && (
+                            <motion.span
+                              layoutId="admin-pitch-filter-pill"
+                              transition={
+                                prefersReduced
+                                  ? { duration: 0 }
+                                  : { type: "spring", stiffness: 480, damping: 36 }
+                              }
+                              className="absolute inset-0 rounded-lg bg-[#111111]"
+                              aria-hidden="true"
+                            />
+                          )}
+                          <span className="relative z-10">{st}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1796,7 +1864,7 @@ function AdminConsoleInner() {
                         key={p.id}
                         className="flex flex-col justify-between gap-5 border-b border-black/[0.09] py-6 lg:flex-row lg:items-start"
                       >
-                        <div className="max-w-[70ch]">
+                        <div className="min-w-0 max-w-[70ch]">
                           <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.07em]">
                             <span className="inline-flex items-center gap-1.5 text-[#fe3619]">
                               {p.pitchType === "speaker" ? (
@@ -1822,16 +1890,16 @@ function AdminConsoleInner() {
                             </span>
                           </div>
 
-                          <h3 className="mt-2 text-[1.2rem] font-medium tracking-[-0.02em]">
+                          <h3 className="mt-2 break-words text-[1.2rem] font-medium tracking-[-0.02em]">
                             {p.topicTitle}
                           </h3>
 
-                          <p className="mt-1 font-mono text-[12px] text-[#111111]/70">
-                            {p.name} · {p.email}
+                          <p className="mt-1 break-words font-mono text-[12px] text-[#111111]/70">
+                            {p.name} · <span className="break-all sm:break-normal">{p.email}</span>
                             {p.roleOrStudio ? ` · ${p.roleOrStudio}` : ""}
                           </p>
 
-                          <p className="mt-3 text-[14.5px] leading-[1.6] text-[#111111]/80">
+                          <p className="mt-3 break-words text-[14.5px] leading-[1.6] text-[#111111]/80">
                             {p.outline}
                           </p>
 
@@ -1841,10 +1909,10 @@ function AdminConsoleInner() {
                                 href={p.linkUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 font-mono text-[12px] text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
+                                className="inline-flex max-w-full items-center gap-1.5 break-all font-mono text-[12px] text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
                               >
                                 <span>{p.linkUrl}</span>
-                                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                                <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
                               </a>
                             </p>
                           )}
@@ -1967,7 +2035,7 @@ function AdminConsoleInner() {
                         key={sub.id}
                         className="flex flex-col justify-between gap-4 border-b border-black/[0.09] py-5 sm:flex-row sm:items-center"
                       >
-                        <div className="max-w-[68ch]">
+                        <div className="min-w-0 max-w-[68ch]">
                           <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.07em]">
                             <span className="inline-flex items-center gap-1.5 text-[#fe3619]">
                               <Mail className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1994,7 +2062,7 @@ function AdminConsoleInner() {
                               </>
                             )}
                           </div>
-                          <p className="mt-1.5 text-[1.05rem] font-medium tracking-[-0.01em]">
+                          <p className="mt-1.5 break-all text-[1.05rem] font-medium tracking-[-0.01em] sm:break-normal">
                             {sub.email}
                             {sub.name ? (
                               <span className="ml-2 text-[14px] font-normal text-[#111111]/65">
@@ -2003,7 +2071,7 @@ function AdminConsoleInner() {
                             ) : null}
                           </p>
                           {sub.question && (
-                            <p className="mt-1.5 text-[14px] leading-relaxed text-[#111111]/75">
+                            <p className="mt-1.5 break-words text-[14px] leading-relaxed text-[#111111]/75">
                               &ldquo;{sub.question}&rdquo;
                             </p>
                           )}
@@ -2049,7 +2117,7 @@ function AdminConsoleInner() {
               <section className="mt-10 max-w-[720px]">
                 <form
                   onSubmit={handleSaveSettings}
-                  className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8"
+                  className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8"
                 >
                   <div className="flex items-center gap-2 text-[#fe3619]">
                     <Globe className="h-4 w-4" aria-hidden="true" />
@@ -2075,7 +2143,7 @@ function AdminConsoleInner() {
                           setSettingsForm((s) => ({ ...s, instagramUrl: e.target.value }))
                         }
                         placeholder="https://instagram.com/thethinkingarchitect"
-                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                       />
                     </div>
 
@@ -2089,7 +2157,7 @@ function AdminConsoleInner() {
                           setSettingsForm((s) => ({ ...s, xUrl: e.target.value }))
                         }
                         placeholder="https://x.com/thethinkingarch"
-                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                       />
                     </div>
 
@@ -2103,7 +2171,7 @@ function AdminConsoleInner() {
                           setSettingsForm((s) => ({ ...s, linkedinUrl: e.target.value }))
                         }
                         placeholder="https://linkedin.com/company/thethinkingarchitect"
-                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                       />
                     </div>
 
@@ -2117,7 +2185,7 @@ function AdminConsoleInner() {
                           setSettingsForm((s) => ({ ...s, youtubeUrl: e.target.value }))
                         }
                         placeholder="https://youtube.com/@thethinkingarchitect"
-                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                       />
                     </div>
                   </div>
@@ -2146,7 +2214,7 @@ function AdminConsoleInner() {
               <section className="mt-10 grid gap-10 lg:grid-cols-[1fr_1.1fr]">
                 <form
                   onSubmit={handleAddAdmin}
-                  className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8"
+                  className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8"
                 >
                   <div className="flex items-center gap-2 text-[#fe3619]">
                     <UserPlus className="h-4 w-4" aria-hidden="true" />
@@ -2171,7 +2239,7 @@ function AdminConsoleInner() {
                         value={newAdminUid}
                         onChange={(e) => setNewAdminUid(e.target.value)}
                         placeholder="e.g. a1b2c3d4e5f6..."
-                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-[13px]"
+                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-base sm:text-[13px]"
                       />
                     </div>
 
@@ -2185,7 +2253,7 @@ function AdminConsoleInner() {
                         value={newAdminEmail}
                         onChange={(e) => setNewAdminEmail(e.target.value)}
                         placeholder="editor@thethinkingarchitects.com.ng"
-                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                       />
                     </div>
 
@@ -2197,7 +2265,7 @@ function AdminConsoleInner() {
                         value={newAdminName}
                         onChange={(e) => setNewAdminName(e.target.value)}
                         placeholder="Adaeze Okafor"
-                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                        className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                       />
                     </div>
                   </div>
@@ -2217,38 +2285,38 @@ function AdminConsoleInner() {
                   </button>
                 </form>
 
-                <div>
+                <div className="min-w-0">
                   <h2 className="text-[1.35rem] font-medium tracking-[-0.02em]">
                     Authorized Administrators
                   </h2>
                   <div className="mt-4 border-t border-black/[0.09]">
-                    <div className="flex items-center justify-between border-b border-black/[0.09] py-4">
-                      <div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/[0.09] py-4">
+                      <div className="min-w-0">
                         <p className="font-medium">Primary Owner (Bootstrapped)</p>
-                        <p className="font-mono text-[12px] text-[#111111]/65">
+                        <p className="break-all font-mono text-[12px] text-[#111111]/65 sm:break-normal">
                           oladipupoinioluwa93@gmail.com
                         </p>
                       </div>
-                      <span className="label-mono text-[#fe3619]">Locked</span>
+                      <span className="label-mono shrink-0 text-[#fe3619]">Locked</span>
                     </div>
-                    <div className="flex items-center justify-between border-b border-black/[0.09] py-4">
-                      <div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/[0.09] py-4">
+                      <div className="min-w-0">
                         <p className="font-medium">Secondary Owner (Bootstrapped)</p>
-                        <p className="font-mono text-[12px] text-[#111111]/65">
+                        <p className="break-all font-mono text-[12px] text-[#111111]/65 sm:break-normal">
                           officialinioluwaoladipupo@gmail.com
                         </p>
                       </div>
-                      <span className="label-mono text-[#fe3619]">Locked</span>
+                      <span className="label-mono shrink-0 text-[#fe3619]">Locked</span>
                     </div>
 
                     {admins.map((admin) => (
                       <div
                         key={admin.id}
-                        className="flex items-center justify-between gap-4 border-b border-black/[0.09] py-4"
+                        className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.09] py-4"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-medium">{admin.displayName}</p>
-                          <p className="font-mono text-[12px] text-[#111111]/65">
+                          <p className="break-all font-mono text-[12px] text-[#111111]/65 sm:break-normal">
                             {admin.email} · {admin.id}
                           </p>
                         </div>
@@ -2274,6 +2342,8 @@ function AdminConsoleInner() {
                 </div>
               </section>
             )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         )}
       </main>

@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Send,
 } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useState, type FormEvent } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
@@ -17,6 +18,7 @@ import {
   validateSessionQuestionInput,
   type SessionQuestionRecord,
 } from "../lib/firebaseContent";
+import { EDITORIAL_EASE, EditorialReveal } from "./MotionPrimitives";
 
 type LiveQuestionQueueProps = {
   sessionId: string;
@@ -56,6 +58,7 @@ export default function LiveQuestionQueue({
   isLive = false,
   heading = "Live Q&A Queue",
 }: LiveQuestionQueueProps) {
+  const prefersReduced = useReducedMotion();
   const [questions, setQuestions] = useState<SessionQuestionRecord[]>([]);
   const [authorName, setAuthorName] = useState("");
   const [questionText, setQuestionText] = useState("");
@@ -134,15 +137,16 @@ export default function LiveQuestionQueue({
   const answeredQuestions = questions.filter((q) => q.status === "answered");
 
   return (
-    <section
-      id="live-qa"
-      aria-label="Live attendee question queue"
-      className={`mt-10 rounded-[12px] border p-6 sm:p-8 ${
-        isLive
-          ? "border-[#1C1C1C]/15 bg-[#1C1C1C] text-[#F2EDE8]"
-          : "border-black/[0.08] bg-[#efeeec] text-[#111111]"
-      }`}
-    >
+    <EditorialReveal>
+      <section
+        id="live-qa"
+        aria-label="Live attendee question queue"
+        className={`mt-10 rounded-[12px] border p-4 sm:p-8 ${
+          isLive
+            ? "border-[#1C1C1C]/15 bg-[#1C1C1C] text-[#F2EDE8]"
+            : "border-black/[0.08] bg-[#efeeec] text-[#111111]"
+        }`}
+      >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div
@@ -205,7 +209,7 @@ export default function LiveQuestionQueue({
                 value={authorName}
                 onChange={(e) => setAuthorName(e.target.value)}
                 placeholder="e.g. Tunde A."
-                className={`mt-1.5 h-11 w-full rounded-lg border px-3.5 text-[14px] outline-none transition-colors ${
+                className={`mt-1.5 h-11 w-full rounded-lg border px-3.5 text-base outline-none transition-colors sm:text-[14px] ${
                   isLive
                     ? "border-white/15 bg-[#1C1C1C] text-[#F2EDE8] placeholder:text-[#F2EDE8]/35 focus:border-[#D94F2B]"
                     : "border-black/10 bg-white text-[#111111] placeholder:text-[#111111]/35 focus:border-[#fe3619]"
@@ -241,42 +245,56 @@ export default function LiveQuestionQueue({
                   value={questionText}
                   onChange={(e) => setQuestionText(e.target.value)}
                   placeholder="Ask about practice, registration, portfolio, or studio economics..."
-                  className={`h-11 flex-1 rounded-lg border px-3.5 text-[14px] outline-none transition-colors ${
+                  className={`h-11 flex-1 rounded-lg border px-3.5 text-base outline-none transition-colors sm:text-[14px] ${
                     isLive
                       ? "border-white/15 bg-[#1C1C1C] text-[#F2EDE8] placeholder:text-[#F2EDE8]/35 focus:border-[#D94F2B]"
                       : "border-black/10 bg-white text-[#111111] placeholder:text-[#111111]/35 focus:border-[#fe3619]"
                   }`}
                 />
-                <button
+                <motion.button
                   type="submit"
                   disabled={submitting}
+                  whileTap={prefersReduced ? undefined : { scale: 0.97 }}
                   className={`label-mono inline-flex min-h-[44px] shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg px-5 py-2.5 text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${
                     isLive ? "bg-[#D94F2B]" : "bg-[#fe3619]"
                   }`}
                 >
                   <Send className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{submitting ? "Sending..." : "Submit question"}</span>
-                </button>
+                </motion.button>
               </div>
             </div>
           </div>
 
-          {errorMessage && (
-            <p role="alert" className="mt-3 text-[13px] font-medium text-[#D94F2B]">
-              {errorMessage}
-            </p>
-          )}
-          {submittedNotice && (
-            <p
-              role="status"
-              className={`mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium ${
-                isLive ? "text-[#F2EDE8]" : "text-[#111111]"
-              }`}
-            >
-              <Check className="h-3.5 w-3.5 text-[#D94F2B]" aria-hidden="true" />
-              <span>{submittedNotice}</span>
-            </p>
-          )}
+          <AnimatePresence>
+            {errorMessage && (
+              <motion.p
+                key="liveqa-err"
+                initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0 }}
+                role="alert"
+                className="mt-3 text-[13px] font-medium text-[#D94F2B]"
+              >
+                {errorMessage}
+              </motion.p>
+            )}
+            {submittedNotice && (
+              <motion.p
+                key="liveqa-ok"
+                initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0 }}
+                role="status"
+                className={`mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium ${
+                  isLive ? "text-[#F2EDE8]" : "text-[#111111]"
+                }`}
+              >
+                <Check className="h-3.5 w-3.5 text-[#D94F2B]" aria-hidden="true" />
+                <span>{submittedNotice}</span>
+              </motion.p>
+            )}
+          </AnimatePresence>
         </form>
       )}
 
@@ -294,57 +312,65 @@ export default function LiveQuestionQueue({
           </div>
         ) : (
           <>
-            {openQuestions.map((q) => {
-              const hasVoted = votedIds.has(q.id);
-              return (
-                <article
-                  key={q.id}
-                  className={`flex items-start justify-between gap-4 rounded-xl border p-4 transition-colors ${
-                    isLive
-                      ? "border-white/12 bg-white/[0.03]"
-                      : "border-black/[0.08] bg-[#f7f6f4]"
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`text-[15px] leading-[1.55] ${
-                        isLive ? "text-[#F2EDE8]" : "text-[#111111]"
-                      }`}
-                    >
-                      {q.questionText}
-                    </p>
-                    <p
-                      className={`mt-2 font-mono text-[11px] uppercase tracking-[0.07em] ${
-                        isLive ? "text-[#F2EDE8]/55" : "text-[#111111]/55"
-                      }`}
-                    >
-                      Asked by {q.authorName}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={hasVoted || upvotingId === q.id}
-                    onClick={() => void handleUpvote(q)}
-                    aria-label={
-                      hasVoted
-                        ? `Upvoted (${q.upvotes})`
-                        : `Upvote question by ${q.authorName}`
-                    }
-                    className={`flex min-h-[44px] min-w-[60px] shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border px-2.5 py-1.5 font-mono text-[12px] font-bold tabular-nums transition-colors disabled:cursor-default ${
-                      hasVoted
-                        ? "border-[#D94F2B] bg-[#D94F2B]/15 text-[#D94F2B]"
-                        : isLive
-                          ? "border-white/15 bg-white/[0.05] text-[#F2EDE8] hover:border-[#D94F2B] hover:text-[#D94F2B]"
-                          : "border-black/12 bg-white text-[#111111] hover:border-[#fe3619] hover:text-[#fe3619]"
+            <AnimatePresence initial={false}>
+              {openQuestions.map((q) => {
+                const hasVoted = votedIds.has(q.id);
+                return (
+                  <motion.article
+                    key={q.id}
+                    layout={!prefersReduced}
+                    initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={prefersReduced ? undefined : { opacity: 0 }}
+                    transition={{ duration: 0.24, ease: EDITORIAL_EASE }}
+                    className={`flex items-start justify-between gap-4 rounded-xl border p-4 transition-colors ${
+                      isLive
+                        ? "border-white/12 bg-white/[0.03]"
+                        : "border-black/[0.08] bg-[#f7f6f4]"
                     }`}
                   >
-                    <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>{q.upvotes}</span>
-                  </button>
-                </article>
-              );
-            })}
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`break-words text-[15px] leading-[1.55] ${
+                          isLive ? "text-[#F2EDE8]" : "text-[#111111]"
+                        }`}
+                      >
+                        {q.questionText}
+                      </p>
+                      <p
+                        className={`mt-2 font-mono text-[11px] uppercase tracking-[0.07em] ${
+                          isLive ? "text-[#F2EDE8]/55" : "text-[#111111]/55"
+                        }`}
+                      >
+                        Asked by {q.authorName}
+                      </p>
+                    </div>
+
+                    <motion.button
+                      type="button"
+                      disabled={hasVoted || upvotingId === q.id}
+                      onClick={() => void handleUpvote(q)}
+                      whileTap={prefersReduced ? undefined : { scale: 0.92 }}
+                      aria-label={
+                        hasVoted
+                          ? `Upvoted (${q.upvotes})`
+                          : `Upvote question by ${q.authorName}`
+                      }
+                      className={`flex min-h-[44px] min-w-[60px] shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border px-2.5 py-1.5 font-mono text-[12px] font-bold tabular-nums transition-colors disabled:cursor-default ${
+                        hasVoted
+                          ? "border-[#D94F2B] bg-[#D94F2B]/15 text-[#D94F2B]"
+                          : isLive
+                            ? "border-white/15 bg-white/[0.05] text-[#F2EDE8] hover:border-[#D94F2B] hover:text-[#D94F2B]"
+                            : "border-black/12 bg-white text-[#111111] hover:border-[#fe3619] hover:text-[#fe3619]"
+                      }`}
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{q.upvotes}</span>
+                    </motion.button>
+                  </motion.article>
+                );
+              })}
+            </AnimatePresence>
 
             {answeredQuestions.length > 0 && (
               <div className="pt-4">
@@ -356,34 +382,41 @@ export default function LiveQuestionQueue({
                   Answered On-Air
                 </p>
                 <div className="space-y-2.5">
-                  {answeredQuestions.map((q) => (
-                    <article
-                      key={q.id}
-                      className={`flex items-start justify-between gap-4 rounded-xl border p-4 opacity-70 ${
-                        isLive
-                          ? "border-white/10 bg-white/[0.02]"
-                          : "border-black/[0.06] bg-[#f7f6f4]/70"
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[14px] leading-[1.55]">{q.questionText}</p>
-                        <p
-                          className={`mt-1.5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.07em] ${
-                            isLive ? "text-[#F2EDE8]/65" : "text-[#111111]/60"
-                          }`}
-                        >
-                          <CheckCircle2
-                            className="h-3.5 w-3.5 text-[#D94F2B]"
-                            aria-hidden="true"
-                          />
-                          <span>Answered · {q.authorName}</span>
-                        </p>
-                      </div>
-                      <span className="font-mono text-[11px] font-bold tabular-nums opacity-70">
-                        {q.upvotes} ▲
-                      </span>
-                    </article>
-                  ))}
+                  <AnimatePresence initial={false}>
+                    {answeredQuestions.map((q) => (
+                      <motion.article
+                        key={q.id}
+                        layout={!prefersReduced}
+                        initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 0.7, y: 0 }}
+                        exit={prefersReduced ? undefined : { opacity: 0 }}
+                        transition={{ duration: 0.22, ease: EDITORIAL_EASE }}
+                        className={`flex items-start justify-between gap-4 rounded-xl border p-4 ${
+                          isLive
+                            ? "border-white/10 bg-white/[0.02]"
+                            : "border-black/[0.06] bg-[#f7f6f4]/70"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words text-[14px] leading-[1.55]">{q.questionText}</p>
+                          <p
+                            className={`mt-1.5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.07em] ${
+                              isLive ? "text-[#F2EDE8]/65" : "text-[#111111]/60"
+                            }`}
+                          >
+                            <CheckCircle2
+                              className="h-3.5 w-3.5 text-[#D94F2B]"
+                              aria-hidden="true"
+                            />
+                            <span>Answered · {q.authorName}</span>
+                          </p>
+                        </div>
+                        <span className="font-mono text-[11px] font-bold tabular-nums opacity-70">
+                          {q.upvotes} ▲
+                        </span>
+                      </motion.article>
+                    ))}
+                  </AnimatePresence>
                 </div>
               </div>
             )}
@@ -391,5 +424,6 @@ export default function LiveQuestionQueue({
         )}
       </div>
     </section>
+    </EditorialReveal>
   );
 }

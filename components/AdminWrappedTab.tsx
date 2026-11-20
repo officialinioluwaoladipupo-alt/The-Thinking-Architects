@@ -13,6 +13,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
@@ -62,6 +63,7 @@ export default function AdminWrappedTab({
   onSelectConfigId,
   onSaved,
 }: AdminWrappedTabProps) {
+  const prefersReduced = useReducedMotion();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [newCity, setNewCity] = useState("");
@@ -256,7 +258,7 @@ export default function AdminWrappedTab({
   return (
     <section className="mt-10 space-y-8">
       {/* Header & Instant Status Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-6">
         <div>
           <div className="flex items-center gap-2 text-[#fe3619]">
             <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -306,32 +308,61 @@ export default function AdminWrappedTab({
                 setConfirmArchiveDelete(false);
                 onSelectConfigId("public");
               }}
-              className={`label-mono min-h-[36px] cursor-pointer rounded-lg border px-3.5 py-1.5 transition-colors ${
+              className={`relative label-mono min-h-[36px] cursor-pointer rounded-lg border px-3.5 py-1.5 transition-colors ${
                 activeConfigId === "public"
-                  ? "border-[#111111] bg-[#111111] text-white"
+                  ? "border-[#111111] text-white"
                   : "border-black/12 bg-[#efeeec] text-[#111111] hover:bg-black/5"
               }`}
             >
-              Live Default (public)
+              {activeConfigId === "public" && (
+                <motion.span
+                  layoutId="wrapped-edition-pill"
+                  transition={
+                    prefersReduced
+                      ? { duration: 0 }
+                      : { type: "spring", stiffness: 460, damping: 34 }
+                  }
+                  className="absolute inset-0 rounded-lg bg-[#111111]"
+                  aria-hidden="true"
+                />
+              )}
+              <span className="relative z-10">Live Default (public)</span>
             </button>
 
-            {archiveEditions.map((ed) => (
-              <button
-                key={ed.id}
-                type="button"
-                onClick={() => {
-                  setConfirmArchiveDelete(false);
-                  onSelectConfigId(ed.id);
-                }}
-                className={`label-mono min-h-[36px] cursor-pointer rounded-lg border px-3.5 py-1.5 transition-colors ${
-                  activeConfigId === ed.id
-                    ? "border-[#fe3619] bg-[#fe3619] text-white"
-                    : "border-black/12 bg-[#efeeec] text-[#111111] hover:bg-black/5"
-                }`}
-              >
-                Archive · {ed.yearLabel} ({ed.enabled ? "Visible" : "Hidden"})
-              </button>
-            ))}
+            {archiveEditions.map((ed) => {
+              const isSelected = activeConfigId === ed.id;
+              return (
+                <button
+                  key={ed.id}
+                  type="button"
+                  onClick={() => {
+                    setConfirmArchiveDelete(false);
+                    onSelectConfigId(ed.id);
+                  }}
+                  className={`relative label-mono min-h-[36px] cursor-pointer rounded-lg border px-3.5 py-1.5 transition-colors ${
+                    isSelected
+                      ? "border-[#fe3619] text-white"
+                      : "border-black/12 bg-[#efeeec] text-[#111111] hover:bg-black/5"
+                  }`}
+                >
+                  {isSelected && (
+                    <motion.span
+                      layoutId="wrapped-edition-pill"
+                      transition={
+                        prefersReduced
+                          ? { duration: 0 }
+                          : { type: "spring", stiffness: 460, damping: 34 }
+                      }
+                      className="absolute inset-0 rounded-lg bg-[#fe3619]"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="relative z-10">
+                    Archive · {ed.yearLabel} ({ed.enabled ? "Visible" : "Hidden"})
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -375,9 +406,10 @@ export default function AdminWrappedTab({
 
       {/* Quick Toggle Switches */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <button
+        <motion.button
           type="button"
           disabled={saving}
+          whileTap={prefersReduced ? undefined : { scale: 0.97 }}
           onClick={() => void handleQuickToggle("enabled", "Wrapped page")}
           className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 text-left transition-colors ${
             form.enabled
@@ -396,11 +428,12 @@ export default function AdminWrappedTab({
           ) : (
             <EyeOff className="h-5 w-5 opacity-55" aria-hidden="true" />
           )}
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           type="button"
           disabled={saving}
+          whileTap={prefersReduced ? undefined : { scale: 0.97 }}
           onClick={() => void handleQuickToggle("homeBannerEnabled", "Home page banner")}
           className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 text-left transition-colors ${
             form.homeBannerEnabled
@@ -418,11 +451,12 @@ export default function AdminWrappedTab({
             className={`h-5 w-5 ${form.homeBannerEnabled ? "text-[#fe3619]" : "opacity-25"}`}
             aria-hidden="true"
           />
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           type="button"
           disabled={saving}
+          whileTap={prefersReduced ? undefined : { scale: 0.97 }}
           onClick={() => void handleQuickToggle("homeCountdownEnabled", "Home countdown")}
           className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 text-left transition-colors ${
             form.homeCountdownEnabled
@@ -440,11 +474,12 @@ export default function AdminWrappedTab({
             className={`h-5 w-5 ${form.homeCountdownEnabled ? "text-[#fe3619]" : "opacity-45"}`}
             aria-hidden="true"
           />
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           type="button"
           disabled={saving}
+          whileTap={prefersReduced ? undefined : { scale: 0.97 }}
           onClick={() => void handleQuickToggle("showInNav", "Top navbar Wrapped link")}
           className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 text-left transition-colors ${
             form.showInNav
@@ -462,11 +497,12 @@ export default function AdminWrappedTab({
             className={`h-5 w-5 ${form.showInNav ? "text-[#fe3619]" : "opacity-45"}`}
             aria-hidden="true"
           />
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           type="button"
           disabled={saving}
+          whileTap={prefersReduced ? undefined : { scale: 0.97 }}
           onClick={() => void handleQuickToggle("showInFooter", "Footer Wrapped link")}
           className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 text-left transition-colors ${
             form.showInFooter
@@ -484,17 +520,24 @@ export default function AdminWrappedTab({
             className={`h-5 w-5 ${form.showInFooter ? "text-[#fe3619]" : "opacity-25"}`}
             aria-hidden="true"
           />
-        </button>
+        </motion.button>
       </div>
 
-      {error && (
-        <div
-          role="alert"
-          className="rounded-xl border border-[#fe3619]/30 bg-[#fe3619]/10 px-5 py-3.5 text-[13.5px] font-medium text-[#fe3619]"
-        >
-          {error}
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            key="wrapped-error"
+            initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={prefersReduced ? undefined : { opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            role="alert"
+            className="rounded-xl border border-[#fe3619]/30 bg-[#fe3619]/10 px-5 py-3.5 text-[13.5px] font-medium text-[#fe3619]"
+          >
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Live Preview of Home Banner */}
       {form.homeBannerEnabled && (
@@ -507,7 +550,7 @@ export default function AdminWrappedTab({
       {/* Full Editor Form */}
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* 1. Home Banner, Countdown & Offline Mode */}
-        <div className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8">
+        <div className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8">
           <h3 className="text-lg font-medium tracking-[-0.02em]">
             1. Home Page Banner, Countdown &amp; Offline Holding Screen
           </h3>
@@ -520,7 +563,7 @@ export default function AdminWrappedTab({
                 maxLength={L.homeBannerEyebrow.max}
                 value={form.homeBannerEyebrow}
                 onChange={(e) => setForm((f) => ({ ...f, homeBannerEyebrow: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -532,7 +575,7 @@ export default function AdminWrappedTab({
                 maxLength={L.homeBannerCtaLabel.max}
                 value={form.homeBannerCtaLabel}
                 onChange={(e) => setForm((f) => ({ ...f, homeBannerCtaLabel: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -544,7 +587,7 @@ export default function AdminWrappedTab({
                 maxLength={L.homeBannerTitle.max}
                 value={form.homeBannerTitle}
                 onChange={(e) => setForm((f) => ({ ...f, homeBannerTitle: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -558,7 +601,7 @@ export default function AdminWrappedTab({
                 onChange={(e) =>
                   setForm((f) => ({ ...f, launchDateIso: localInputValueToIso(e.target.value) }))
                 }
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -572,7 +615,7 @@ export default function AdminWrappedTab({
                 maxLength={L.offlineTitle.max}
                 value={form.offlineTitle}
                 onChange={(e) => setForm((f) => ({ ...f, offlineTitle: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -586,14 +629,14 @@ export default function AdminWrappedTab({
                 maxLength={L.offlineMessage.max}
                 value={form.offlineMessage}
                 onChange={(e) => setForm((f) => ({ ...f, offlineMessage: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
           </div>
         </div>
 
         {/* 2. Page Header & Share Caption */}
-        <div className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8">
+        <div className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8">
           <h3 className="text-lg font-medium tracking-[-0.02em]">
             2. Page Header, Year Label &amp; Share Caption
           </h3>
@@ -606,7 +649,7 @@ export default function AdminWrappedTab({
                 maxLength={L.yearLabel.max}
                 value={form.yearLabel}
                 onChange={(e) => setForm((f) => ({ ...f, yearLabel: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -618,7 +661,7 @@ export default function AdminWrappedTab({
                 maxLength={L.eyebrow.max}
                 value={form.eyebrow}
                 onChange={(e) => setForm((f) => ({ ...f, eyebrow: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -630,7 +673,7 @@ export default function AdminWrappedTab({
                 maxLength={L.pageTitle.max}
                 value={form.pageTitle}
                 onChange={(e) => setForm((f) => ({ ...f, pageTitle: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -642,7 +685,7 @@ export default function AdminWrappedTab({
                 maxLength={L.pageSubtitle.max}
                 value={form.pageSubtitle}
                 onChange={(e) => setForm((f) => ({ ...f, pageSubtitle: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -656,14 +699,14 @@ export default function AdminWrappedTab({
                 maxLength={L.shareCaption.max}
                 value={form.shareCaption}
                 onChange={(e) => setForm((f) => ({ ...f, shareCaption: e.target.value }))}
-                className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 text-[14px]"
+                className="mt-1.5 w-full rounded-lg border border-black/10 bg-[#f7f6f4] p-3.5 text-base sm:text-[14px]"
               />
             </div>
           </div>
         </div>
 
         {/* 3. Numbers & Audience Metrics */}
-        <div className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8">
+        <div className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8">
           <h3 className="text-lg font-medium tracking-[-0.02em]">
             3. Numbers &amp; Community Breakdown
           </h3>
@@ -679,7 +722,7 @@ export default function AdminWrappedTab({
                 onChange={(e) =>
                   setForm((f) => ({ ...f, audienceCount: Number(e.target.value) || 0 }))
                 }
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-base sm:text-[14px]"
               />
             </div>
 
@@ -690,7 +733,7 @@ export default function AdminWrappedTab({
                 maxLength={L.prefixSuffixMax}
                 value={form.audiencePrefix}
                 onChange={(e) => setForm((f) => ({ ...f, audiencePrefix: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-base sm:text-[14px]"
               />
             </div>
 
@@ -701,7 +744,7 @@ export default function AdminWrappedTab({
                 maxLength={L.prefixSuffixMax}
                 value={form.audienceSuffix}
                 onChange={(e) => setForm((f) => ({ ...f, audienceSuffix: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-base sm:text-[14px]"
               />
             </div>
 
@@ -713,7 +756,7 @@ export default function AdminWrappedTab({
                 maxLength={L.audienceCaption.max}
                 value={form.audienceCaption}
                 onChange={(e) => setForm((f) => ({ ...f, audienceCaption: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -728,7 +771,7 @@ export default function AdminWrappedTab({
                 onChange={(e) =>
                   setForm((f) => ({ ...f, returningCount: Number(e.target.value) || 0 }))
                 }
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-base sm:text-[14px]"
               />
             </div>
 
@@ -739,7 +782,7 @@ export default function AdminWrappedTab({
                 maxLength={L.prefixSuffixMax}
                 value={form.returningSuffix}
                 onChange={(e) => setForm((f) => ({ ...f, returningSuffix: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-base sm:text-[14px]"
               />
             </div>
 
@@ -751,7 +794,7 @@ export default function AdminWrappedTab({
                 maxLength={L.returningCaption.max}
                 value={form.returningCaption}
                 onChange={(e) => setForm((f) => ({ ...f, returningCaption: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -766,7 +809,7 @@ export default function AdminWrappedTab({
                 onChange={(e) =>
                   setForm((f) => ({ ...f, communityTotal: Number(e.target.value) || 0 }))
                 }
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-base sm:text-[14px]"
               />
             </div>
 
@@ -781,7 +824,7 @@ export default function AdminWrappedTab({
                 onChange={(e) =>
                   setForm((f) => ({ ...f, studentsCount: Number(e.target.value) || 0 }))
                 }
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-base sm:text-[14px]"
               />
             </div>
 
@@ -796,7 +839,7 @@ export default function AdminWrappedTab({
                 onChange={(e) =>
                   setForm((f) => ({ ...f, professionalsCount: Number(e.target.value) || 0 }))
                 }
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-base sm:text-[14px]"
               />
             </div>
 
@@ -808,7 +851,7 @@ export default function AdminWrappedTab({
                 maxLength={L.communityCaption.max}
                 value={form.communityCaption}
                 onChange={(e) => setForm((f) => ({ ...f, communityCaption: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -820,7 +863,7 @@ export default function AdminWrappedTab({
                 maxLength={L.discoveryHighlight.max}
                 value={form.discoveryHighlight}
                 onChange={(e) => setForm((f) => ({ ...f, discoveryHighlight: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -832,7 +875,7 @@ export default function AdminWrappedTab({
                 maxLength={L.discoveryBody.max}
                 value={form.discoveryBody}
                 onChange={(e) => setForm((f) => ({ ...f, discoveryBody: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -855,7 +898,7 @@ export default function AdminWrappedTab({
         </div>
 
         {/* 4. Session Highlights, Locations & Custom Data */}
-        <div className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8">
+        <div className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8">
           <h3 className="text-lg font-medium tracking-[-0.02em]">
             4. Session Highlights, Locations &amp; Custom Milestones
           </h3>
@@ -871,7 +914,7 @@ export default function AdminWrappedTab({
                 type="button"
                 disabled={form.sessionHighlights.length >= L.maxSessionHighlights}
                 onClick={addHighlightRow}
-                className="label-mono inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-black/12 bg-[#f7f6f4] px-3 py-1.5 text-[#111111] hover:bg-white disabled:opacity-40"
+                className="label-mono inline-flex min-h-[38px] cursor-pointer items-center gap-1.5 rounded-lg border border-black/12 bg-[#f7f6f4] px-3 py-1.5 text-[#111111] hover:bg-white disabled:opacity-40"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Add Session</span>
@@ -886,7 +929,7 @@ export default function AdminWrappedTab({
                 maxLength={L.sessionsHeading.max}
                 value={form.sessionsHeading}
                 onChange={(e) => setForm((f) => ({ ...f, sessionsHeading: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -898,21 +941,21 @@ export default function AdminWrappedTab({
                     value={row.date}
                     onChange={(e) => updateHighlightRow(idx, e.target.value, row.title)}
                     placeholder="Apr 18"
-                    className="h-10 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3 font-mono text-[13px] sm:w-32"
+                    className="h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3 font-mono text-base sm:h-10 sm:w-32 sm:text-[13px]"
                   />
                   <input
                     type="text"
                     value={row.title}
                     onChange={(e) => updateHighlightRow(idx, row.date, e.target.value)}
                     placeholder="Session title & speaker"
-                    className="h-10 flex-1 rounded-lg border border-black/10 bg-[#f7f6f4] px-3 text-[13.5px]"
+                    className="h-11 flex-1 rounded-lg border border-black/10 bg-[#f7f6f4] px-3 text-base sm:h-10 sm:text-[13.5px]"
                   />
                   <button
                     type="button"
                     disabled={parsedHighlights.length <= 1}
                     onClick={() => removeHighlightRow(idx)}
                     aria-label="Remove highlight"
-                    className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-black/10 bg-[#f7f6f4] text-[#111111]/60 hover:text-[#fe3619] disabled:opacity-35"
+                    className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-black/10 bg-[#f7f6f4] text-[#111111]/60 hover:text-[#fe3619] disabled:opacity-35 sm:h-10 sm:w-10"
                   >
                     <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -932,7 +975,7 @@ export default function AdminWrappedTab({
                   maxLength={L.locationsLead.max}
                   value={form.locationsLead}
                   onChange={(e) => setForm((f) => ({ ...f, locationsLead: e.target.value }))}
-                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                 />
               </div>
               <div>
@@ -943,7 +986,7 @@ export default function AdminWrappedTab({
                   maxLength={L.locationPrimary.max}
                   value={form.locationPrimary}
                   onChange={(e) => setForm((f) => ({ ...f, locationPrimary: e.target.value }))}
-                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                 />
               </div>
               <div>
@@ -953,7 +996,7 @@ export default function AdminWrappedTab({
                   maxLength={L.locationSecondary.max}
                   value={form.locationSecondary}
                   onChange={(e) => setForm((f) => ({ ...f, locationSecondary: e.target.value }))}
-                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                  className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
                 />
               </div>
             </div>
@@ -985,7 +1028,7 @@ export default function AdminWrappedTab({
                   </span>
                 ))}
               </div>
-              <div className="mt-2.5 flex gap-2">
+              <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
                 <input
                   type="text"
                   value={newCity}
@@ -998,13 +1041,13 @@ export default function AdminWrappedTab({
                     }
                   }}
                   placeholder="Add city (e.g. Abuja, Rivers, Enugu)"
-                  className="h-10 max-w-xs flex-1 rounded-lg border border-black/10 bg-[#f7f6f4] px-3 text-[13.5px]"
+                  className="h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3 text-base sm:max-w-xs sm:flex-1 sm:text-[13.5px]"
                 />
                 <button
                   type="button"
                   onClick={addExtraCity}
                   disabled={form.extraLocations.length >= L.maxExtraLocations}
-                  className="label-mono cursor-pointer rounded-lg border border-black/12 bg-[#f7f6f4] px-4 text-[#111111] hover:bg-white disabled:opacity-40"
+                  className="label-mono h-11 shrink-0 cursor-pointer rounded-lg border border-black/12 bg-[#f7f6f4] px-4 text-[#111111] hover:bg-white disabled:opacity-40"
                 >
                   Add City
                 </button>
@@ -1028,7 +1071,7 @@ export default function AdminWrappedTab({
                 type="button"
                 disabled={form.customStats.length >= L.maxCustomStats}
                 onClick={addCustomStatRow}
-                className="label-mono inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-black/12 bg-[#f7f6f4] px-3 py-1.5 text-[#111111] hover:bg-white disabled:opacity-40"
+                className="label-mono inline-flex min-h-[38px] cursor-pointer items-center gap-1.5 rounded-lg border border-black/12 bg-[#f7f6f4] px-3 py-1.5 text-[#111111] hover:bg-white disabled:opacity-40"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Add Milestone</span>
@@ -1038,7 +1081,10 @@ export default function AdminWrappedTab({
             {parsedCustomStats.length > 0 && (
               <div className="mt-3 space-y-2.5">
                 {parsedCustomStats.map((row, idx) => (
-                  <div key={idx} className="grid gap-2 sm:grid-cols-[120px_180px_1fr_40px]">
+                  <div
+                    key={idx}
+                    className="grid gap-2 rounded-xl border border-black/[0.08] bg-[#f7f6f4] p-3 sm:grid-cols-2 sm:border-0 sm:bg-transparent sm:p-0 lg:grid-cols-[120px_180px_1fr_40px]"
+                  >
                     <input
                       type="text"
                       value={row.value}
@@ -1046,7 +1092,7 @@ export default function AdminWrappedTab({
                         updateCustomStatRow(idx, e.target.value, row.label, row.detail)
                       }
                       placeholder="12"
-                      className="h-10 rounded-lg border border-black/10 bg-[#f7f6f4] px-3 font-mono text-[13px]"
+                      className="h-11 w-full rounded-lg border border-black/10 bg-white px-3 font-mono text-base sm:h-10 sm:bg-[#f7f6f4] sm:text-[13px]"
                     />
                     <input
                       type="text"
@@ -1055,7 +1101,7 @@ export default function AdminWrappedTab({
                         updateCustomStatRow(idx, row.value, e.target.value, row.detail)
                       }
                       placeholder="Live Sessions"
-                      className="h-10 rounded-lg border border-black/10 bg-[#f7f6f4] px-3 text-[13.5px]"
+                      className="h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-base sm:h-10 sm:bg-[#f7f6f4] sm:text-[13.5px]"
                     />
                     <input
                       type="text"
@@ -1064,13 +1110,13 @@ export default function AdminWrappedTab({
                         updateCustomStatRow(idx, row.value, row.label, e.target.value)
                       }
                       placeholder="Optional short detail"
-                      className="h-10 rounded-lg border border-black/10 bg-[#f7f6f4] px-3 text-[13.5px]"
+                      className="h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-base sm:col-span-2 sm:h-10 sm:bg-[#f7f6f4] sm:text-[13.5px] lg:col-span-1"
                     />
                     <button
                       type="button"
                       onClick={() => removeCustomStatRow(idx)}
                       aria-label="Remove milestone"
-                      className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-black/10 bg-[#f7f6f4] text-[#111111]/60 hover:text-[#fe3619]"
+                      className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-black/10 bg-white text-[#111111]/60 hover:text-[#fe3619] sm:h-10 sm:w-10 sm:bg-[#f7f6f4]"
                     >
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </button>
@@ -1082,7 +1128,7 @@ export default function AdminWrappedTab({
         </div>
 
         {/* 5. Slide Editorial Copy */}
-        <div className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-8">
+        <div className="rounded-2xl border border-black/[0.09] bg-[#efeeec] p-4 sm:p-8">
           <h3 className="text-lg font-medium tracking-[-0.02em]">
             5. Editorial Slide Copy (Cover, Thesis, Spotlight, Closing)
           </h3>
@@ -1095,7 +1141,7 @@ export default function AdminWrappedTab({
                 maxLength={L.coverTitle.max}
                 value={form.coverTitle}
                 onChange={(e) => setForm((f) => ({ ...f, coverTitle: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -1109,7 +1155,7 @@ export default function AdminWrappedTab({
                 maxLength={L.coverSubtitle.max}
                 value={form.coverSubtitle}
                 onChange={(e) => setForm((f) => ({ ...f, coverSubtitle: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -1121,7 +1167,7 @@ export default function AdminWrappedTab({
                 maxLength={L.startLead.max}
                 value={form.startLead}
                 onChange={(e) => setForm((f) => ({ ...f, startLead: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -1135,7 +1181,7 @@ export default function AdminWrappedTab({
                 maxLength={L.startStatement.max}
                 value={form.startStatement}
                 onChange={(e) => setForm((f) => ({ ...f, startStatement: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -1149,7 +1195,7 @@ export default function AdminWrappedTab({
                 maxLength={L.awarenessDate.max}
                 value={form.awarenessDate}
                 onChange={(e) => setForm((f) => ({ ...f, awarenessDate: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 font-mono text-base sm:text-[14px]"
               />
             </div>
 
@@ -1165,7 +1211,7 @@ export default function AdminWrappedTab({
                 onChange={(e) =>
                   setForm((f) => ({ ...f, awarenessProgramTitle: e.target.value }))
                 }
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -1179,7 +1225,7 @@ export default function AdminWrappedTab({
                 maxLength={L.awarenessPrefix.max}
                 value={form.awarenessPrefix}
                 onChange={(e) => setForm((f) => ({ ...f, awarenessPrefix: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -1193,7 +1239,7 @@ export default function AdminWrappedTab({
                 maxLength={L.awarenessSpeaker.max}
                 value={form.awarenessSpeaker}
                 onChange={(e) => setForm((f) => ({ ...f, awarenessSpeaker: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -1207,7 +1253,7 @@ export default function AdminWrappedTab({
                 maxLength={L.welcomeStatement.max}
                 value={form.welcomeStatement}
                 onChange={(e) => setForm((f) => ({ ...f, welcomeStatement: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -1221,7 +1267,7 @@ export default function AdminWrappedTab({
                 maxLength={L.thankYouStatement.max}
                 value={form.thankYouStatement}
                 onChange={(e) => setForm((f) => ({ ...f, thankYouStatement: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -1235,7 +1281,7 @@ export default function AdminWrappedTab({
                 maxLength={L.closingStatement.max}
                 value={form.closingStatement}
                 onChange={(e) => setForm((f) => ({ ...f, closingStatement: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
 
@@ -1249,7 +1295,7 @@ export default function AdminWrappedTab({
                 maxLength={L.closingCtaLabel.max}
                 value={form.closingCtaLabel}
                 onChange={(e) => setForm((f) => ({ ...f, closingCtaLabel: e.target.value }))}
-                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-[14px]"
+                className="mt-1.5 h-11 w-full rounded-lg border border-black/10 bg-[#f7f6f4] px-3.5 text-base sm:text-[14px]"
               />
             </div>
           </div>

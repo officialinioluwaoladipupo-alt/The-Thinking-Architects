@@ -1,14 +1,18 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { EditorialReveal, SplitHeadlineReveal } from "../components/MotionPrimitives";
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f7f6f4] px-6 py-20 text-[#111111]">
-      <div className="w-full max-w-[580px] rounded-2xl border border-black/[0.09] bg-[#efeeec] p-8 sm:p-10">
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f6f4] px-4 py-16 text-[#111111] sm:px-6 sm:py-20">
+      <EditorialReveal
+        trigger="mount"
+        className="w-full max-w-[580px] rounded-2xl border border-black/[0.09] bg-[#efeeec] p-6 sm:p-10"
+      >
         <p className="label-mono text-[#fe3619]">404 · Page Not Found</p>
 
         <h1 className="mt-3 text-[clamp(1.75rem,3.4vw,2.4rem)] font-medium leading-[1.12] tracking-[-0.03em]">
-          This page doesn&apos;t exist.
+          <SplitHeadlineReveal text="This page doesn't exist." delay={0.04} />
         </h1>
 
         <p className="mt-3 text-[15px] leading-[1.6] text-[#111111]/75">
@@ -32,7 +36,7 @@ export default function NotFound() {
             <span>See Think Sessions</span>
           </Link>
         </div>
-      </div>
+      </EditorialReveal>
     </main>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowUpRight, Mail, Mic } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -11,9 +12,16 @@ import {
 import { CONTACT_EMAIL, triggerTallyPopup } from "../lib/tally";
 import FirestoreErrorBoundary from "./FirestoreErrorBoundary";
 import JoinModal from "./JoinModal";
+import {
+  EDITORIAL_EASE,
+  EditorialReveal,
+  SplitHeadlineReveal,
+  SpotlightSurface,
+} from "./MotionPrimitives";
 import PitchModal from "./PitchModal";
 import SiteFooter from "./SiteFooter";
 import SiteHeader from "./SiteHeader";
+import { MagneticAction } from "./WrappedPrimitives";
 
 const topics = [
   {
@@ -36,6 +44,7 @@ const topics = [
 ];
 
 function ContactPageInner() {
+  const prefersReduced = useReducedMotion();
   const [joinOpen, setJoinOpen] = useState(false);
   const [pitchOpen, setPitchOpen] = useState(false);
   const [pitchMode, setPitchMode] = useState<PitchType>("speaker");
@@ -83,8 +92,8 @@ function ContactPageInner() {
     <>
       <SiteHeader onOpenJoin={handleOpenJoin} />
 
-      <main className="min-h-screen bg-[#f7f6f4] pt-32 pb-24 text-[#111111]">
-        <div className="mx-auto max-w-[1040px] px-6">
+      <main className="min-h-screen bg-[#f7f6f4] pt-24 pb-16 text-[#111111] sm:pt-32 sm:pb-24">
+        <div className="mx-auto max-w-[1040px] px-4 sm:px-6">
           <Link
             href="/"
             className="label-mono inline-flex items-center gap-2 text-[#111111]/60 transition-colors hover:text-[#111111]"
@@ -94,39 +103,46 @@ function ContactPageInner() {
           </Link>
 
           <header className="mt-8 border-b border-black/[0.09] pb-12">
-            <p className="label-mono text-[#fe3619]">Contact</p>
+            <EditorialReveal trigger="mount">
+              <p className="label-mono text-[#fe3619]">Contact</p>
+            </EditorialReveal>
             <h1
               className="mt-3 max-w-[18ch] text-[clamp(2.2rem,5vw,4.35rem)] font-medium leading-[1.04] tracking-[-0.035em]"
               style={{ textWrap: "balance" }}
             >
-              Get in touch.
+              <SplitHeadlineReveal text="Get in touch." delay={0.04} />
             </h1>
-            <p className="mt-6 max-w-[58ch] text-[clamp(1.04rem,1.3vw,1.2rem)] leading-[1.6] text-[#111111]/78">
-              Questions, ideas, or something to share? Pitch a Think Session topic directly or email
-              us and we&apos;ll reply as soon as we can.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => openPitch("speaker")}
-                className="label-mono group inline-flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-xl bg-[#fe3619] px-7 py-3.5 text-[12px] text-white transition-opacity hover:opacity-90"
-              >
-                <Mic className="h-4 w-4" aria-hidden="true" />
-                <span>Pitch a topic or speak</span>
-                <ArrowUpRight
-                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                  aria-hidden="true"
-                />
-              </button>
+            <EditorialReveal trigger="mount" delay={0.14}>
+              <p className="mt-6 max-w-[58ch] text-[clamp(1.04rem,1.3vw,1.2rem)] leading-[1.6] text-[#111111]/78">
+                Questions, ideas, or something to share? Pitch a Think Session topic directly or email
+                us and we&apos;ll reply as soon as we can.
+              </p>
+            </EditorialReveal>
+            <EditorialReveal trigger="mount" delay={0.2} className="mt-8 flex flex-wrap items-center gap-3">
+              <MagneticAction strength={0.14}>
+                <motion.button
+                  type="button"
+                  onClick={() => openPitch("speaker")}
+                  whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+                  className="label-mono group inline-flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-xl bg-[#fe3619] px-7 py-3.5 text-[12px] text-white transition-opacity hover:opacity-90"
+                >
+                  <Mic className="h-4 w-4" aria-hidden="true" />
+                  <span>Pitch a topic or speak</span>
+                  <ArrowUpRight
+                    className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                    aria-hidden="true"
+                  />
+                </motion.button>
+              </MagneticAction>
 
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="label-mono inline-flex min-h-[52px] items-center gap-2.5 rounded-xl border border-black/12 bg-[#efeeec] px-6 py-3.5 text-[12px] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"
+                className="label-mono inline-flex max-w-full min-h-[52px] items-center gap-2.5 rounded-xl border border-black/12 bg-[#efeeec] px-4 py-3.5 text-[10.5px] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white sm:px-6 sm:text-[12px]"
               >
-                <Mail className="h-4 w-4" aria-hidden="true" />
-                <span>{CONTACT_EMAIL}</span>
+                <Mail className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="break-all sm:break-normal">{CONTACT_EMAIL}</span>
               </a>
-            </div>
+            </EditorialReveal>
           </header>
 
           {/* What to write to us about + Response & Data */}
@@ -139,8 +155,15 @@ function ContactPageInner() {
 
               <ul className="mt-6 divide-y divide-black/[0.08] border-y border-black/[0.08]">
                 {topics.map((item, idx) => (
-                  <li key={item.title} className="flex items-start justify-between gap-4 py-4">
-                    <div className="flex items-start gap-4">
+                  <motion.li
+                    key={item.title}
+                    initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.2 }}
+                    transition={{ duration: 0.36, delay: idx * 0.05, ease: EDITORIAL_EASE }}
+                    className="flex flex-col justify-between gap-3 py-4 sm:flex-row sm:items-start sm:gap-4"
+                  >
+                    <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                       <span className="font-mono text-[11px] font-bold tabular-nums text-[#fe3619]">
                         0{idx + 1}
                       </span>
@@ -150,149 +173,161 @@ function ContactPageInner() {
                       </p>
                     </div>
                     {item.isPitch && (
-                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <div className="flex shrink-0 flex-wrap items-center gap-2 pl-7 sm:pl-0">
                         <button
                           type="button"
                           onClick={() => openPitch("topic")}
-                          className="label-mono cursor-pointer rounded-lg border border-black/12 bg-[#efeeec] px-3 py-1.5 text-[11px] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"
+                          className="label-mono min-h-[38px] cursor-pointer rounded-lg border border-black/12 bg-[#efeeec] px-3 py-1.5 text-[11px] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white"
                         >
                           Suggest topic
                         </button>
                         <button
                           type="button"
                           onClick={() => openPitch("speaker")}
-                          className="label-mono cursor-pointer rounded-lg bg-[#fe3619] px-3 py-1.5 text-[11px] text-white transition-opacity hover:opacity-90"
+                          className="label-mono min-h-[38px] cursor-pointer rounded-lg bg-[#fe3619] px-3 py-1.5 text-[11px] text-white transition-opacity hover:opacity-90"
                         >
                           Offer to speak
                         </button>
                       </div>
                     )}
-                  </li>
+                  </motion.li>
                 ))}
               </ul>
             </div>
 
             <div className="space-y-6">
-              <div className="rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-7">
-                <p className="label-mono text-[#fe3619]">Speaker &amp; Topic Intake</p>
-                <p className="mt-3 text-[15.5px] leading-[1.6] text-[#111111]/85">
-                  Have a lesson from practice worth sharing, or a question school never covered?
-                  Submit a short pitch straight to our programming desk.
-                </p>
-                <div className="mt-5 flex flex-wrap gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => openPitch("speaker")}
-                    className="label-mono inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg bg-[#111111] px-4 py-2 text-white transition-opacity hover:opacity-85"
-                  >
-                    <span>Offer to speak</span>
-                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openPitch("topic")}
-                    className="label-mono inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg border border-black/12 bg-[#f7f6f4] px-4 py-2 text-[#111111] transition-colors hover:bg-white"
-                  >
-                    <span>Suggest a topic</span>
-                  </button>
-                </div>
-              </div>
+              <EditorialReveal>
+                <SpotlightSurface
+                  spotlightColor="rgba(254, 54, 25, 0.065)"
+                  className="rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-7"
+                >
+                  <p className="label-mono text-[#fe3619]">Speaker &amp; Topic Intake</p>
+                  <p className="mt-3 text-[15.5px] leading-[1.6] text-[#111111]/85">
+                    Have a lesson from practice worth sharing, or a question school never covered?
+                    Submit a short pitch straight to our programming desk.
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => openPitch("speaker")}
+                      className="label-mono inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg bg-[#111111] px-4 py-2 text-white transition-opacity hover:opacity-85"
+                    >
+                      <span>Offer to speak</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openPitch("topic")}
+                      className="label-mono inline-flex min-h-[42px] cursor-pointer items-center gap-1.5 rounded-lg border border-black/12 bg-[#f7f6f4] px-4 py-2 text-[#111111] transition-colors hover:bg-white"
+                    >
+                      <span>Suggest a topic</span>
+                    </button>
+                  </div>
+                </SpotlightSurface>
+              </EditorialReveal>
 
-              <div className="rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-7">
-                <p className="label-mono text-[#fe3619]">Response &amp; Data</p>
-                <p className="mt-3 text-[15.5px] leading-[1.6] text-[#111111]/85">
-                  We aim to reply within 2 to 5 business days. To have your email deleted, write to{" "}
-                  <a
-                    href={`mailto:${CONTACT_EMAIL}?subject=Delete%20My%20Email`}
-                    className="font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619]"
-                  >
-                    {CONTACT_EMAIL}
-                  </a>
-                  .
-                </p>
-              </div>
+              <EditorialReveal delay={0.08}>
+                <SpotlightSurface
+                  spotlightColor="rgba(17, 17, 17, 0.045)"
+                  className="rounded-[12px] border border-black/[0.08] bg-[#efeeec] p-7"
+                >
+                  <p className="label-mono text-[#fe3619]">Response &amp; Data</p>
+                  <p className="mt-3 text-[15.5px] leading-[1.6] text-[#111111]/85">
+                    We aim to reply within 2 to 5 business days. To have your email deleted, write to{" "}
+                    <a
+                      href={`mailto:${CONTACT_EMAIL}?subject=Delete%20My%20Email`}
+                      className="break-all font-medium text-[#111111] underline underline-offset-4 hover:text-[#fe3619] sm:break-normal"
+                    >
+                      {CONTACT_EMAIL}
+                    </a>
+                    .
+                  </p>
+                </SpotlightSurface>
+              </EditorialReveal>
             </div>
           </section>
 
           {/* Find us */}
-          <section id="find-us" className="mt-14">
-            <p className="label-mono text-[#fe3619]">Channels</p>
-            <h2 className="mt-2.5 text-[clamp(1.5rem,2.5vw,2.1rem)] font-medium leading-[1.15] tracking-[-0.025em]">
-              Find us
-            </h2>
+          <EditorialReveal className="mt-14">
+            <section id="find-us">
+              <p className="label-mono text-[#fe3619]">Channels</p>
+              <h2 className="mt-2.5 text-[clamp(1.5rem,2.5vw,2.1rem)] font-medium leading-[1.15] tracking-[-0.025em]">
+                Find us
+              </h2>
 
-            <div className="mt-6 grid gap-px border border-black/[0.09] bg-black/[0.09] sm:grid-cols-2 lg:grid-cols-4">
-              <a
-                href={instagramHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex flex-col justify-between bg-[#f7f6f4] p-6 transition-colors hover:bg-[#efeeec]"
-              >
-                <span className="label-mono text-[#111111]/55">Instagram</span>
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-[1.1rem] font-medium">@_tta.ng</span>
-                  <ArrowUpRight className="h-4 w-4 text-[#fe3619]" aria-hidden="true" />
-                </div>
-              </a>
-
-              <a
-                href={xHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex flex-col justify-between bg-[#f7f6f4] p-6 transition-colors hover:bg-[#efeeec]"
-              >
-                <span className="label-mono text-[#111111]/55">X</span>
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-[1.1rem] font-medium">@TTA_Africa</span>
-                  <ArrowUpRight className="h-4 w-4 text-[#fe3619]" aria-hidden="true" />
-                </div>
-              </a>
-
-              {linkedinHref ? (
+              <div className="mt-6 grid gap-px border border-black/[0.09] bg-black/[0.09] sm:grid-cols-2 lg:grid-cols-4">
                 <a
-                  href={linkedinHref}
+                  href={instagramHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex flex-col justify-between bg-[#f7f6f4] p-6 transition-colors hover:bg-[#efeeec]"
+                  className="group flex flex-col justify-between bg-[#f7f6f4] p-5 transition-colors hover:bg-[#efeeec] sm:p-6"
                 >
-                  <span className="label-mono text-[#111111]/55">LinkedIn</span>
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-[1.1rem] font-medium">The Thinking Architects</span>
-                    <ArrowUpRight className="h-4 w-4 text-[#fe3619]" aria-hidden="true" />
+                  <span className="label-mono text-[#111111]/55">Instagram</span>
+                  <div className="mt-4 flex items-center justify-between gap-2">
+                    <span className="text-[1.1rem] font-medium">@_tta.ng</span>
+                    <ArrowUpRight className="h-4 w-4 shrink-0 text-[#fe3619] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
                   </div>
                 </a>
-              ) : (
-                <div className="flex flex-col justify-between bg-[#f7f6f4] p-6">
-                  <span className="label-mono text-[#111111]/55">LinkedIn</span>
-                  <p className="mt-4 text-[14px] text-[#111111]/60">
-                    The Thinking Architects (link added when published)
-                  </p>
-                </div>
-              )}
 
-              {youtubeHref ? (
                 <a
-                  href={youtubeHref}
+                  href={xHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex flex-col justify-between bg-[#f7f6f4] p-6 transition-colors hover:bg-[#efeeec]"
+                  className="group flex flex-col justify-between bg-[#f7f6f4] p-5 transition-colors hover:bg-[#efeeec] sm:p-6"
                 >
-                  <span className="label-mono text-[#111111]/55">YouTube</span>
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-[1.1rem] font-medium">Think Sessions</span>
-                    <ArrowUpRight className="h-4 w-4 text-[#fe3619]" aria-hidden="true" />
+                  <span className="label-mono text-[#111111]/55">X</span>
+                  <div className="mt-4 flex items-center justify-between gap-2">
+                    <span className="text-[1.1rem] font-medium">@TTA_Africa</span>
+                    <ArrowUpRight className="h-4 w-4 shrink-0 text-[#fe3619] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
                   </div>
                 </a>
-              ) : (
-                <div className="flex flex-col justify-between bg-[#f7f6f4] p-6">
-                  <span className="label-mono text-[#111111]/55">YouTube</span>
-                  <p className="mt-4 text-[14px] text-[#111111]/60">
-                    Think Sessions recordings (channel link added when published)
-                  </p>
-                </div>
-              )}
-            </div>
-          </section>
+
+                {linkedinHref ? (
+                  <a
+                    href={linkedinHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex flex-col justify-between bg-[#f7f6f4] p-5 transition-colors hover:bg-[#efeeec] sm:p-6"
+                  >
+                    <span className="label-mono text-[#111111]/55">LinkedIn</span>
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <span className="text-[1.1rem] font-medium">The Thinking Architects</span>
+                      <ArrowUpRight className="h-4 w-4 shrink-0 text-[#fe3619] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
+                    </div>
+                  </a>
+                ) : (
+                  <div className="flex flex-col justify-between bg-[#f7f6f4] p-5 sm:p-6">
+                    <span className="label-mono text-[#111111]/55">LinkedIn</span>
+                    <p className="mt-4 text-[14px] text-[#111111]/60">
+                      The Thinking Architects (link added when published)
+                    </p>
+                  </div>
+                )}
+
+                {youtubeHref ? (
+                  <a
+                    href={youtubeHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex flex-col justify-between bg-[#f7f6f4] p-5 transition-colors hover:bg-[#efeeec] sm:p-6"
+                  >
+                    <span className="label-mono text-[#111111]/55">YouTube</span>
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <span className="text-[1.1rem] font-medium">Think Sessions</span>
+                      <ArrowUpRight className="h-4 w-4 shrink-0 text-[#fe3619] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
+                    </div>
+                  </a>
+                ) : (
+                  <div className="flex flex-col justify-between bg-[#f7f6f4] p-5 sm:p-6">
+                    <span className="label-mono text-[#111111]/55">YouTube</span>
+                    <p className="mt-4 text-[14px] text-[#111111]/60">
+                      Think Sessions recordings (channel link added when published)
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
+          </EditorialReveal>
         </div>
       </main>
 

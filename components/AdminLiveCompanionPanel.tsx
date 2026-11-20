@@ -11,6 +11,7 @@ import {
   Square,
   Trash2,
 } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
@@ -28,6 +29,7 @@ import {
   type SessionQuestionRecord,
 } from "../lib/firebaseContent";
 import { LiveElapsedClock } from "./LiveElapsedClock";
+import { EDITORIAL_EASE } from "./MotionPrimitives";
 
 type AdminLiveCompanionPanelProps = {
   primarySessions: FirestoreSessionRecord[];
@@ -42,6 +44,7 @@ export default function AdminLiveCompanionPanel({
   onToast,
   onError,
 }: AdminLiveCompanionPanelProps) {
+  const prefersReduced = useReducedMotion();
   const [fallbackPublished, setFallbackPublished] = useState<FirestoreSessionRecord[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [roomUrlInput, setRoomUrlInput] = useState("");
@@ -191,7 +194,7 @@ export default function AdminLiveCompanionPanel({
 
   return (
     <div
-      className={`mt-6 rounded-2xl border p-6 sm:p-7 ${
+      className={`mt-6 rounded-2xl border p-4 sm:p-7 ${
         liveState.isLive
           ? "border-black/20 bg-[#111111] text-[#f7f6f4]"
           : "border-black/[0.09] bg-[#efeeec] text-[#111111]"
@@ -246,10 +249,11 @@ export default function AdminLiveCompanionPanel({
             </Link>
           )}
 
-          <button
+          <motion.button
             type="button"
             disabled={savingLive || (!liveState.isLive && !selectedSession)}
             onClick={handleToggleLive}
+            whileTap={prefersReduced ? undefined : { scale: 0.97 }}
             className={`label-mono inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-5 py-2.5 text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${
               liveState.isLive ? "bg-[#fe3619]" : "bg-[#111111]"
             }`}
@@ -265,7 +269,7 @@ export default function AdminLiveCompanionPanel({
                 <span>{savingLive ? "Starting..." : "Session is LIVE Now"}</span>
               </>
             )}
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -285,7 +289,7 @@ export default function AdminLiveCompanionPanel({
             value={selectedSession?.id ?? ""}
             onChange={(e) => setSelectedSessionId(e.target.value)}
             disabled={liveState.isLive}
-            className={`mt-1.5 h-11 w-full rounded-lg border px-3 text-[13.5px] disabled:opacity-65 ${
+            className={`mt-1.5 h-11 w-full rounded-lg border px-3 text-base disabled:opacity-65 sm:text-[13.5px] ${
               liveState.isLive
                 ? "border-white/15 bg-white/10 text-white"
                 : "border-black/10 bg-[#f7f6f4] text-[#111111]"
@@ -318,7 +322,7 @@ export default function AdminLiveCompanionPanel({
             value={roomUrlInput}
             onChange={(e) => setRoomUrlInput(e.target.value)}
             placeholder="https://meet.google.com/..."
-            className={`mt-1.5 h-11 w-full rounded-lg border px-3.5 text-[13.5px] ${
+            className={`mt-1.5 h-11 w-full rounded-lg border px-3.5 text-base sm:text-[13.5px] ${
               liveState.isLive
                 ? "border-white/15 bg-white/10 text-white placeholder:text-white/40"
                 : "border-black/10 bg-[#f7f6f4] text-[#111111] placeholder:text-[#111111]/40"
@@ -384,100 +388,107 @@ export default function AdminLiveCompanionPanel({
             </p>
           ) : (
             <ul className="mt-4 divide-y divide-current/10">
-              {questions.map((q) => (
-                <li
-                  key={q.id}
-                  className="flex flex-col justify-between gap-3 py-3.5 sm:flex-row sm:items-center"
-                >
-                  <div className="max-w-[70ch]">
-                    <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.06em]">
-                      <span
-                        className={
-                          q.status === "on_air"
-                            ? "text-[#fe3619]"
+              <AnimatePresence initial={false}>
+                {questions.map((q) => (
+                  <motion.li
+                    key={q.id}
+                    layout={!prefersReduced}
+                    initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={prefersReduced ? undefined : { opacity: 0 }}
+                    transition={{ duration: 0.22, ease: EDITORIAL_EASE }}
+                    className="flex flex-col justify-between gap-3 py-3.5 sm:flex-row sm:items-center"
+                  >
+                    <div className="min-w-0 max-w-[70ch]">
+                      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.06em]">
+                        <span
+                          className={
+                            q.status === "on_air"
+                              ? "text-[#fe3619]"
+                              : q.status === "answered"
+                                ? "opacity-45"
+                                : ""
+                          }
+                        >
+                          {q.status === "on_air"
+                            ? "On Air Now"
                             : q.status === "answered"
-                              ? "opacity-45"
-                              : ""
-                        }
-                      >
-                        {q.status === "on_air"
-                          ? "On Air Now"
-                          : q.status === "answered"
-                            ? "Answered"
-                            : "Queued"}
-                      </span>
-                      <span className="opacity-35" aria-hidden="true">·</span>
-                      <span className="tabular-nums">{q.upvotes} upvotes</span>
-                      <span className="opacity-35" aria-hidden="true">·</span>
-                      <span className="font-normal opacity-75">
-                        {q.authorName}
-                        {q.authorStage ? ` (${q.authorStage})` : ""}
-                      </span>
+                              ? "Answered"
+                              : "Queued"}
+                        </span>
+                        <span className="opacity-35" aria-hidden="true">·</span>
+                        <span className="tabular-nums">{q.upvotes} upvotes</span>
+                        <span className="opacity-35" aria-hidden="true">·</span>
+                        <span className="font-normal opacity-75">
+                          {q.authorName}
+                          {q.authorStage ? ` (${q.authorStage})` : ""}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 break-words text-[14.5px] leading-snug">{q.questionText}</p>
                     </div>
-                    <p className="mt-1.5 text-[14.5px] leading-snug">{q.questionText}</p>
-                  </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                    {q.status !== "on_air" && (
+                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                      {q.status !== "on_air" && (
+                        <button
+                          type="button"
+                          disabled={moderatingId === q.id}
+                          onClick={() => handleQuestionStatus(q.id, "on_air")}
+                          className="label-mono inline-flex min-h-[36px] cursor-pointer items-center gap-1 rounded-lg bg-[#fe3619] px-3 py-1.5 text-[11px] text-white transition-opacity hover:opacity-90"
+                        >
+                          <Mic className="h-3 w-3" aria-hidden="true" />
+                          <span>Pick On-Air</span>
+                        </button>
+                      )}
+
+                      {q.status !== "answered" && (
+                        <button
+                          type="button"
+                          disabled={moderatingId === q.id}
+                          onClick={() => handleQuestionStatus(q.id, "answered")}
+                          className={`label-mono inline-flex min-h-[36px] cursor-pointer items-center gap-1 rounded-lg border px-3 py-1.5 text-[11px] ${
+                            liveState.isLive
+                              ? "border-white/20 text-white hover:bg-white/10"
+                              : "border-black/12 bg-white text-[#111111] hover:bg-[#efeeec]"
+                          }`}
+                        >
+                          <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                          <span>Answered</span>
+                        </button>
+                      )}
+
+                      {q.status !== "queued" && (
+                        <button
+                          type="button"
+                          disabled={moderatingId === q.id}
+                          onClick={() => handleQuestionStatus(q.id, "queued")}
+                          className={`label-mono inline-flex min-h-[36px] cursor-pointer items-center gap-1 rounded-lg border px-3 py-1.5 text-[11px] ${
+                            liveState.isLive
+                              ? "border-white/20 text-white hover:bg-white/10"
+                              : "border-black/12 bg-white text-[#111111] hover:bg-[#efeeec]"
+                          }`}
+                        >
+                          <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                          <span>Queue</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         disabled={moderatingId === q.id}
-                        onClick={() => handleQuestionStatus(q.id, "on_air")}
-                        className="label-mono inline-flex min-h-[36px] cursor-pointer items-center gap-1 rounded-lg bg-[#fe3619] px-3 py-1.5 text-[11px] text-white transition-opacity hover:opacity-90"
-                      >
-                        <Mic className="h-3 w-3" aria-hidden="true" />
-                        <span>Pick On-Air</span>
-                      </button>
-                    )}
-
-                    {q.status !== "answered" && (
-                      <button
-                        type="button"
-                        disabled={moderatingId === q.id}
-                        onClick={() => handleQuestionStatus(q.id, "answered")}
-                        className={`label-mono inline-flex min-h-[36px] cursor-pointer items-center gap-1 rounded-lg border px-3 py-1.5 text-[11px] ${
+                        onClick={() => handleDeleteQuestion(q.id)}
+                        aria-label="Delete question"
+                        className={`inline-flex h-[36px] w-[36px] cursor-pointer items-center justify-center rounded-lg border ${
                           liveState.isLive
-                            ? "border-white/20 text-white hover:bg-white/10"
-                            : "border-black/12 bg-white text-[#111111] hover:bg-[#efeeec]"
+                            ? "border-white/15 text-white/70 hover:border-[#fe3619] hover:text-[#fe3619]"
+                            : "border-black/12 bg-white text-[#111111]/60 hover:border-[#fe3619] hover:text-[#fe3619]"
                         }`}
                       >
-                        <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                        <span>Answered</span>
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
-                    )}
-
-                    {q.status !== "queued" && (
-                      <button
-                        type="button"
-                        disabled={moderatingId === q.id}
-                        onClick={() => handleQuestionStatus(q.id, "queued")}
-                        className={`label-mono inline-flex min-h-[36px] cursor-pointer items-center gap-1 rounded-lg border px-3 py-1.5 text-[11px] ${
-                          liveState.isLive
-                            ? "border-white/20 text-white hover:bg-white/10"
-                            : "border-black/12 bg-white text-[#111111] hover:bg-[#efeeec]"
-                        }`}
-                      >
-                        <RotateCcw className="h-3 w-3" aria-hidden="true" />
-                        <span>Queue</span>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      disabled={moderatingId === q.id}
-                      onClick={() => handleDeleteQuestion(q.id)}
-                      aria-label="Delete question"
-                      className={`inline-flex h-[36px] w-[36px] cursor-pointer items-center justify-center rounded-lg border ${
-                        liveState.isLive
-                          ? "border-white/15 text-white/70 hover:border-[#fe3619] hover:text-[#fe3619]"
-                          : "border-black/12 bg-white text-[#111111]/60 hover:border-[#fe3619] hover:text-[#fe3619]"
-                      }`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </div>
-                </li>
-              ))}
+                    </div>
+                  </motion.li>
+                ))}
+              </AnimatePresence>
             </ul>
           )}
         </div>
