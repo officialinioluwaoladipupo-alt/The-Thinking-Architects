@@ -14,6 +14,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { formatFirestoreErrorMessage } from "../lib/firebase";
 import {
   BLUEPRINT_LIMITS,
+  fetchUserVotedQuestionIds,
   removeSessionQuestion,
   submitSessionQuestion,
   subscribeSessionQuestions,
@@ -23,8 +24,6 @@ import {
   type SessionQuestionRecord,
 } from "../lib/firebaseContent";
 import { useFirebase } from "./FirebaseProvider";
-
-const STORAGE_KEY = "tta_upvoted_questions_v1";
 
 const STAGE_OPTIONS = [
   "",
@@ -43,27 +42,6 @@ type SessionLiveQaQueueProps = {
   qaOpen: boolean;
 };
 
-function loadUpvotedSet(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? new Set(parsed.map(String)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveUpvotedSet(ids: Set<string>) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(ids).slice(-200)));
-  } catch {
-    // Ignore storage quota restrictions
-  }
-}
-
 export function SessionLiveQaQueue({
   sessionId,
   sessionTitle,
@@ -71,11 +49,11 @@ export function SessionLiveQaQueue({
   isLiveNow,
   qaOpen,
 }: SessionLiveQaQueueProps) {
-  const { isAdmin } = useFirebase();
+  const { isAdmin, user } = useFirebase();
   const [questions, setQuestions] = useState<SessionQuestionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
-  const [upvotedIds, setUpvotedIds] = useState<Set<string>>(() => loadUpvotedSet());
+  const [upvotedIds, setUpvotedIds] = useState<Set<string>>(() => new Set());
   const [votingId, setVotingId] = useState<string | null>(null);
   const [moderatingId, setModeratingId] = useState<string | null>(null);
 
@@ -111,6 +89,30 @@ export function SessionLiveQaQueue({
     };
   }, [sessionId]);
 
+  const questionIdsKey = questions.map((q) => q.id).join(",");
+  const currentUid = user?.uid ?? "";
+
+  useEffect(() => {
+    let active = true;
+    if (!currentUid || !questionIdsKey) {
+      return;
+    }
+    const ids = questionIdsKey.split(",").filter(Boolean);
+    void fetchUserVotedQuestionIds(ids).then((serverVoted) => {
+      if (!active || serverVoted.size === 0) return;
+      setUpvotedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of serverVoted) {
+          next.add(id);
+        }
+        return next;
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [currentUid, questionIdsKey]);
+
   const canSubmitOrVote = isLiveNow || qaOpen;
 
   if (!canSubmitOrVote && !loading && questions.length === 0 && !isAdmin) {
@@ -129,16 +131,12 @@ export function SessionLiveQaQueue({
     setSubmitting(true);
 
     try {
-      const createdId = await submitSessionQuestion({
+      await submitSessionQuestion({
         sessionId,
         authorName,
         authorStage,
         questionText,
       });
-      const next = new Set(upvotedIds);
-      next.add(createdId);
-      setUpvotedIds(next);
-      saveUpvotedSet(next);
       setQuestionText("");
       setSubmitSuccess("Your question is now in the live queue.");
       window.setTimeout(() => setSubmitSuccess(""), 4000);
@@ -154,12 +152,14 @@ export function SessionLiveQaQueue({
       return;
     }
     setVotingId(q.id);
+    setErrorMsg("");
     try {
       await upvoteSessionQuestion(q.id);
-      const next = new Set(upvotedIds);
-      next.add(q.id);
-      setUpvotedIds(next);
-      saveUpvotedSet(next);
+      setUpvotedIds((prev) => {
+        const next = new Set(prev);
+        next.add(q.id);
+        return next;
+      });
     } catch (err) {
       setErrorMsg(formatFirestoreErrorMessage(err));
     } finally {

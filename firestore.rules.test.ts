@@ -18,9 +18,15 @@ export type SecurityTestCase = {
     | "communityStats"
     | "adminConfig"
     | "liveState"
-    | "sessionQuestions";
+    | "sessionQuestions"
+    | "sessionQuestions/votes";
   operation: "get" | "list" | "create" | "update" | "delete";
-  actor: "unauthenticated" | "non-admin-verified" | "spoofed-unverified-admin" | "verified-admin";
+  actor:
+    | "unauthenticated"
+    | "anonymous"
+    | "non-admin-verified"
+    | "spoofed-unverified-admin"
+    | "verified-admin";
   payload: Record<string, unknown>;
   expectedResult: "PERMISSION_DENIED";
   enforcedByGate: string;
@@ -189,13 +195,18 @@ export const dirtyDozenSecurityCases: SecurityTestCase[] = [
   },
   {
     id: 17,
-    name: "Session Resource Link Javascript URI Injection",
+    name: "Session Resource Link Javascript URI Injection (Index 2+)",
     collection: "sessions",
     operation: "update",
     actor: "verified-admin",
-    payload: { resources: [{ label: "Template", url: "javascript:alert(1)" }] },
+    payload: {
+      resources: [
+        { label: "Valid", url: "https://example.com/1" },
+        { label: "Evil", url: "javascript:alert(1)" },
+      ],
+    },
     expectedResult: "PERMISSION_DENIED",
-    enforcedByGate: "isValidResourceItem enforces item.url.matches('^https://.*')",
+    enforcedByGate: "isValidResourceList validates every index 0..3 via isValidResourceItem",
   },
   {
     id: 18,
@@ -242,7 +253,7 @@ export const dirtyDozenSecurityCases: SecurityTestCase[] = [
     name: "Session Question Vote-Stuffing (+50 on Upvote)",
     collection: "sessionQuestions",
     operation: "update",
-    actor: "unauthenticated",
+    actor: "anonymous",
     payload: { upvotes: 55 },
     expectedResult: "PERMISSION_DENIED",
     enforcedByGate: "incoming().upvotes == existing().upvotes + 1",
@@ -266,5 +277,35 @@ export const dirtyDozenSecurityCases: SecurityTestCase[] = [
     payload: { limit: 10000 },
     expectedResult: "PERMISSION_DENIED",
     enforcedByGate: "request.query.limit <= 200 || isAdmin()",
+  },
+  {
+    id: 25,
+    name: "Unauthenticated Upvote Without Matching Vote Batch",
+    collection: "sessionQuestions",
+    operation: "update",
+    actor: "unauthenticated",
+    payload: { upvotes: 2 },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "isSignedIn() && !exists(.../votes/$(uid)) && getAfter(.../votes/$(uid))",
+  },
+  {
+    id: 26,
+    name: "Duplicate Upvote Replay by Same Anonymous UID",
+    collection: "sessionQuestions/votes",
+    operation: "create",
+    actor: "anonymous",
+    payload: { voteUid: "same-uid", voterUid: "same-uid" },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "allow update: if false and !exists(.../votes/$(request.auth.uid))",
+  },
+  {
+    id: 27,
+    name: "Spoofed Vote Doc ID for Another User",
+    collection: "sessionQuestions/votes",
+    operation: "create",
+    actor: "anonymous",
+    payload: { voteUid: "victim-uid", voterUid: "victim-uid" },
+    expectedResult: "PERMISSION_DENIED",
+    enforcedByGate: "voteUid == request.auth.uid && incoming().voterUid == request.auth.uid",
   },
 ];

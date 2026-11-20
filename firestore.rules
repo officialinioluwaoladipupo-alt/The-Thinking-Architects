@@ -29,10 +29,13 @@ service cloud.firestore {
     }
 
     function isBootstrappedAdmin() {
-      return isVerifiedUser() && (
-        request.auth.token.email == 'oladipupoinioluwa93@gmail.com'
-        || request.auth.token.email == 'officialinioluwaoladipupo@gmail.com'
-      );
+      return isVerifiedUser()
+        && ('email' in request.auth.token)
+        && request.auth.token.email is string
+        && (
+          request.auth.token.email.lower() == 'oladipupoinioluwa93@gmail.com'
+          || request.auth.token.email.lower() == 'officialinioluwaoladipupo@gmail.com'
+        );
     }
 
     function isAdmin() {
@@ -41,19 +44,39 @@ service cloud.firestore {
       );
     }
 
+    function hasNonWhitespace(val) {
+      return val is string && val.matches('^[\\s\\S]*\\S[\\s\\S]*$');
+    }
+
+    function isValidShortText(val, maxStrLen) {
+      return val is string && val.size() >= 1 && val.size() <= maxStrLen;
+    }
+
     function isValidBoundedStrings(arr) {
       return arr is list
         && arr.size() >= 1
         && arr.size() <= 6
-        && arr[0] is string
-        && arr[0].size() >= 1
-        && arr[0].size() <= 160;
+        && isValidShortText(arr[0], 160)
+        && (arr.size() < 2 || isValidShortText(arr[1], 160))
+        && (arr.size() < 3 || isValidShortText(arr[2], 160))
+        && (arr.size() < 4 || isValidShortText(arr[3], 160))
+        && (arr.size() < 5 || isValidShortText(arr[4], 160))
+        && (arr.size() < 6 || isValidShortText(arr[5], 160));
     }
 
     function isValidWrappedOptionalList(arr, maxLen, maxStrLen) {
       return arr is list
         && arr.size() <= maxLen
-        && (arr.size() == 0 || (arr[0] is string && arr[0].size() >= 1 && arr[0].size() <= maxStrLen));
+        && (arr.size() < 1 || isValidShortText(arr[0], maxStrLen))
+        && (arr.size() < 2 || isValidShortText(arr[1], maxStrLen))
+        && (arr.size() < 3 || isValidShortText(arr[2], maxStrLen))
+        && (arr.size() < 4 || isValidShortText(arr[3], maxStrLen))
+        && (arr.size() < 5 || isValidShortText(arr[4], maxStrLen))
+        && (arr.size() < 6 || isValidShortText(arr[5], maxStrLen))
+        && (arr.size() < 7 || isValidShortText(arr[6], maxStrLen))
+        && (arr.size() < 8 || isValidShortText(arr[7], maxStrLen))
+        && (arr.size() < 9 || isValidShortText(arr[8], maxStrLen))
+        && (arr.size() < 10 || isValidShortText(arr[9], maxStrLen));
     }
 
     function isValidCount(n) {
@@ -64,14 +87,17 @@ service cloud.firestore {
       return item is map
         && item.keys().hasAll(['label', 'url'])
         && item.keys().hasOnly(['label', 'url'])
-        && item.label is string && item.label.size() >= 1 && item.label.size() <= 80
+        && item.label is string && item.label.size() >= 1 && item.label.size() <= 80 && hasNonWhitespace(item.label)
         && item.url is string && item.url.size() >= 10 && item.url.size() <= 350 && item.url.matches('^https://.+');
     }
 
     function isValidResourceList(arr) {
       return arr is list
         && arr.size() <= 4
-        && (arr.size() == 0 || isValidResourceItem(arr[0]));
+        && (arr.size() < 1 || isValidResourceItem(arr[0]))
+        && (arr.size() < 2 || isValidResourceItem(arr[1]))
+        && (arr.size() < 3 || isValidResourceItem(arr[2]))
+        && (arr.size() < 4 || isValidResourceItem(arr[3]));
     }
 
     // --- Validation Blueprints (Anti-Update-Gap) ---
@@ -241,13 +267,21 @@ service cloud.firestore {
           'upvotes', 'status', 'createdAt', 'updatedAt'
         ])
         && isValidId(data.sessionId)
-        && data.authorName is string && data.authorName.size() >= 2 && data.authorName.size() <= 80
+        && data.authorName is string && data.authorName.size() >= 2 && data.authorName.size() <= 80 && hasNonWhitespace(data.authorName)
         && data.authorStage is string && data.authorStage.size() <= 60
-        && data.questionText is string && data.questionText.size() >= 6 && data.questionText.size() <= 320
+        && data.questionText is string && data.questionText.size() >= 6 && data.questionText.size() <= 320 && hasNonWhitespace(data.questionText)
         && data.upvotes is int && data.upvotes >= 1 && data.upvotes <= 100000
         && data.status is string && data.status in ['queued', 'on_air', 'answered']
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
+    }
+
+    function isValidSessionQuestionVote(data) {
+      return data.keys().hasAll(['questionId', 'voterUid', 'createdAt'])
+        && data.keys().hasOnly(['questionId', 'voterUid', 'createdAt'])
+        && isValidId(data.questionId)
+        && isValidId(data.voterUid)
+        && data.createdAt is timestamp;
     }
 
     function isValidPitch(data) {
@@ -260,12 +294,12 @@ service cloud.firestore {
           'targetStage', 'outline', 'linkUrl', 'status', 'createdAt', 'updatedAt'
         ])
         && data.pitchType is string && data.pitchType in ['speaker', 'topic']
-        && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 100 && hasNonWhitespace(data.name)
         && data.email is string && data.email.size() >= 5 && data.email.size() <= 254 && data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
         && data.roleOrStudio is string && data.roleOrStudio.size() <= 120
-        && data.topicTitle is string && data.topicTitle.size() >= 3 && data.topicTitle.size() <= 140
+        && data.topicTitle is string && data.topicTitle.size() >= 3 && data.topicTitle.size() <= 140 && hasNonWhitespace(data.topicTitle)
         && data.targetStage is string && data.targetStage in ['Students', 'Graduates & Early-Career', 'Practising Architects', 'All Stages']
-        && data.outline is string && data.outline.size() >= 10 && data.outline.size() <= 800
+        && data.outline is string && data.outline.size() >= 10 && data.outline.size() <= 800 && hasNonWhitespace(data.outline)
         && data.linkUrl is string && data.linkUrl.size() <= 300 && data.linkUrl.matches('^(https://.*)?$')
         && data.status is string && data.status in ['new', 'reviewed', 'scheduled', 'archived']
         && data.createdAt is timestamp
@@ -590,7 +624,8 @@ service cloud.firestore {
         && incoming().updatedAt == request.time;
 
       allow update: if (
-          isValidId(questionId)
+          isSignedIn()
+          && isValidId(questionId)
           && isValidSessionQuestion(incoming())
           && incoming().sessionId == existing().sessionId
           && incoming().authorName == existing().authorName
@@ -602,6 +637,9 @@ service cloud.firestore {
           && existing().status in ['queued', 'on_air']
           && incoming().upvotes == existing().upvotes + 1
           && incoming().diff(existing()).affectedKeys().hasOnly(['upvotes', 'updatedAt'])
+          && !exists(/databases/$(database)/documents/sessionQuestions/$(questionId)/votes/$(request.auth.uid))
+          && getAfter(/databases/$(database)/documents/sessionQuestions/$(questionId)/votes/$(request.auth.uid)).data.voterUid == request.auth.uid
+          && getAfter(/databases/$(database)/documents/sessionQuestions/$(questionId)/votes/$(request.auth.uid)).data.questionId == questionId
         ) || (
           isAdmin()
           && isValidId(questionId)
@@ -617,6 +655,27 @@ service cloud.firestore {
         );
 
       allow delete: if isAdmin() && isValidId(questionId);
+
+      // Server-enforced 1-vote-per-visitor receipts bound atomically to upvotes + 1
+      match /votes/{voteUid} {
+        allow get: if isSignedIn() && isValidId(questionId) && isValidId(voteUid) && voteUid == request.auth.uid;
+        allow list: if isAdmin();
+
+        allow create: if isSignedIn()
+          && isValidId(questionId)
+          && isValidId(voteUid)
+          && voteUid == request.auth.uid
+          && isValidSessionQuestionVote(incoming())
+          && incoming().questionId == questionId
+          && incoming().voterUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/sessionQuestions/$(questionId))
+          && getAfter(/databases/$(database)/documents/sessionQuestions/$(questionId)).data.upvotes
+             == get(/databases/$(database)/documents/sessionQuestions/$(questionId)).data.upvotes + 1;
+
+        allow update: if false;
+        allow delete: if isAdmin() && isValidId(questionId) && isValidId(voteUid);
+      }
     }
 
     // --- Collection: Speaker & Topic Pitches (/pitches/{pitchId}) ---
@@ -667,7 +726,22 @@ service cloud.firestore {
         && (configId == 'public' || configId.matches('^year-[0-9]{4}$'))
         && isValidWrappedConfig(incoming())
         && incoming().updatedBy == request.auth.uid
-        && incoming().updatedAt == request.time;
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'enabled', 'showInFooter', 'showInNav', 'homeBannerEnabled', 'homeCountdownEnabled',
+          'yearLabel', 'eyebrow', 'pageTitle', 'pageSubtitle', 'shareCaption',
+          'offlineTitle', 'offlineMessage', 'homeBannerEyebrow', 'homeBannerTitle',
+          'homeBannerCtaLabel', 'launchDateIso', 'coverTitle', 'coverSubtitle',
+          'startLead', 'startStatement', 'audienceCount', 'audiencePrefix',
+          'audienceSuffix', 'audienceCaption', 'returningCount', 'returningSuffix',
+          'returningCaption', 'sessionsHeading', 'sessionHighlights', 'awarenessDate',
+          'awarenessPrefix', 'awarenessProgramTitle', 'awarenessSpeaker',
+          'communityTotal', 'communityCaption', 'studentsCount', 'professionalsCount',
+          'discoveryHighlight', 'discoveryBody', 'discoveryPercent', 'locationsLead',
+          'locationPrimary', 'locationSecondary', 'extraLocations', 'welcomeStatement',
+          'thankYouStatement', 'closingStatement', 'closingCtaLabel', 'customStats',
+          'updatedBy', 'updatedAt'
+        ]);
 
       allow delete: if isAdmin() && isValidId(configId) && configId.matches('^year-[0-9]{4}$');
     }

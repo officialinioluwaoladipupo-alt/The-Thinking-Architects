@@ -1,13 +1,14 @@
+import { signInAnonymously } from "firebase/auth";
 import {
   collection,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
+  increment,
   limit,
   onSnapshot,
   query,
-  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -1012,6 +1013,22 @@ export async function fetchPublishedSessions(): Promise<FirestoreSessionRecord[]
   return sortPublishedSessions(mergeById(legacyItems, primaryItems));
 }
 
+export async function fetchPublishedSessionById(
+  sessionId: string,
+): Promise<FirestoreSessionRecord | null> {
+  const cleanId = sessionId.trim();
+  if (!cleanId || !BLUEPRINT_LIMITS.idPattern.test(cleanId)) {
+    return null;
+  }
+  try {
+    const sessions = await fetchPublishedSessions();
+    return sessions.find((s) => s.id === cleanId) ?? null;
+  } catch (error) {
+    console.warn("fetchPublishedSessionById failed:", error);
+    return null;
+  }
+}
+
 export async function fetchPublishedMedia(): Promise<FirestoreMediaRecord[]> {
   const [primaryRes, legacyRes] = await Promise.allSettled([
     getDocs(query(collection(db, "media"), where("published", "==", true))),
@@ -1430,9 +1447,50 @@ export async function removeAdminUser(uidToRemove: string) {
   }
 }
 
+// --- Client Rate-Limit & Voting Identity Guards ---
+
+const RATE_LIMIT_PREFIX = "tta_rl_v1_";
+
+function assertClientCooldown(key: string, cooldownMs: number, actionLabel: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = window.localStorage.getItem(`${RATE_LIMIT_PREFIX}${key}`);
+    const lastTs = raw ? Number(raw) : 0;
+    const remainingMs = cooldownMs - (Date.now() - lastTs);
+    if (Number.isFinite(lastTs) && lastTs > 0 && remainingMs > 0) {
+      const waitSec = Math.max(1, Math.ceil(remainingMs / 1000));
+      throw new Error(`Please wait ${waitSec}s before ${actionLabel} again.`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Please wait ")) {
+      throw err;
+    }
+  }
+}
+
+function recordClientAction(key: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(`${RATE_LIMIT_PREFIX}${key}`, String(Date.now()));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+async function ensureVotingIdentity(): Promise<string> {
+  await auth.authStateReady();
+  if (auth.currentUser) {
+    return auth.currentUser.uid;
+  }
+  const credential = await signInAnonymously(auth);
+  return credential.user.uid;
+}
+
 // --- Public Subscribers Intake & Admin Reader ---
 
 export async function saveSubscriber(input: SubscriberInput): Promise<string> {
+  assertClientCooldown("subscriber", 15_000, "submitting");
+
   const cleanEmail = clampStr(input.email, BLUEPRINT_LIMITS.subscriber.email.max).toLowerCase();
   if (
     cleanEmail.length < BLUEPRINT_LIMITS.subscriber.email.min ||
@@ -1458,6 +1516,7 @@ export async function saveSubscriber(input: SubscriberInput): Promise<string> {
       source: input.source,
       createdAt: serverTimestamp(),
     });
+    recordClientAction("subscriber");
     return docId;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
@@ -1509,6 +1568,8 @@ export async function removeSubscriber(subscriberId: string) {
 // --- Public Speaker & Topic Pitches (/pitches/{pitchId}) ---
 
 export async function submitTopicPitch(input: TopicPitchInput): Promise<string> {
+  assertClientCooldown("pitch", 30_000, "submitting another pitch");
+
   const validationErr = validatePitchInput(input);
   if (validationErr) {
     throw new Error(validationErr);
@@ -1538,6 +1599,7 @@ export async function submitTopicPitch(input: TopicPitchInput): Promise<string> 
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    recordClientAction("pitch");
     return docId;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
@@ -2266,6 +2328,8 @@ export function subscribeSessionQuestions(
 }
 
 export async function submitSessionQuestion(input: SessionQuestionInput): Promise<string> {
+  assertClientCooldown("question", 15_000, "submitting another question");
+
   const validationErr = validateSessionQuestionInput(input);
   if (validationErr) {
     throw new Error(validationErr);
@@ -2287,36 +2351,93 @@ export async function submitSessionQuestion(input: SessionQuestionInput): Promis
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    recordClientAction("question");
     return docId;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
   }
 }
 
-export async function upvoteSessionQuestion(questionId: string) {
-  const path = `sessionQuestions/${questionId}`;
-  const ref = doc(db, "sessionQuestions", questionId);
+export async function fetchUserVotedQuestionIds(questionIds: string[]): Promise<Set<string>> {
+  if (typeof window === "undefined" || questionIds.length === 0) {
+    return new Set();
+  }
   try {
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists()) {
-        throw new Error("Question no longer exists.");
+    await auth.authStateReady();
+    const uid = auth.currentUser?.uid;
+    if (!uid) return new Set();
+
+    const validIds = questionIds.filter((id) => BLUEPRINT_LIMITS.idPattern.test(id));
+    const snaps = await Promise.all(
+      validIds.map((qId) =>
+        getDoc(doc(db, "sessionQuestions", qId, "votes", uid)).catch(() => null),
+      ),
+    );
+    const voted = new Set<string>();
+    snaps.forEach((snap, idx) => {
+      if (snap?.exists()) {
+        voted.add(validIds[idx]);
       }
-      const data = snap.data();
-      const status = String(data.status ?? "queued");
-      if (status !== "queued" && status !== "on_air") {
-        throw new Error("Answered questions can no longer be upvoted.");
-      }
-      const currentVotes = typeof data.upvotes === "number" ? data.upvotes : 1;
-      if (currentVotes >= BLUEPRINT_LIMITS.question.maxUpvotes) {
-        return;
-      }
-      tx.update(ref, {
-        upvotes: currentVotes + 1,
-        updatedAt: serverTimestamp(),
-      });
     });
+    return voted;
+  } catch {
+    return new Set();
+  }
+}
+
+export async function upvoteSessionQuestion(
+  questionId: string,
+): Promise<"voted" | "already_voted"> {
+  if (!questionId || !BLUEPRINT_LIMITS.idPattern.test(questionId)) {
+    throw new Error("Invalid question identifier.");
+  }
+
+  const path = `sessionQuestions/${questionId}`;
+  const questionRef = doc(db, "sessionQuestions", questionId);
+
+  try {
+    const uid = await ensureVotingIdentity();
+    const voteRef = doc(db, "sessionQuestions", questionId, "votes", uid);
+
+    const [questionSnap, voteSnap] = await Promise.all([
+      getDoc(questionRef),
+      getDoc(voteRef),
+    ]);
+
+    if (voteSnap.exists()) {
+      return "already_voted";
+    }
+    if (!questionSnap.exists()) {
+      throw new Error("Question no longer exists.");
+    }
+    const data = questionSnap.data();
+    const status = String(data.status ?? "queued");
+    if (status !== "queued" && status !== "on_air") {
+      throw new Error("Answered questions can no longer be upvoted.");
+    }
+    const currentVotes = typeof data.upvotes === "number" ? data.upvotes : 1;
+    if (currentVotes >= BLUEPRINT_LIMITS.question.maxUpvotes) {
+      return "already_voted";
+    }
+
+    const batch = writeBatch(db);
+    batch.set(voteRef, {
+      questionId,
+      voterUid: uid,
+      createdAt: serverTimestamp(),
+    });
+    batch.update(questionRef, {
+      upvotes: increment(1),
+      updatedAt: serverTimestamp(),
+    });
+    await batch.commit();
+    return "voted";
   } catch (error) {
+    const rawMsg =
+      error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    if (rawMsg.includes("operation-not-allowed")) {
+      throw new Error("Anonymous voting is not enabled yet in Firebase Authentication.");
+    }
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }

@@ -765,6 +765,33 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "SessionQuestionVote": {
+      "title": "SessionQuestionVote",
+      "description": "Server-enforced per-visitor vote marker ensuring each Firebase Auth user (anonymous or Google) can upvote a given session question at most once.",
+      "type": "object",
+      "properties": {
+        "questionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent SessionQuestion document ID."
+        },
+        "voterUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the voter (anonymous or authenticated)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the vote was cast."
+        }
+      },
+      "required": ["questionId", "voterUid", "createdAt"]
     }
   },
   "firestore": {
@@ -810,7 +837,11 @@
     },
     "/sessionQuestions/{questionId}": {
       "schema": { "$ref": "#/entities/SessionQuestion" },
-      "description": "Publicly readable live Q&A questions (zero PII) with attendee +1 upvote updates and admin-only moderation and deletion."
+      "description": "Publicly readable live Q&A questions (zero PII) with batch-verified +1 upvote updates and admin-only moderation and deletion."
+    },
+    "/sessionQuestions/{questionId}/votes/{voteUid}": {
+      "schema": { "$ref": "#/entities/SessionQuestionVote" },
+      "description": "Per-UID vote receipt created atomically in the same batch as a sessionQuestions upvotes +1 update."
     }
   }
 }

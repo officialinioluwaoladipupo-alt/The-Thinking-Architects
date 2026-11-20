@@ -1,4 +1,9 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
+import {
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+  type AppCheck,
+} from "firebase/app-check";
 import { getAuth } from "firebase/auth";
 import { doc, getDocFromServer, getFirestore } from "firebase/firestore";
 import firebaseConfig from "../firebase-applet-config.json";
@@ -11,6 +16,26 @@ const firestoreDatabaseId =
 
 export const db = getFirestore(app, firestoreDatabaseId);
 export const auth = getAuth(app);
+
+let appCheckInstance: AppCheck | null = null;
+
+if (typeof window !== "undefined") {
+  const siteKey = (
+    firebaseConfig as { recaptchaSiteKey?: string }
+  ).recaptchaSiteKey?.trim();
+  if (siteKey && !appCheckInstance) {
+    try {
+      appCheckInstance = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(siteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch (error) {
+      console.warn("Firebase App Check initialization skipped:", error);
+    }
+  }
+}
+
+export const appCheck = appCheckInstance;
 
 export enum OperationType {
   CREATE = "create",
